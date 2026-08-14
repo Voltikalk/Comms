@@ -1,4 +1,4 @@
-import type { UserId, Room } from './types';
+import type { UserId, Room, UserProfile } from './types';
 
 export const USER_NAMES: Record<UserId, string> = {
   vlad: 'Влад',
@@ -6,6 +6,54 @@ export const USER_NAMES: Record<UserId, string> = {
   mom: 'Мама',
   dad: 'Папа',
   sister: 'Сестра'
+};
+
+export const DEFAULT_USER_PROFILES: Record<UserId, UserProfile> = {
+  vlad: {
+    userId: 'vlad',
+    firstName: 'Влад',
+    lastName: '',
+    bio: '⚡ Всегда на связи',
+    username: 'vlad',
+    phoneNumber: '+7 (999) 100-20-30',
+    statusEmoji: '⚡'
+  },
+  anya: {
+    userId: 'anya',
+    firstName: 'Аня',
+    lastName: '❤️',
+    bio: 'Люблю Влада ❤️',
+    username: 'anyuta',
+    phoneNumber: '+7 (999) 200-30-40',
+    statusEmoji: '❤️'
+  },
+  mom: {
+    userId: 'mom',
+    firstName: 'Мама',
+    lastName: '',
+    bio: 'Всегда на связи ☕',
+    username: 'mama',
+    phoneNumber: '+7 (999) 300-40-50',
+    statusEmoji: '🌸'
+  },
+  dad: {
+    userId: 'dad',
+    firstName: 'Папа',
+    lastName: '',
+    bio: 'На работе 🚗',
+    username: 'papa',
+    phoneNumber: '+7 (999) 400-50-60',
+    statusEmoji: '🔧'
+  },
+  sister: {
+    userId: 'sister',
+    firstName: 'Сестра',
+    lastName: '',
+    bio: 'Слушаю музыку 🎧',
+    username: 'sestra',
+    phoneNumber: '+7 (999) 500-60-70',
+    statusEmoji: '✨'
+  }
 };
 
 export const KEY_TO_USER: Record<string, UserId> = {

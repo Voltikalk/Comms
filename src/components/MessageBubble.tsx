@@ -370,10 +370,14 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           onToggleSelect(message.id);
         }
       }}
-      className={`w-full py-0.5 relative group animate-message-appear transition-colors ${
+      className={`w-full py-0.5 relative group animate-message-appear transition-colors duration-150 ${
         isSelectMode ? 'cursor-pointer' : ''
       } ${
-        isSelected ? 'bg-[#4fae4e]/20 dark:bg-[#4fae4e]/25 -mx-4 sm:-mx-8 px-4 sm:px-8 rounded-lg' : ''
+        isSelected 
+          ? 'bg-[#3390ec]/15 dark:bg-[#3390ec]/20 -mx-4 sm:-mx-8 px-4 sm:px-8' 
+          : isSelectMode 
+            ? 'hover:bg-black/5 dark:hover:bg-white/5 -mx-4 sm:-mx-8 px-4 sm:px-8' 
+            : ''
       }`}
     >
       {/* Message Row */}
@@ -387,23 +391,26 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           transition: swipeOffset === 0 ? 'transform 0.2s ease' : 'none'
         }}
       >
-        {/* Telegram Selection Circle Checkbox on the Left */}
+        {/* Telegram Selection Circle Checkbox */}
         {isSelectMode && (
           <button
             type="button"
+            role="checkbox"
+            aria-pressed={isSelected}
+            aria-label="Выбрать сообщение"
             onClick={(e) => {
               e.stopPropagation();
               onToggleSelect?.(message.id);
             }}
-            className="mr-2.5 mb-1.5 shrink-0 cursor-pointer flex items-center justify-center select-none"
+            className="mr-2.5 mb-1.5 shrink-0 cursor-pointer flex items-center justify-center select-none animate-pop-in focus:outline-none"
             title="Выбрать"
           >
             {isSelected ? (
-              <div className="w-5 h-5 rounded-full bg-[#4fae4e] flex items-center justify-center text-white shadow-xs">
-                <IconCheck size={13} stroke={3} />
+              <div className="w-5.5 h-5.5 rounded-full bg-[#3390ec] flex items-center justify-center text-white shadow-xs animate-check-bounce">
+                <IconCheck size={14} stroke={3} />
               </div>
             ) : (
-              <div className="w-5 h-5 rounded-full border-2 border-slate-400 dark:border-white/50 bg-white/20 dark:bg-black/20" />
+              <div className="w-5.5 h-5.5 rounded-full border-2 border-slate-400 dark:border-white/40 bg-white/20 dark:bg-black/20 hover:border-slate-600 dark:hover:border-white/80 transition-colors" />
             )}
           </button>
         )}

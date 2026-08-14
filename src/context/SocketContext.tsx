@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
-import type { Message, UserId, Room, ConnectionStatus, CallSession } from '../types';
-import { USER_NAMES, KEY_TO_USER, ALL_ROOMS, SERVER_URL } from '../constants';
+import type { Message, UserId, Room, ConnectionStatus, CallSession, UserProfile } from '../types';
+import { USER_NAMES, KEY_TO_USER, ALL_ROOMS, SERVER_URL, DEFAULT_USER_PROFILES } from '../constants';
 
 interface SocketContextType {
   currentUser: UserId | null;
   currentUserName: string | null;
+  currentUserProfile: UserProfile | null;
+  userProfiles: Record<UserId, UserProfile>;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  getUserDisplayName: (userId: UserId) => string;
+  getUserAvatar: (userId: UserId) => string | undefined;
   rooms: Room[];
   activeRoomId: string;
   setActiveRoomId: (id: string) => void;
@@ -117,7 +122,49 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [activeRoom, activeRoomId]);
 
-  const currentUserName = currentUser ? USER_NAMES[currentUser] : null;
+  // Custom user profiles with local persistence
+  const [userProfiles, setUserProfiles] = useState<Record<UserId, UserProfile>>(() => {
+    try {
+      const saved = localStorage.getItem('chat_user_profiles_v2');
+      if (saved) {
+        return { ...DEFAULT_USER_PROFILES, ...JSON.parse(saved) };
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_USER_PROFILES;
+  });
+
+  const updateUserProfile = useCallback((updates: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    setUserProfiles((prev) => {
+      const existing = prev[currentUser] || DEFAULT_USER_PROFILES[currentUser];
+      const updated = { ...existing, ...updates };
+      const next = { ...prev, [currentUser]: updated };
+      try {
+        localStorage.setItem('chat_user_profiles_v2', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, [currentUser]);
+
+  const getUserDisplayName = useCallback((userId: UserId) => {
+    const profile = userProfiles[userId];
+    if (profile) {
+      const full = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
+      if (full) return full;
+    }
+    return USER_NAMES[userId] || userId;
+  }, [userProfiles]);
+
+  const getUserAvatar = useCallback((userId: UserId) => {
+    return userProfiles[userId]?.avatarUrl;
+  }, [userProfiles]);
+
+  const currentUserProfile = currentUser ? (userProfiles[currentUser] || DEFAULT_USER_PROFILES[currentUser]) : null;
+  const currentUserName = currentUser ? getUserDisplayName(currentUser) : null;
   const activeMessages = messages.filter(m => m.roomId === activeRoomId);
 
   const cleanupCall = useCallback(() => {
@@ -881,6 +928,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       value={{
         currentUser,
         currentUserName,
+        currentUserProfile,
+        userProfiles,
+        updateUserProfile,
+        getUserDisplayName,
+        getUserAvatar,
         rooms,
         activeRoomId,
         setActiveRoomId: handleSetActiveRoomId,

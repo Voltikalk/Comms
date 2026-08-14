@@ -36,6 +36,17 @@ export interface User {
   avatarColor: string;
 }
 
+export interface UserProfile {
+  userId: UserId;
+  firstName: string;
+  lastName?: string;
+  bio?: string;
+  username?: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+  statusEmoji?: string;
+}
+
 export interface Room {
   id: string;
   name: string;

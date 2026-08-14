@@ -30,10 +30,13 @@ import {
   IconCheck,
   IconEdit,
   IconShare3,
-  IconTrash
+  IconTrash,
+  IconPin,
+  IconUser
 } from '@tabler/icons-react';
 import { TelegramEmojiPickerModal } from './TelegramEmojiPickerModal';
 import { TelegramContextMenuModal } from './TelegramContextMenuModal';
+import { ProfileEditModal } from './ProfileEditModal';
 
 interface ChatScreenProps {
   darkMode: boolean;
@@ -67,6 +70,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const {
     currentUser,
     currentUserName,
+    currentUserProfile,
+    userProfiles,
+    getUserDisplayName,
+    getUserAvatar,
     rooms,
     activeRoomId,
     setActiveRoomId,
@@ -103,6 +110,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showUserInfo, setShowUserInfo] = useState(false);
   const [showMenuDropdown, setShowMenuDropdown] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [isUrlCopied, setIsUrlCopied] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -270,6 +278,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       }
     }
   }, [activeMessages, activeRoomId, currentUser]);
+
+  // Escape key handler for exiting selection mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSelectMode) {
+        setIsSelectMode(false);
+        setSelectedMessageIds(new Set());
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSelectMode]);
 
   // Clean up timers on unmount
   useEffect(() => {
@@ -709,44 +729,105 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
           {/* Menu Dropdown */}
           {showMenuDropdown && (
-            <div className="absolute top-12 left-3 z-50 w-52 tg-header rounded-xl shadow-xl border border-slate-200 dark:border-white/10 py-1.5 animate-pop-in">
-              <div className="px-3.5 py-2 border-b border-slate-100 dark:border-white/5">
-                <span className="text-xs font-bold text-slate-900 dark:text-white block">{currentUserName}</span>
-                <span className="text-[10px] text-emerald-500 font-semibold">● В сети</span>
+            <div className="absolute top-12 left-3 z-50 w-60 tg-header rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 py-2 animate-pop-in select-none">
+              {/* User Profile Card */}
+              <div 
+                onClick={() => {
+                  setShowProfileModal(true);
+                  setShowMenuDropdown(false);
+                }}
+                className="px-3.5 py-2.5 mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3"
+              >
+                <div className="relative shrink-0">
+                  {currentUserProfile?.avatarUrl ? (
+                    <img 
+                      src={currentUserProfile.avatarUrl} 
+                      alt="Avatar" 
+                      className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-[#3390ec]/20" 
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-sm font-bold shadow-xs">
+                      {currentUserName?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  {currentUserProfile?.statusEmoji && (
+                    <span className="absolute -bottom-1 -right-1 text-xs">
+                      {currentUserProfile.statusEmoji}
+                    </span>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
+                      {currentUserName}
+                    </span>
+                    <IconEdit size={14} className="text-[#3390ec] shrink-0" />
+                  </div>
+                  <span className="text-[10.5px] text-slate-400 truncate block">
+                    {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите, чтобы настроить')}
+                  </span>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowQrModal(true);
-                  setShowMenuDropdown(false);
-                }}
-                className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between cursor-pointer"
-              >
-                <span>Открыть на телефоне</span>
-                <IconDeviceMobile size={18} className="text-[#3390ec]" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  toggleDarkMode();
-                  setShowMenuDropdown(false);
-                }}
-                className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between cursor-pointer"
-              >
-                <span>{darkMode ? 'Светлая тема' : 'Ночной режим'}</span>
-                {darkMode ? <IconSun size={18} className="text-amber-400" /> : <IconMoon size={18} className="text-indigo-500" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  setShowMenuDropdown(false);
-                }}
-                className="w-full px-3.5 py-2 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center justify-between cursor-pointer"
-              >
-                <span>Выйти</span>
-                <IconLogout size={18} />
-              </button>
+
+              {/* Menu Actions */}
+              <div className="pt-1.5 space-y-0.5 px-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProfileModal(true);
+                    setShowMenuDropdown(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <IconUser size={18} className="text-[#3390ec]" />
+                    <span>Мой профиль</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowQrModal(true);
+                    setShowMenuDropdown(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <IconDeviceMobile size={18} className="text-[#3390ec]" />
+                    <span>Открыть на телефоне</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleDarkMode();
+                    setShowMenuDropdown(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    {darkMode ? <IconSun size={18} className="text-amber-400" /> : <IconMoon size={18} className="text-indigo-500" />}
+                    <span>{darkMode ? 'Светлая тема' : 'Ночной режим'}</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    setShowMenuDropdown(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-rose-500 hover:bg-rose-500/10 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <IconLogout size={18} />
+                    <span>Выйти</span>
+                  </span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -775,9 +856,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         {/* Stories / Active Contacts Circular Row */}
         <div className="px-3 py-1 flex items-center gap-3 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-white/5 pb-2">
           {rooms.filter(r => r.type === 'direct').map((room) => {
-            const peerId = room.participants.find(p => p !== currentUser);
+            const peerId = room.participants.find(p => p !== currentUser) as UserId | undefined;
             const isOnline = peerId ? onlineStatus[peerId] : false;
-            const name = peerId ? USER_NAMES[peerId] : room.name;
+            const name = peerId ? (getUserDisplayName(peerId) || USER_NAMES[peerId] || room.name) : room.name;
+            const avatarUrl = peerId ? getUserAvatar(peerId) : undefined;
             const isSelected = room.id === activeRoomId;
 
             return (
@@ -792,9 +874,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                 title={name}
               >
                 <div className={`relative p-0.5 rounded-full ${isSelected ? 'ring-2 ring-[#3390ec]' : ''}`}>
-                  <div className={`w-12 h-12 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
-                    {name.charAt(0)}
-                  </div>
+                  {avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={name} 
+                      className="w-12 h-12 rounded-full object-cover shadow-xs" 
+                    />
+                  ) : (
+                    <div className={`w-12 h-12 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
+                      {name.charAt(0)}
+                    </div>
+                  )}
                   {isOnline && (
                     <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
                   )}
@@ -819,8 +909,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         <div className="flex-1 overflow-y-auto px-1.5 py-1 space-y-0.5">
           {filteredRooms.map((room) => {
             const isActive = room.id === activeRoomId;
-            const peerId = room.type === 'direct' ? room.participants.find(p => p !== currentUser) : null;
+            const peerId = room.type === 'direct' ? room.participants.find(p => p !== currentUser) as UserId | undefined : null;
             const isOnline = room.type === 'direct' ? (peerId ? onlineStatus[peerId] : false) : false;
+            const avatarUrl = peerId ? getUserAvatar(peerId) : undefined;
 
             const lastMsg = lastMessageOf(room.id);
             const count = unreadCount(room.id);
@@ -848,15 +939,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold ${
-                    isActive ? 'bg-white/20 text-white' : `${getRoomColor(room)} text-white`
-                  }`}>
-                    {room.type === 'group' ? (
-                      <IconUsers size={20} />
-                    ) : (
-                      getRoomDisplayName(room).charAt(0).toUpperCase()
-                    )}
-                  </div>
+                  {avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={getRoomDisplayName(room)} 
+                      className="w-12 h-12 rounded-full object-cover shadow-xs" 
+                    />
+                  ) : (
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold ${
+                      isActive ? 'bg-white/20 text-white' : `${getRoomColor(room)} text-white`
+                    }`}>
+                      {room.type === 'group' ? (
+                        <IconUsers size={20} />
+                      ) : (
+                        getRoomDisplayName(room).charAt(0).toUpperCase()
+                      )}
+                    </div>
+                  )}
 
                   {room.type === 'direct' && isOnline && (
                     <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
@@ -912,118 +1011,216 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             : '-translate-x-full md:translate-x-0 absolute md:relative z-10 w-full h-full hidden md:flex'
         }`}
       >
-        {/* Telegram Chat Header */}
-        <header className="px-4 py-2.5 tg-header flex items-center justify-between z-10 select-none shadow-xs">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowUserInfo(!showUserInfo)}>
-            {/* Mobile back */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMobileView('list');
-              }}
-              className="p-1 rounded-full text-slate-500 hover:text-[#3390ec] cursor-pointer md:hidden"
-            >
-              <IconChevronLeft size={24} />
-            </button>
-            
-            {/* Contact Avatar */}
-            {activeRoom && (
-              <div className="relative">
-                <div className={`w-10 h-10 rounded-full ${getRoomColor(activeRoom)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
-                  {activeRoom.type === 'group' ? <IconUsers size={20} /> : getRoomDisplayName(activeRoom).charAt(0).toUpperCase()}
-                </div>
-                {activeRoom.type === 'direct' && isPeerOnline && (
-                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
-                )}
-              </div>
-            )}
-
-            <div>
-              <h2 className="text-[15px] font-bold text-slate-900 dark:text-white m-0 leading-tight">
-                {activeRoom ? getRoomDisplayName(activeRoom) : ''}
-              </h2>
-              <div className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {isSomeoneTyping ? (
-                  <span className="text-[#3390ec] font-semibold">печатает...</span>
-                ) : activeRoom?.type === 'direct' ? (
-                  isPeerOnline ? <span className="text-[#3390ec] font-semibold">в сети</span> : 'был(а) недавно'
-                ) : (
-                  `${activeRoom?.participants.length || 0} участников`
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-1">
-            {isSearching ? (
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-[#242f3d] px-3 py-1.5 rounded-full">
-                <IconSearch size={16} className="text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Поиск в чате..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-transparent border-none text-xs text-slate-900 dark:text-white focus:outline-none w-28 sm:w-48 placeholder-slate-400"
-                  autoFocus
-                />
+        {/* Telegram Chat Header or Top Selection Action Bar */}
+        <header className="px-4 py-2.5 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[58px] transition-all">
+          {isSelectMode ? (
+            <div className="w-full flex items-center justify-between animate-pop-in">
+              {/* Left: Cancel Cross Button & Counter */}
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setIsSearching(false);
-                    setSearchQuery('');
+                    setIsSelectMode(false);
+                    setSelectedMessageIds(new Set());
                   }}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  className="p-1.5 rounded-full text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+                  title="Отменить (Esc)"
                 >
-                  <IconX size={14} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsSearching(true)}
-                  className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                  title="Поиск"
-                >
-                  <IconSearch size={20} />
+                  <IconX size={22} />
                 </button>
 
-                {activeRoom?.type === 'direct' && (
+                <span className="text-[15px] font-bold text-slate-900 dark:text-white">
+                  Выбрано: {selectedMessageIds.size}
+                </span>
+              </div>
+
+              {/* Right: Group Action Buttons */}
+              <div className="flex items-center gap-1">
+                {/* Pin */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const firstId = Array.from(selectedMessageIds)[0];
+                    if (firstId) {
+                      togglePinMessage(firstId);
+                      setIsSelectMode(false);
+                      setSelectedMessageIds(new Set());
+                    }
+                  }}
+                  disabled={selectedMessageIds.size === 0}
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
+                  title="Закрепить"
+                >
+                  <IconPin size={20} />
+                </button>
+
+                {/* Copy */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const texts = activeMessages
+                      .filter(m => selectedMessageIds.has(m.id) && m.text)
+                      .map(m => m.text)
+                      .join('\n\n');
+                    if (texts) {
+                      navigator.clipboard.writeText(texts);
+                      showToast('Текст скопирован в буфер');
+                    }
+                  }}
+                  disabled={selectedMessageIds.size === 0}
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
+                  title="Копировать"
+                >
+                  <IconCopy size={20} />
+                </button>
+
+                {/* Forward */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const firstSelected = activeMessages.find(m => selectedMessageIds.has(m.id));
+                    if (firstSelected) {
+                      setForwardingMessage(firstSelected);
+                    }
+                  }}
+                  disabled={selectedMessageIds.size === 0}
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
+                  title="Переслать"
+                >
+                  <IconShare3 size={20} />
+                </button>
+
+                {/* Delete */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectedMessageIds.forEach(id => deleteMessage(id));
+                    setIsSelectMode(false);
+                    setSelectedMessageIds(new Set());
+                    showToast('Сообщения удалены');
+                  }}
+                  disabled={selectedMessageIds.size === 0}
+                  className="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 disabled:opacity-30 cursor-pointer transition-colors"
+                  title="Удалить"
+                >
+                  <IconTrash size={20} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowUserInfo(!showUserInfo)}>
+                {/* Mobile back */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMobileView('list');
+                  }}
+                  className="p-1 rounded-full text-slate-500 hover:text-[#3390ec] cursor-pointer md:hidden"
+                >
+                  <IconChevronLeft size={24} />
+                </button>
+                
+                {/* Contact Avatar */}
+                {activeRoom && (
+                  <div className="relative">
+                    <div className={`w-10 h-10 rounded-full ${getRoomColor(activeRoom)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
+                      {activeRoom.type === 'group' ? <IconUsers size={20} /> : getRoomDisplayName(activeRoom).charAt(0).toUpperCase()}
+                    </div>
+                    {activeRoom.type === 'direct' && isPeerOnline && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <h2 className="text-[15px] font-bold text-slate-900 dark:text-white m-0 leading-tight">
+                    {activeRoom ? getRoomDisplayName(activeRoom) : ''}
+                  </h2>
+                  <div className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {isSomeoneTyping ? (
+                      <span className="text-[#3390ec] font-semibold">печатает...</span>
+                    ) : activeRoom?.type === 'direct' ? (
+                      isPeerOnline ? <span className="text-[#3390ec] font-semibold">в сети</span> : 'был(а) недавно'
+                    ) : (
+                      `${activeRoom?.participants.length || 0} участников`
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1">
+                {isSearching ? (
+                  <div className="flex items-center gap-2 bg-slate-100 dark:bg-[#242f3d] px-3 py-1.5 rounded-full">
+                    <IconSearch size={16} className="text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Поиск в чате..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="bg-transparent border-none text-xs text-slate-900 dark:text-white focus:outline-none w-28 sm:w-48 placeholder-slate-400"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSearching(false);
+                        setSearchQuery('');
+                      }}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      <IconX size={14} />
+                    </button>
+                  </div>
+                ) : (
                   <>
                     <button
                       type="button"
-                      onClick={() => startCall('audio')}
+                      onClick={() => setIsSearching(true)}
                       className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                      title="Аудиозвонок"
+                      title="Поиск"
                     >
-                      <IconPhone size={20} />
+                      <IconSearch size={20} />
                     </button>
+
+                    {activeRoom?.type === 'direct' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startCall('audio')}
+                          className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                          title="Аудиозвонок"
+                        >
+                          <IconPhone size={20} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startCall('video')}
+                          className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                          title="Видеозвонок"
+                        >
+                          <IconVideo size={20} />
+                        </button>
+                      </>
+                    )}
+
                     <button
                       type="button"
-                      onClick={() => startCall('video')}
-                      className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                      title="Видеозвонок"
+                      onClick={() => setShowUserInfo(!showUserInfo)}
+                      className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${
+                        showUserInfo ? 'text-[#3390ec]' : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                      title="Информация"
                     >
-                      <IconVideo size={20} />
+                      <IconDotsVertical size={20} />
                     </button>
                   </>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => setShowUserInfo(!showUserInfo)}
-                  className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${
-                    showUserInfo ? 'text-[#3390ec]' : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                  title="Информация"
-                >
-                  <IconDotsVertical size={20} />
-                </button>
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </header>
 
         {/* Pinned Message Banner */}
