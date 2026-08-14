@@ -1,0 +1,482 @@
+[
+  {
+    "id": "iykjmeq",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "Как дела? ✨",
+    "timestamp": 1786702899029,
+    "readBy": [
+      "mom",
+      "sister"
+    ],
+    "reactions": {}
+  },
+  {
+    "id": "x8c5i1l",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "Тестовое сообщение 123",
+    "timestamp": 1786703213311,
+    "readBy": [
+      "mom",
+      "sister"
+    ],
+    "reactions": {}
+  },
+  {
+    "id": "cfuus1d",
+    "roomId": "family",
+    "sender": "mom",
+    "text": "хахахах",
+    "timestamp": 1786703225179,
+    "replyToId": "x8c5i1l",
+    "readBy": [
+      "vlad",
+      "sister"
+    ],
+    "reactions": {}
+  },
+  {
+    "id": "e5c86qp",
+    "roomId": "family",
+    "sender": "mom",
+    "text": "оро",
+    "timestamp": 1786703295047,
+    "readBy": [
+      "vlad",
+      "sister"
+    ],
+    "reactions": {
+      "❤️": [
+        "vlad"
+      ]
+    }
+  },
+  {
+    "id": "7lj60we",
+    "roomId": "family",
+    "sender": "mom",
+    "text": "ор",
+    "timestamp": 1786703298784,
+    "readBy": [
+      "vlad",
+      "sister"
+    ],
+    "reactions": {}
+  },
+  {
+    "id": "y18verr",
+    "roomId": "dad-dm",
+    "sender": "vlad",
+    "text": "🚀",
+    "timestamp": 1786703863898,
+    "readBy": [],
+    "reactions": {}
+  },
+  {
+    "id": "v7ond1n",
+    "roomId": "dad-dm",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786703888911,
+    "file": {
+      "name": "Download.mp4",
+      "type": "video",
+      "data": "/uploads/1786703888885-715twxf.mp4",
+      "size": 2177666
+    },
+    "readBy": []
+  },
+  {
+    "id": "33auotq",
+    "roomId": "dad-dm",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786703914524,
+    "file": {
+      "name": "ascii_studio_1784809438650.png",
+      "type": "image",
+      "data": "/uploads/1786703914502-jzflhgt.png",
+      "size": 2255883
+    },
+    "readBy": []
+  },
+  {
+    "id": "ums4b7r",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786703985373,
+    "replyToId": "cfuus1d",
+    "file": {
+      "name": "ascii_snapshot_1784808938028.png",
+      "type": "image",
+      "data": "/uploads/1786703985337-qiv2jtx.png",
+      "size": 3901680
+    },
+    "readBy": [
+      "sister",
+      "mom"
+    ],
+    "reactions": {
+      "💩": [
+        "vlad"
+      ]
+    }
+  },
+  {
+    "id": "o0nrtrk",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "Test message",
+    "timestamp": 1786704300058,
+    "readBy": [
+      "mom",
+      "sister"
+    ],
+    "reactions": {
+      "❤️": [
+        "vlad"
+      ]
+    }
+  },
+  {
+    "id": "o1hyzji",
+    "roomId": "dad-dm",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786705292783,
+    "file": {
+      "name": "walk_evolution.html",
+      "type": "file",
+      "data": "/uploads/1786705292773-mgpy2cr.bin",
+      "size": 21231
+    },
+    "readBy": []
+  },
+  {
+    "id": "nausy5d",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "привет",
+    "timestamp": 1786706407735,
+    "readBy": [
+      "sister"
+    ]
+  },
+  {
+    "id": "fkitdbw",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "🥳",
+    "timestamp": 1786707010356,
+    "readBy": [
+      "sister"
+    ],
+    "reactions": {}
+  },
+  {
+    "id": "3ewtd55",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "Хахаха",
+    "timestamp": 1786707014966,
+    "readBy": [
+      "sister"
+    ]
+  },
+  {
+    "id": "01vca6n",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786707111153,
+    "file": {
+      "name": "IMG_1974.jpeg",
+      "type": "image",
+      "data": "/uploads/1786707084088-bdq4ebu.jpeg",
+      "size": 956702
+    },
+    "readBy": [
+      "sister"
+    ],
+    "reactions": {}
+  },
+  {
+    "id": "lpuq0os",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "Пра",
+    "timestamp": 1786707163894,
+    "readBy": [
+      "sister"
+    ],
+    "reactions": {}
+  },
+  {
+    "id": "d2gykve",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "Жажаюа",
+    "timestamp": 1786707183649,
+    "file": {
+      "name": "IMG_1977.png",
+      "type": "image",
+      "data": "/uploads/1786707156590-r29pbur.png",
+      "size": 1086354
+    },
+    "readBy": [
+      "sister"
+    ]
+  },
+  {
+    "id": "wrraney",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786707257853,
+    "file": {
+      "name": "IMG_1959.mov",
+      "type": "video",
+      "data": "/uploads/1786707228363-emf8hbe.mov",
+      "size": 18395201
+    },
+    "readBy": [],
+    "reactions": {}
+  },
+  {
+    "id": "8i9i70u",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "🤔",
+    "timestamp": 1786725081104,
+    "readBy": []
+  },
+  {
+    "id": "timpgmr",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "❤️",
+    "timestamp": 1786725126130,
+    "readBy": [],
+    "reactions": {}
+  },
+  {
+    "id": "ab3kd4d",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "Хахх",
+    "timestamp": 1786725141190,
+    "readBy": [],
+    "reactions": {
+      "🐳": [
+        "vlad"
+      ]
+    }
+  },
+  {
+    "id": "6c9h7t3",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "Джемени лох",
+    "timestamp": 1786725146576,
+    "readBy": []
+  },
+  {
+    "id": "hff6us9",
+    "roomId": "mom-dm",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786725202773,
+    "file": {
+      "name": "paf 2026-08-14 1310593C9F4546E797.jpeg",
+      "type": "image",
+      "data": "/uploads/1786725168712-g41su6d.jpeg",
+      "size": 1313281
+    },
+    "readBy": []
+  },
+  {
+    "id": "4uvup63",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "test message",
+    "timestamp": 1786725198720,
+    "readBy": []
+  },
+  {
+    "id": "q9n741i",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786725299189,
+    "file": {
+      "name": "Голосовое сообщение.webm",
+      "type": "audio",
+      "data": "/uploads/1786725271828-ivzmnaq.webm",
+      "size": 65655
+    },
+    "readBy": []
+  },
+  {
+    "id": "n7zl8u9",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786725313940,
+    "file": {
+      "name": "Голосовое сообщение.webm",
+      "type": "audio",
+      "data": "/uploads/1786725285836-tb28n5e.webm",
+      "size": 165762
+    },
+    "readBy": []
+  },
+  {
+    "id": "8ewrcno",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786725360738,
+    "file": {
+      "name": "Видео-кружок.webm",
+      "type": "video",
+      "data": "/uploads/1786725308929-85cx3jf.webm",
+      "size": 4575783
+    },
+    "readBy": [],
+    "reactions": {
+      "🐳": [
+        "vlad"
+      ],
+      "🤮": [
+        "vlad"
+      ]
+    }
+  },
+  {
+    "id": "vpcm6uk",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786725388689,
+    "file": {
+      "name": "IMG_1978.jpeg",
+      "type": "image",
+      "data": "/uploads/1786725360963-undf9p0.jpeg",
+      "size": 170597
+    },
+    "readBy": [],
+    "reactions": {}
+  },
+  {
+    "id": "q1r2s7w",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786725945789,
+    "file": {
+      "name": "Голосовое сообщение.webm",
+      "type": "audio",
+      "data": "/uploads/1786725918483-pqqo1zu.webm",
+      "size": 64881
+    },
+    "readBy": []
+  },
+  {
+    "id": "9o3j6la",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "паи паиа аииа",
+    "timestamp": 1786729966605,
+    "readBy": []
+  },
+  {
+    "id": "rrtoki2",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729967253,
+    "readBy": []
+  },
+  {
+    "id": "81zm9x1",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729967566,
+    "readBy": []
+  },
+  {
+    "id": "ypprny7",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729967750,
+    "readBy": []
+  },
+  {
+    "id": "qgoks87",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729967909,
+    "readBy": []
+  },
+  {
+    "id": "my7tixn",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729968075,
+    "readBy": []
+  },
+  {
+    "id": "jcn2owd",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729968240,
+    "readBy": []
+  },
+  {
+    "id": "srhzhf9",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729968403,
+    "readBy": []
+  },
+  {
+    "id": "d9wbp85",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729968560,
+    "readBy": []
+  },
+  {
+    "id": "nglvopb",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729968721,
+    "readBy": []
+  },
+  {
+    "id": "29kfyn7",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "аа",
+    "timestamp": 1786729968877,
+    "readBy": []
+  },
+  {
+    "id": "x6wkye1",
+    "roomId": "sister-dm",
+    "sender": "vlad",
+    "text": "а",
+    "timestamp": 1786729969030,
+    "readBy": []
+  }
+]

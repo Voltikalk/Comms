@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Эволюция ходьбы</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0d10;
+    --panel:#14171c;
+    --line:#232830;
+    --text:#e6e9ee;
+    --dim:#7d8791;
+    --accent:#ffcf5c;
+    --accent2:#4fd6c4;
+    --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;overflow:hidden;height:100%;}
+  #world{display:block;}
+  .hud{
+    position:fixed;top:16px;left:16px;
+    background:rgba(20,23,28,0.82);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 18px;
+    backdrop-filter:blur(6px);
+    min-width:230px;
+  }
+  .hud h1{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 10px;font-weight:600;}
+  .stat{display:flex;justify-content:space-between;font-size:13px;margin:4px 0;}
+  .stat b{color:var(--accent);font-weight:600;}
+  .stat .lbl{color:var(--dim);}
+  .panel{
+    position:fixed;bottom:16px;left:16px;right:16px;
+    background:rgba(20,23,28,0.88);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 18px;
+    display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;
+    backdrop-filter:blur(6px);
+  }
+  .ctrl{display:flex;flex-direction:column;gap:4px;min-width:140px;}
+  .ctrl label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;}
+  .ctrl input[type=range]{accent-color:var(--accent);}
+  .btnrow{display:flex;gap:8px;margin-left:auto;}
+  button{
+    background:#1c2027;border:1px solid var(--line);color:var(--text);
+    padding:8px 14px;border-radius:7px;font-family:inherit;font-size:12px;
+    cursor:pointer;transition:.15s;
+  }
+  button:hover{background:#242933;border-color:#3a4150;}
+  button.primary{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600;}
+  button.primary:hover{filter:brightness(1.08);}
+  #graph{
+    position:fixed;top:16px;right:16px;
+    background:rgba(20,23,28,0.82);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px;
+    backdrop-filter:blur(6px);
+  }
+  #graph h1{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 6px;font-weight:600;}
+  .footnote{position:fixed;bottom:110px;left:16px;font-size:11px;color:var(--dim);}
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+
+<canvas id="world"></canvas>
+
+<div class="hud">
+  <h1>Эволюция ходьбы</h1>
+  <div class="stat"><span class="lbl">Поколение</span><b id="gen">1</b></div>
+  <div class="stat"><span class="lbl">Осталось, сек</span><b id="timeleft">15.0</b></div>
+  <div class="stat"><span class="lbl">Лучшая дистанция (сейчас)</span><b id="curbest">0</b></div>
+  <div class="stat"><span class="lbl">Рекорд всех времён</span><b id="allbest" style="color:var(--accent2)">0</b></div>
+  <div class="stat"><span class="lbl">Живых существ</span><b id="alive">0</b></div>
+</div>
+
+<div id="graph">
+  <h1>Прогресс фитнеса</h1>
+  <canvas id="fitgraph" width="220" height="90"></canvas>
+</div>
+
+<div class="footnote">Золотое существо — лидер текущего поколения</div>
+
+<div class="panel">
+  <div class="ctrl">
+    <label>Длительность поколения <span id="genlen-v">15с</span></label>
+    <input id="genlen" type="range" min="5" max="30" value="15" step="1">
+  </div>
+  <div class="ctrl">
+    <label>Сила мутации <span id="mut-v">0.25</span></label>
+    <input id="mut" type="range" min="0.02" max="0.8" value="0.25" step="0.01">
+  </div>
+  <div class="ctrl">
+    <label>Размер популяции <span id="pop-v">24</span></label>
+    <input id="pop" type="range" min="6" max="40" value="24" step="2">
+  </div>
+  <div class="ctrl">
+    <label>Скорость симуляции <span id="speed-v">1x</span></label>
+    <input id="speed" type="range" min="1" max="10" value="1" step="1">
+  </div>
+  <div class="btnrow">
+    <button id="pauseBtn">Пауза</button>
+    <button id="restartBtn">Рестарт с нуля</button>
+    <button id="saveBtn">Сохранить лучший геном</button>
+    <button id="loadBtn">Загрузить геном</button>
+    <input type="file" id="loadFile" accept=".json">
+    <button id="nextGenBtn" class="primary">Следующее поколение сейчас</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const { Engine, World: MWorld, Bodies, Body, Constraint, Composite, Vector } = Matter;
+
+// ---------------- Config ----------------
+let CFG = {
+  genLen: 15,      // seconds
+  mutRate: 0.25,
+  popSize: 24,
+  speed: 1,
+};
+
+const GROUND_Y = 560;
+const START_X = 140;
+
+// ---------------- Neural Network ----------------
+// Fixed architecture: inputs -> hidden(12) -> outputs
+// Inputs per creature: for each of 4 joints: angle, angular velocity  (8)
+//   + torso tilt angle (1) + torso angular velocity (1)
+//   + torso horizontal velocity (1) + ground contact per leg (2, thigh+shin approximated by foot contact per leg -> 2 legs = 2)
+// total inputs = 8+1+1+1+2 = 13
+// outputs: one per joint (4) in range -1..1
+const N_IN = 13;
+const N_HID = 12;
+const N_OUT = 4;
+
+function randWeight(){ return (Math.random()*2-1); }
+
+class NeuralNetwork{
+  constructor(genome){
+    const wSize = N_IN*N_HID + N_HID + N_HID*N_OUT + N_OUT;
+    if(genome && genome.length === wSize){
+      this.genome = genome.slice();
+    } else {
+      this.genome = new Array(wSize);
+      for(let i=0;i<wSize;i++) this.genome[i] = randWeight();
+    }
+    this._unpack();
+  }
+  _unpack(){
+    let idx=0;
+    const g = this.genome;
+    this.w1 = []; // N_IN x N_HID
+    for(let i=0;i<N_IN;i++){
+      const row=[];
+      for(let j=0;j<N_HID;j++){ row.push(g[idx++]); }
+      this.w1.push(row);
+    }
+    this.b1 = g.slice(idx, idx+N_HID); idx+=N_HID;
+    this.w2 = []; // N_HID x N_OUT
+    for(let i=0;i<N_HID;i++){
+      const row=[];
+      for(let j=0;j<N_OUT;j++){ row.push(g[idx++]); }
+      this.w2.push(row);
+    }
+    this.b2 = g.slice(idx, idx+N_OUT); idx+=N_OUT;
+  }
+  forward(inputs){
+    const hidden = new Array(N_HID);
+    for(let j=0;j<N_HID;j++){
+      let sum = this.b1[j];
+      for(let i=0;i<N_IN;i++) sum += inputs[i]*this.w1[i][j];
+      hidden[j] = Math.tanh(sum);
+    }
+    const out = new Array(N_OUT);
+    for(let j=0;j<N_OUT;j++){
+      let sum = this.b2[j];
+      for(let i=0;i<N_HID;i++) sum += hidden[i]*this.w2[i][j];
+      out[j] = Math.tanh(sum);
+    }
+    return out;
+  }
+  static wSize(){ return N_IN*N_HID + N_HID + N_HID*N_OUT + N_OUT; }
+  clone(){ return new NeuralNetwork(this.genome); }
+  mutate(rate){
+    for(let i=0;i<this.genome.length;i++){
+      if(Math.random() < rate){
+        this.genome[i] += (Math.random()*2-1) * 0.8;
+        this.genome[i] = Math.max(-3, Math.min(3, this.genome[i]));
+      }
+    }
+    this._unpack();
+  }
+}
+
+function crossover(a,b){
+  const child = new Array(a.length);
+  for(let i=0;i<a.length;i++) child[i] = Math.random()<0.5 ? a[i] : b[i];
+  return child;
+}
+
+// ---------------- Creature (physics + brain) ----------------
+// Body plan: torso (box) + 2 legs, each leg = thigh + shin, hinge joints.
+class Creature{
+  constructor(engine, x, y, genome, hue){
+    this.engine = engine;
+    this.hue = hue;
+    this.dead = false;
+    this.startX = x;
+    this.brain = new NeuralNetwork(genome);
+
+    const torsoW = 46, torsoH = 20;
+    this.torso = Bodies.rectangle(x, y, torsoW, torsoH, {
+      density:0.004, friction:0.6, frictionAir:0.02,
+      collisionFilter:{group: -1}
+    });
+
+    const thighW=8, thighH=34, shinW=7, shinH=32;
+    this.legs = [];
+    const legOffsets = [-12, 12];
+    for(const off of legOffsets){
+      const thigh = Bodies.rectangle(x+off, y+torsoH/2+thighH/2, thighW, thighH, {
+        density:0.003, friction:0.8, frictionAir:0.02, collisionFilter:{group:-1}
+      });
+      const shin = Bodies.rectangle(x+off, y+torsoH/2+thighH+shinH/2, shinW, shinH, {
+        density:0.003, friction:0.9, frictionAir:0.02, collisionFilter:{group:-1}
+      });
+      const hip = Constraint.create({
+        bodyA:this.torso, pointA:{x:off,y:torsoH/2},
+        bodyB:thigh, pointB:{x:0,y:-thighH/2},
+        stiffness:0.9, length:0
+      });
+      const knee = Constraint.create({
+        bodyA:thigh, pointA:{x:0,y:thighH/2},
+        bodyB:shin, pointB:{x:0,y:-shinH/2},
+        stiffness:0.9, length:0
+      });
+      this.legs.push({thigh, shin, hip, knee, footContact:false});
+    }
+
+    this.bodies = [this.torso, ...this.legs.map(l=>l.thigh), ...this.legs.map(l=>l.shin)];
+    this.constraints = [...this.legs.map(l=>l.hip), ...this.legs.map(l=>l.knee)];
+
+    MWorld.add(engine.world, [...this.bodies, ...this.constraints]);
+
+    this.maxX = x;
+    this.fitness = 0;
+    this.torque = 12; // control strength
+  }
+
+  destroy(){
+    MWorld.remove(this.engine.world, [...this.bodies, ...this.constraints]);
+  }
+
+  getInputs(){
+    const inputs = [];
+    // joint angles + angular velocities (relative angle between segments)
+    for(const leg of this.legs){
+      const hipAngle = leg.thigh.angle - this.torso.angle;
+      inputs.push(Math.sin(hipAngle), );
+      inputs.push(leg.thigh.angularVelocity);
+      const kneeAngle = leg.shin.angle - leg.thigh.angle;
+      inputs.push(Math.sin(kneeAngle));
+      inputs.push(leg.shin.angularVelocity);
+    }
+    inputs.push(Math.sin(this.torso.angle));
+    inputs.push(this.torso.angularVelocity);
+    inputs.push(Math.max(-5, Math.min(5, this.torso.velocity.x)));
+    for(const leg of this.legs){
+      inputs.push(leg.footContact ? 1:0);
+    }
+    // pad/trim to N_IN just in case
+    while(inputs.length < N_IN) inputs.push(0);
+    return inputs.slice(0, N_IN);
+  }
+
+  step(){
+    if(this.dead) return;
+    const inputs = this.getInputs();
+    const out = this.brain.forward(inputs);
+    // out[0],out[1] -> hip torque for leg0,leg1 ; out[2],out[3] -> knee torque
+    const legTargets = [
+      {hip:out[0], knee:out[2]},
+      {hip:out[1], knee:out[3]},
+    ];
+    legTargets.forEach((t, idx)=>{
+      const leg = this.legs[idx];
+      Body.setAngularVelocity(leg.thigh, leg.thigh.angularVelocity*0.7 + t.hip*0.15);
+      Body.setAngularVelocity(leg.shin, leg.shin.angularVelocity*0.7 + t.knee*0.15);
+    });
+
+    this.maxX = Math.max(this.maxX, this.torso.position.x);
+    // died if torso touches ground level (fell over)
+    if(this.torso.position.y > GROUND_Y - 5){
+      this.dead = true;
+    }
+  }
+
+  currentFitness(){
+    return Math.max(0, this.maxX - this.startX);
+  }
+}
+
+// ---------------- World setup ----------------
+const canvas = document.getElementById('world');
+const ctx = canvas.getContext('2d');
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const engine = Engine.create();
+engine.world.gravity.y = 1;
+
+const ground = Bodies.rectangle(4000, GROUND_Y+40, 12000, 80, { isStatic:true, friction:1 });
+MWorld.add(engine.world, [ground]);
+
+// contact tracking for feet (shins)
+Matter.Events.on(engine, 'collisionStart', (ev)=>{
+  for(const pair of ev.pairs){
+    markContact(pair.bodyA, pair.bodyB, true);
+    markContact(pair.bodyB, pair.bodyA, true);
+  }
+});
+Matter.Events.on(engine, 'collisionEnd', (ev)=>{
+  for(const pair of ev.pairs){
+    markContact(pair.bodyA, pair.bodyB, false);
+    markContact(pair.bodyB, pair.bodyA, false);
+  }
+});
+function markContact(body, other, val){
+  if(other !== ground) return;
+  const c = creatureByBodyId.get(body.id);
+  if(!c) return;
+  for(const leg of c.creature.legs){
+    if(leg.shin.id === body.id) leg.footContact = val;
+  }
+}
+const creatureByBodyId = new Map();
+
+// ---------------- Population management ----------------
+let creatures = [];
+let generation = 1;
+let genTimer = 0;
+let allTimeBest = 0;
+let allTimeBestGenome = null;
+let fitHistory = []; // per generation best fitness
+let paused = false;
+let bestOfGenGenome = null;
+
+function spawnPopulation(genomes){
+  // clear old
+  for(const c of creatures) c.destroy();
+  creatureByBodyId.clear();
+  creatures = [];
+
+  const spacingY = 0; // all start same row, spread out in x lane using z-order not needed (2D top overlap ok since collision group -1 among own parts, but different creatures still collide)
+  // to avoid inter-creature collisions, stagger them vertically slightly & use collisionFilter categories
+  const n = genomes.length;
+  for(let i=0;i<n;i++){
+    const hue = Math.round((i/n)*300);
+    const y = GROUND_Y - 60 - (i%3)*0; 
+    const c = new Creature(engine, START_X, y, genomes[i], hue);
+    // separate collision groups per creature index to avoid inter-creature collision issues visually (still same category so they CAN collide with each other; give unique negative group so no self collision, but allow collide with ground/others)
+    c.torso.collisionFilter.group = -(i+2);
+    c.legs.forEach(l=>{ l.thigh.collisionFilter.group = -(i+2); l.shin.collisionFilter.group = -(i+2); });
+    creatures.push(c);
+    for(const b of c.bodies){ creatureByBodyId.set(b.id, {creature:c}); }
+  }
+}
+
+function initialGenomes(n){
+  const arr = [];
+  for(let i=0;i<n;i++) arr.push(new NeuralNetwork().genome);
+  return arr;
+}
+
+function startNewRun(){
+  generation = 1;
+  allTimeBest = 0;
+  allTimeBestGenome = null;
+  fitHistory = [];
+  spawnPopulation(initialGenomes(CFG.popSize));
+  genTimer = 0;
+}
+
+function nextGeneration(){
+  // compute fitness
+  let results = creatures.map(c => ({genome:c.brain.genome, fitness:c.currentFitness()}));
+  results.sort((a,b)=>b.fitness - a.fitness);
+
+  const genBest = results[0].fitness;
+  fitHistory.push(genBest);
+  if(fitHistory.length > 200) fitHistory.shift();
+
+  if(genBest > allTimeBest){
+    allTimeBest = genBest;
+    allTimeBestGenome = results[0].genome.slice();
+  }
+
+  const survivorsCount = Math.max(2, Math.floor(results.length*0.3));
+  const survivors = results.slice(0, survivorsCount);
+
+  const newGenomes = [];
+  // keep elites unmutated
+  for(let i=0;i<Math.min(2, survivors.length); i++){
+    newGenomes.push(survivors[i].genome.slice());
+  }
+  while(newGenomes.length < CFG.popSize){
+    const pa = survivors[Math.floor(Math.random()*survivors.length)].genome;
+    const pb = survivors[Math.floor(Math.random()*survivors.length)].genome;
+    let childGenome = Math.random()<0.5 ? crossover(pa,pb) : pa.slice();
+    const child = new NeuralNetwork(childGenome);
+    child.mutate(CFG.mutRate);
+    newGenomes.push(child.genome);
+  }
+
+  generation++;
+  spawnPopulation(newGenomes);
+  genTimer = 0;
+}
+
+startNewRun();
+
+// ---------------- Camera ----------------
+let camX = START_X;
+
+function getLeaderCreature(){
+  let best = null, bestFit = -1;
+  for(const c of creatures){
+    const f = c.currentFitness();
+    if(f > bestFit){ bestFit = f; best = c; }
+  }
+  return best;
+}
+
+// ---------------- Rendering ----------------
+function drawCreature(c, isLeader){
+  const color = isLeader ? '#ffcf5c' : `hsl(${c.hue},55%,55%)`;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = isLeader ? 3 : 2;
+  ctx.globalAlpha = c.dead ? 0.35 : (isLeader?1:0.85);
+
+  const drawBody = (body, isTorso)=>{
+    const verts = body.vertices;
+    ctx.beginPath();
+    ctx.moveTo(verts[0].x, verts[0].y);
+    for(let i=1;i<verts.length;i++) ctx.lineTo(verts[i].x, verts[i].y);
+    ctx.closePath();
+    if(isTorso){ ctx.fill(); } else { ctx.stroke(); }
+  };
+
+  drawBody(c.torso, true);
+  for(const leg of c.legs){
+    drawBody(leg.thigh, false);
+    drawBody(leg.shin, false);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawGround(){
+  ctx.fillStyle = '#171b21';
+  ctx.fillRect(-camX*0, GROUND_Y+40-40, canvas.width, 200); // placeholder, replaced below with camera transform already applied
+}
+
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#0b0d10';
+  ctx.fillRect(0,0,canvas.width, canvas.height);
+
+  const leader = getLeaderCreature();
+  const targetCamX = leader ? leader.torso.position.x : START_X;
+  camX += (targetCamX - camX) * 0.06;
+
+  ctx.save();
+  ctx.translate(canvas.width*0.35 - camX, 0);
+
+  // ground
+  ctx.fillStyle = '#171b21';
+  ctx.fillRect(camX-canvas.width, GROUND_Y+40, canvas.width*3, 400);
+  ctx.strokeStyle = '#2a3038';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(camX-canvas.width, GROUND_Y+40);
+  ctx.lineTo(camX+canvas.width*2, GROUND_Y+40);
+  ctx.stroke();
+
+  // distance markers
+  ctx.fillStyle = '#2a3038';
+  ctx.font = '11px monospace';
+  const startMark = Math.floor((camX-canvas.width)/100)*100;
+  for(let mx=startMark; mx<camX+canvas.width*2; mx+=100){
+    ctx.fillRect(mx, GROUND_Y+40, 1, 8);
+    ctx.fillText(Math.round(mx-START_X)+'м', mx+3, GROUND_Y+58);
+  }
+
+  for(const c of creatures){
+    drawCreature(c, c===leader);
+  }
+
+  ctx.restore();
+}
+
+function drawFitGraph(){
+  const fc = document.getElementById('fitgraph');
+  const fctx = fc.getContext('2d');
+  fctx.clearRect(0,0,fc.width,fc.height);
+  if(fitHistory.length < 2) return;
+  const maxF = Math.max(...fitHistory, 10);
+  fctx.strokeStyle = '#4fd6c4';
+  fctx.lineWidth = 2;
+  fctx.beginPath();
+  fitHistory.forEach((v,i)=>{
+    const x = (i/(Math.max(1,fitHistory.length-1))) * fc.width;
+    const y = fc.height - (v/maxF)*fc.height*0.9 - 4;
+    if(i===0) fctx.moveTo(x,y); else fctx.lineTo(x,y);
+  });
+  fctx.stroke();
+}
+
+// ---------------- Main loop ----------------
+let lastTime = performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt = Math.min(50, now-lastTime);
+  lastTime = now;
+
+  if(!paused){
+    for(let s=0; s<CFG.speed; s++){
+      Engine.update(engine, 1000/60);
+      for(const c of creatures) c.step();
+      genTimer += 1/60;
+    }
+    if(genTimer >= CFG.genLen){
+      nextGeneration();
+    }
+  }
+
+  render();
+  drawFitGraph();
+  updateHUD();
+}
+requestAnimationFrame(loop);
+
+function updateHUD(){
+  document.getElementById('gen').textContent = generation;
+  document.getElementById('timeleft').textContent = Math.max(0, (CFG.genLen-genTimer)).toFixed(1);
+  const leader = getLeaderCreature();
+  document.getElementById('curbest').textContent = leader ? Math.round(leader.currentFitness()) : 0;
+  document.getElementById('allbest').textContent = Math.round(allTimeBest);
+  document.getElementById('alive').textContent = creatures.filter(c=>!c.dead).length + '/' + creatures.length;
+}
+
+// ---------------- UI wiring ----------------
+const genlenEl = document.getElementById('genlen');
+const mutEl = document.getElementById('mut');
+const popEl = document.getElementById('pop');
+const speedEl = document.getElementById('speed');
+
+genlenEl.addEventListener('input', ()=>{
+  CFG.genLen = parseFloat(genlenEl.value);
+  document.getElementById('genlen-v').textContent = CFG.genLen+'с';
+});
+mutEl.addEventListener('input', ()=>{
+  CFG.mutRate = parseFloat(mutEl.value);
+  document.getElementById('mut-v').textContent = CFG.mutRate.toFixed(2);
+});
+popEl.addEventListener('input', ()=>{
+  CFG.popSize = parseInt(popEl.value);
+  document.getElementById('pop-v').textContent = CFG.popSize;
+});
+speedEl.addEventListener('input', ()=>{
+  CFG.speed = parseInt(speedEl.value);
+  document.getElementById('speed-v').textContent = CFG.speed+'x';
+});
+
+document.getElementById('pauseBtn').addEventListener('click', (e)=>{
+  paused = !paused;
+  e.target.textContent = paused ? 'Продолжить' : 'Пауза';
+});
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  startNewRun();
+});
+document.getElementById('nextGenBtn').addEventListener('click', ()=>{
+  nextGeneration();
+});
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  const genome = allTimeBestGenome || (creatures[0] && creatures[0].brain.genome);
+  if(!genome){ return; }
+  const blob = new Blob([JSON.stringify({genome, generation, fitness:allTimeBest})], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `best_genome_gen${generation}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById('loadBtn').addEventListener('click', ()=>{
+  document.getElementById('loadFile').click();
+});
+document.getElementById('loadFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(data.genome && data.genome.length === NeuralNetwork.wSize()){
+        const genomes = [];
+        for(let i=0;i<CFG.popSize;i++){
+          const g = new NeuralNetwork(data.genome.slice());
+          if(i>0) g.mutate(0.1);
+          genomes.push(g.genome);
+        }
+        generation = data.generation || 1;
+        allTimeBest = data.fitness || 0;
+        allTimeBestGenome = data.genome.slice();
+        fitHistory = [];
+        spawnPopulation(genomes);
+        genTimer = 0;
+      }
+    }catch(err){
+      alert('Не удалось загрузить файл генома');
+    }
+  };
+  reader.readAsText(file);
+});
+
+})();
+</script>
+</body>
+</html>

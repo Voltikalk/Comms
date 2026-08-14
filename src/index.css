@@ -1,0 +1,304 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background-color: #92b896;
+  color: #000000;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+html.dark, body.dark {
+  background-color: #0e1621;
+  color: #f5f5f5;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =========================================
+   TELEGRAM AUTHENTIC COLOR SCHEME & SURFACES
+   ========================================= */
+
+/* Left Sidebar */
+.tg-sidebar {
+  background-color: #ffffff;
+  border-right: 1px solid #dfe5ec;
+}
+
+.dark .tg-sidebar {
+  background-color: #17212b;
+  border-right: 1px solid #101921;
+}
+
+/* Right User Info Panel */
+.tg-user-panel {
+  background-color: #ffffff;
+  border-left: 1px solid #dfe5ec;
+}
+
+.dark .tg-user-panel {
+  background-color: #17212b;
+  border-left: 1px solid #101921;
+}
+
+/* Telegram Chat Feed Canvas (Pattern) */
+.tg-chat-canvas {
+  background-color: #94b998;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+    radial-gradient(circle at 0% 0%, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(135deg, #a4c9a8 0%, #8bb18f 100%);
+  background-size: 24px 24px, 16px 16px, 100% 100%;
+}
+
+.dark .tg-chat-canvas {
+  background-color: #0e1621;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(135deg, #0e1621 0%, #0a111a 100%);
+  background-size: 20px 20px, 100% 100%;
+}
+
+/* Header */
+.tg-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #dfe5ec;
+}
+
+.dark .tg-header {
+  background-color: #17212b;
+  border-bottom: 1px solid #101921;
+}
+
+/* Telegram Input Capsule */
+.tg-input-capsule {
+  background-color: #ffffff;
+  border: 1px solid #dfe5ec;
+  box-shadow: 0 1px 4px rgba(16, 35, 47, 0.12);
+}
+
+.dark .tg-input-capsule {
+  background-color: #17212b;
+  border: 1px solid #242f3d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Floating Action / Context Pill */
+.tg-context-pill {
+  background-color: rgba(255, 255, 255, 0.98);
+  border: 1px solid #dfe5ec;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.dark .tg-context-pill {
+  background-color: rgba(36, 47, 61, 0.98);
+  border: 1px solid #303d4d;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* =========================================
+   TELEGRAM MESSAGE BUBBLES
+   ========================================= */
+
+/* Outgoing Bubble (Self) */
+.tg-bubble-self {
+  background-color: #eeffde;
+  color: #000000;
+  border-radius: 16px 16px 4px 16px;
+  box-shadow: 0 1px 2px rgba(16, 35, 47, 0.15);
+}
+
+.dark .tg-bubble-self {
+  background-color: #2b5278;
+  color: #ffffff;
+  border-radius: 16px 16px 4px 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* Incoming Bubble (Peer) */
+.tg-bubble-peer {
+  background-color: #ffffff;
+  color: #000000;
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 1px 2px rgba(16, 35, 47, 0.15);
+}
+
+.dark .tg-bubble-peer {
+  background-color: #182533;
+  color: #f5f5f5;
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* Telegram Blue Buttons */
+.tg-btn-primary {
+  background-color: #3390ec;
+  color: #ffffff;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.tg-btn-primary:hover {
+  background-color: #2884e0;
+}
+
+.tg-btn-primary:active {
+  transform: scale(0.96);
+}
+
+/* Date Separator Pill */
+.tg-date-pill {
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.dark .tg-date-pill {
+  background-color: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* =========================================
+   ANIMATIONS & SCROLLBAR
+   ========================================= */
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes chatFadeSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes messageAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes reactionPop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  65% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes lightboxFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modalBackdropFade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.animate-pop-in {
+  animation: popIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-chat-switch {
+  animation: chatFadeSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-message-appear {
+  animation: messageAppear 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-reaction-pop {
+  animation: reactionPop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-lightbox {
+  animation: lightboxFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-backdrop {
+  animation: modalBackdropFade 0.2s ease-out forwards;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
