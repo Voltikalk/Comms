@@ -3,17 +3,17 @@ import { useSocket } from '../context/SocketContext';
 import { USER_NAMES } from '../constants';
 import { MessageBubble } from './MessageBubble';
 import type { Room, UserId, Message } from '../types';
-import { 
-  IconPhone, 
-  IconVideo, 
-  IconPhoneOff, 
-  IconSearch, 
-  IconLogout, 
-  IconPaperclip, 
-  IconSend, 
-  IconMicrophone, 
-  IconX, 
-  IconUsers, 
+import {
+  IconPhone,
+  IconVideo,
+  IconPhoneOff,
+  IconSearch,
+  IconLogout,
+  IconPaperclip,
+  IconSend,
+  IconMicrophone,
+  IconX,
+  IconUsers,
   IconChevronLeft,
   IconSun,
   IconMoon,
@@ -32,7 +32,8 @@ import {
   IconShare3,
   IconTrash,
   IconPin,
-  IconUser
+  IconUser,
+  IconFileText
 } from '@tabler/icons-react';
 import { TelegramEmojiPickerModal } from './TelegramEmojiPickerModal';
 import { TelegramContextMenuModal } from './TelegramContextMenuModal';
@@ -90,7 +91,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     sendTypingStatus,
     unreadCount,
     lastMessageOf,
-    
+
     // Calling context
     callSession,
     startCall,
@@ -228,8 +229,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const slicedMessages = filteredMessages.slice(-visibleCount);
 
   // Get peer online status for direct chat
-  const activePeerId = activeRoom?.type === 'direct' ? activeRoom.participants.find(p => p !== currentUser) : null;
-  const isPeerOnline = activePeerId ? onlineStatus[activePeerId] : false;
+  const activePeerId = activeRoom?.type === 'direct' 
+    ? (activeRoom.participants.find(p => p !== currentUser) || currentUser) 
+    : null;
+  const isPeerOnline = activePeerId ? (activePeerId === currentUser ? true : onlineStatus[activePeerId]) : false;
+  const activePeerProfile = activePeerId ? (userProfiles[activePeerId as UserId] || (activePeerId === currentUser ? currentUserProfile : null)) : null;
+  const activePeerAvatar = activePeerId ? (getUserAvatar(activePeerId as UserId) || (activePeerId === currentUser ? currentUserProfile?.avatarUrl : undefined)) : undefined;
 
   // Get typing users in active room (excluding self)
   const activeRoomTypingMap = typingUsers[activeRoomId || ''] || {};
@@ -242,7 +247,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   // Filtered rooms list by search in sidebar
   const filteredRooms = rooms.filter((r) => {
     if (!roomFilterQuery.trim()) return true;
-    const name = r.type === 'direct' 
+    const name = r.type === 'direct'
       ? (USER_NAMES[r.participants.find(p => p !== currentUser) as UserId] || r.name)
       : r.name;
     return name.toLowerCase().includes(roomFilterQuery.toLowerCase());
@@ -316,7 +321,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
     if (remoteAudioRef.current && remoteStream) {
       remoteAudioRef.current.srcObject = remoteStream;
-      remoteAudioRef.current.play().catch(() => {});
+      remoteAudioRef.current.play().catch(() => { });
     }
   }, [remoteStream, callSession]);
 
@@ -347,11 +352,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(type === 'ring' ? 440 : 350, ctx.currentTime);
-      
+
       gain.gain.setValueAtTime(0.08, ctx.currentTime);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
+
       osc.start();
       oscillatorRef.current = osc;
 
@@ -373,13 +378,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     if (oscillatorRef.current) {
       try {
         oscillatorRef.current.stop();
-      } catch {}
+      } catch { }
       oscillatorRef.current = null;
     }
     if (audioCtxRef.current) {
       try {
         audioCtxRef.current.close();
-      } catch {}
+      } catch { }
       audioCtxRef.current = null;
     }
   };
@@ -565,12 +570,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         alert('Запись видео-кружков требует защищенного соединения (HTTPS или localhost).');
         return;
       }
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true, 
-        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } } 
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } }
       });
-      
+
       setVideoStream(stream);
       setIsRecordingVideo(true);
       setVideoRecordTime(0);
@@ -651,8 +656,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   const getRoomDisplayName = (room: Room) => {
     if (room.type === 'direct') {
-      const peerId = room.participants.find(p => p !== currentUser);
-      return peerId ? (USER_NAMES[peerId] || peerId) : room.name;
+      const peerId = room.participants.find(p => p !== currentUser) as UserId | undefined;
+      return peerId ? (getUserDisplayName(peerId) || USER_NAMES[peerId] || peerId) : room.name;
     }
     return room.name;
   };
@@ -665,8 +670,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   const getLastMessagePreview = (msg: Message | null) => {
     if (!msg) return '';
-    const prefix = msg.sender === currentUser ? 'Вы: ' : `${USER_NAMES[msg.sender] || msg.sender}: `;
-    
+    const prefix = msg.sender === currentUser ? 'Вы: ' : `${getUserDisplayName(msg.sender) || USER_NAMES[msg.sender] || msg.sender}: `;
+
     if (msg.file) {
       if (msg.file.type === 'image') return `${prefix}🖼 Фото`;
       if (msg.file.type === 'audio') return `${prefix}🎤 Голосовое сообщение`;
@@ -707,14 +712,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   return (
     <div className="flex h-dvh w-full overflow-hidden select-none">
-      
+
       {/* 1. Left Sidebar: Telegram Chat List & Contacts */}
-      <aside 
-        className={`w-full md:w-[360px] lg:w-[400px] tg-sidebar flex flex-col shrink-0 transition-transform duration-150 z-20 ${
-          mobileView === 'list' 
-            ? 'translate-x-0 flex' 
-            : '-translate-x-full md:translate-x-0 absolute md:relative z-20 h-full left-0 top-0 hidden md:flex'
-        }`}
+      <aside
+        className={`w-full md:w-[360px] lg:w-[400px] tg-sidebar flex flex-col shrink-0 transition-transform duration-150 z-20 ${mobileView === 'list'
+          ? 'translate-x-0 flex'
+          : '-translate-x-full md:translate-x-0 absolute md:relative z-20 h-full left-0 top-0 hidden md:flex'
+          }`}
       >
         {/* Top Bar: Hamburger + Search Input */}
         <div className="p-2.5 flex items-center gap-2 relative">
@@ -729,8 +733,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
           {/* Menu Dropdown */}
           {showMenuDropdown && (
-            <div className="absolute top-12 left-3 z-50 w-60 tg-header rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 py-2 animate-pop-in select-none">
-              {/* User Profile Card */}
+            <div className="absolute top-12 left-3 z-50 w-64 tg-header rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 py-2 animate-pop-in select-none">
+              {/* User Profile Card Header */}
               <div 
                 onClick={() => {
                   setShowProfileModal(true);
@@ -765,7 +769,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                     <IconEdit size={14} className="text-[#3390ec] shrink-0" />
                   </div>
                   <span className="text-[10.5px] text-slate-400 truncate block">
-                    {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите, чтобы настроить')}
+                    {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите для настройки')}
                   </span>
                 </div>
               </div>
@@ -931,11 +935,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                   setIsSearching(false);
                   setSelectedFile(null);
                 }}
-                className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-colors cursor-pointer text-left select-none ${
-                  isActive 
-                    ? 'bg-[#3390ec] text-white shadow-xs' 
-                    : 'hover:bg-black/5 dark:hover:bg-white/5 text-slate-800 dark:text-slate-200'
-                }`}
+                className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-colors cursor-pointer text-left select-none ${isActive
+                  ? 'bg-[#3390ec] text-white shadow-xs'
+                  : 'hover:bg-black/5 dark:hover:bg-white/5 text-slate-800 dark:text-slate-200'
+                  }`}
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
@@ -946,9 +949,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                       className="w-12 h-12 rounded-full object-cover shadow-xs" 
                     />
                   ) : (
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold ${
-                      isActive ? 'bg-white/20 text-white' : `${getRoomColor(room)} text-white`
-                    }`}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold ${isActive ? 'bg-white/20 text-white' : `${getRoomColor(room)} text-white`
+                      }`}>
                       {room.type === 'group' ? (
                         <IconUsers size={20} />
                       ) : (
@@ -974,24 +976,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                       </span>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center justify-between mt-0.5 gap-2">
                     {isTypingInRoom ? (
                       <span className={`text-xs font-semibold flex items-center gap-1 truncate ${isActive ? 'text-white' : 'text-[#3390ec]'}`}>
                         <span>печатает...</span>
                       </span>
                     ) : (
-                      <span className={`text-[13px] truncate block flex-1 ${
-                        isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
-                      }`}>
+                      <span className={`text-[13px] truncate block flex-1 ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
+                        }`}>
                         {lastMsg ? getLastMessagePreview(lastMsg) : (room.type === 'group' ? 'Группа семьи' : isOnline ? 'В сети' : 'Не в сети')}
                       </span>
                     )}
-                    
+
                     {count > 0 && (
-                      <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold ${
-                        isActive ? 'bg-white text-[#3390ec]' : 'bg-[#3390ec] text-white'
-                      }`}>
+                      <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold ${isActive ? 'bg-white text-[#3390ec]' : 'bg-[#3390ec] text-white'
+                        }`}>
                         {count}
                       </span>
                     )}
@@ -1004,12 +1004,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       </aside>
 
       {/* 2. Main Center Chat Panel: Telegram Wallpaper & Bubbles */}
-      <main 
-        className={`flex-1 flex flex-col h-full tg-chat-canvas transition-transform duration-150 relative ${
-          mobileView === 'chat' 
-            ? 'translate-x-0 flex' 
-            : '-translate-x-full md:translate-x-0 absolute md:relative z-10 w-full h-full hidden md:flex'
-        }`}
+      <main
+        className={`flex-1 flex flex-col h-full tg-chat-canvas transition-transform duration-150 relative ${mobileView === 'chat'
+          ? 'translate-x-0 flex'
+          : '-translate-x-full md:translate-x-0 absolute md:relative z-10 w-full h-full hidden md:flex'
+          }`}
       >
         {/* Telegram Chat Header or Top Selection Action Bar */}
         <header className="px-4 py-2.5 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[58px] transition-all">
@@ -1121,13 +1120,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                 >
                   <IconChevronLeft size={24} />
                 </button>
-                
+
                 {/* Contact Avatar */}
                 {activeRoom && (
                   <div className="relative">
-                    <div className={`w-10 h-10 rounded-full ${getRoomColor(activeRoom)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
-                      {activeRoom.type === 'group' ? <IconUsers size={20} /> : getRoomDisplayName(activeRoom).charAt(0).toUpperCase()}
-                    </div>
+                    {activePeerAvatar ? (
+                      <img 
+                        src={activePeerAvatar} 
+                        alt="Avatar" 
+                        className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-[#3390ec]/20" 
+                      />
+                    ) : (
+                      <div className={`w-10 h-10 rounded-full ${getRoomColor(activeRoom)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
+                        {activeRoom.type === 'group' ? <IconUsers size={20} /> : getRoomDisplayName(activeRoom).charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     {activeRoom.type === 'direct' && isPeerOnline && (
                       <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
                     )}
@@ -1209,9 +1216,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                     <button
                       type="button"
                       onClick={() => setShowUserInfo(!showUserInfo)}
-                      className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${
-                        showUserInfo ? 'text-[#3390ec]' : 'text-slate-500 dark:text-slate-400'
-                      }`}
+                      className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${showUserInfo ? 'text-[#3390ec]' : 'text-slate-500 dark:text-slate-400'
+                        }`}
                       title="Информация"
                     >
                       <IconDotsVertical size={20} />
@@ -1225,7 +1231,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
         {/* Pinned Message Banner */}
         {currentPinnedMessage && (
-          <div 
+          <div
             onClick={() => {
               const el = document.getElementById(`msg-${currentPinnedMessage.id}`);
               el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1255,9 +1261,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         )}
 
         {/* Telegram Chat Message Stream */}
-        <section 
-          ref={messageFeedRef} 
-          onScroll={handleScroll} 
+        <section
+          ref={messageFeedRef}
+          onScroll={handleScroll}
           className="flex-1 overflow-y-auto px-4 sm:px-8 py-3"
         >
           <div key={activeRoomId} className="max-w-2xl mx-auto w-full flex flex-col min-h-full justify-end animate-chat-switch">
@@ -1267,9 +1273,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               const parentMessage = message.replyToId ? messageMap.get(message.replyToId) || null : null;
 
               const prevMessage = index > 0 ? slicedMessages[index - 1] : null;
-              const showDateSeparator = !prevMessage || 
+              const showDateSeparator = !prevMessage ||
                 new Date(prevMessage.timestamp).toDateString() !== new Date(message.timestamp).toDateString();
-              
+
               const isSameSender = prevMessage && prevMessage.sender === message.sender && !showDateSeparator;
               const showSenderLabel = activeRoom?.type === 'group' && !isSameSender;
 
@@ -1421,7 +1427,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         {/* Telegram Bottom Input Bar */}
         <footer className="p-2 sm:p-3 relative z-10">
           <div className="max-w-2xl mx-auto w-full flex items-end gap-2">
-            
+
             {/* Input Capsule */}
             <form onSubmit={handleSend} className="flex-1 flex items-center min-h-[44px] sm:min-h-[46px] px-2.5 py-1 rounded-[23px] tg-input-capsule">
               <input
@@ -1541,36 +1547,86 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
           {/* Profile Card */}
           <div className="p-5 flex flex-col items-center text-center border-b border-slate-200 dark:border-white/5">
-            <div className={`w-24 h-24 rounded-full ${activeRoom ? getRoomColor(activeRoom) : 'bg-[#3390ec]'} text-white flex items-center justify-center text-3xl font-bold mb-3 shadow-md`}>
-              {activeRoom ? (activeRoom.type === 'group' ? <IconUsers size={40} /> : getRoomDisplayName(activeRoom).charAt(0)) : '?'}
+            <div className="relative mb-3">
+              {activePeerAvatar ? (
+                <img 
+                  src={activePeerAvatar} 
+                  alt="Avatar" 
+                  className="w-24 h-24 rounded-full object-cover shadow-md ring-4 ring-[#3390ec]/20" 
+                />
+              ) : (
+                <div className={`w-24 h-24 rounded-full ${activeRoom ? getRoomColor(activeRoom) : 'bg-[#3390ec]'} text-white flex items-center justify-center text-3xl font-bold shadow-md ring-4 ring-[#3390ec]/20`}>
+                  {activeRoom ? (activeRoom.type === 'group' ? <IconUsers size={40} /> : getRoomDisplayName(activeRoom).charAt(0)) : '?'}
+                </div>
+              )}
+              {activePeerProfile?.statusEmoji && (
+                <span className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white dark:bg-[#17212b] shadow-md flex items-center justify-center text-sm border-2 border-white dark:border-[#17212b]">
+                  {activePeerProfile.statusEmoji}
+                </span>
+              )}
             </div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-              {activeRoom ? getRoomDisplayName(activeRoom) : ''}
+
+            <h2 className="text-base font-bold text-slate-900 dark:text-white m-0 flex items-center gap-1.5 justify-center">
+              <span>{activeRoom ? getRoomDisplayName(activeRoom) : ''}</span>
+              {activePeerProfile?.statusEmoji && (
+                <span className="text-sm">{activePeerProfile.statusEmoji}</span>
+              )}
             </h2>
             <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {activePeerId ? (isPeerOnline ? 'в сети' : 'был(а) недавно') : `${activeRoom?.participants.length} участников`}
             </span>
+
+            {/* Edit Profile button if viewing own profile */}
+            {activePeerId === currentUser && (
+              <button
+                type="button"
+                onClick={() => setShowProfileModal(true)}
+                className="mt-3 px-4 py-1.5 rounded-full bg-[#3390ec]/10 text-[#3390ec] hover:bg-[#3390ec]/20 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <IconEdit size={14} />
+                <span>Изменить профиль</span>
+              </button>
+            )}
           </div>
 
           {/* Details List */}
           <div className="p-4 space-y-4 text-xs">
             {activePeerId && (
               <>
+                {/* Phone */}
                 <div className="flex items-center gap-3">
-                  <IconPhoneCall size={18} className="text-slate-400" />
+                  <IconPhoneCall size={18} className="text-slate-400 shrink-0" />
                   <div>
-                    <span className="text-slate-900 dark:text-white font-medium block">+7 999 {Math.abs(activePeerId.split('').reduce((a, b) => a + b.charCodeAt(0), 1000)).toString().padEnd(7, '0')}</span>
+                    <span className="text-slate-900 dark:text-white font-medium block">
+                      {activePeerProfile?.phoneNumber || '+7 (999) 000-00-00'}
+                    </span>
                     <span className="text-[10px] text-slate-400">Телефон</span>
                   </div>
                 </div>
 
+                {/* Username */}
                 <div className="flex items-center gap-3">
-                  <IconUserCheck size={18} className="text-slate-400" />
+                  <IconUserCheck size={18} className="text-slate-400 shrink-0" />
                   <div>
-                    <span className="text-slate-900 dark:text-white font-medium block">@{activePeerId}</span>
+                    <span className="text-slate-900 dark:text-white font-medium block">
+                      @{activePeerProfile?.username || activePeerId}
+                    </span>
                     <span className="text-[10px] text-slate-400">Имя пользователя</span>
                   </div>
                 </div>
+
+                {/* Bio */}
+                {activePeerProfile?.bio && (
+                  <div className="flex items-center gap-3">
+                    <IconFileText size={18} className="text-slate-400 shrink-0" />
+                    <div>
+                      <span className="text-slate-900 dark:text-white font-medium block">
+                        {activePeerProfile.bio}
+                      </span>
+                      <span className="text-[10px] text-slate-400">О себе</span>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -1611,7 +1667,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       {/* WebRTC Calling Overlay */}
       {callSession && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center text-white select-none animate-pop-in">
-          
+
           {callSession.status === 'active' && callSession.type === 'audio' && (
             <div style={{ position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden' }}>
               <audio ref={remoteAudioRef} autoPlay playsInline />
@@ -1679,9 +1735,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                     <button
                       type="button"
                       onClick={toggleMute}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${
-                        isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-                      }`}
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
+                        }`}
                     >
                       <IconMicrophone size={20} />
                     </button>
@@ -1699,9 +1754,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                     <button
                       type="button"
                       onClick={toggleCamera}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${
-                        isCameraOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-                      }`}
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${isCameraOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
+                        }`}
                     >
                       <IconVideo size={20} />
                     </button>
@@ -1721,7 +1775,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
               Видео-кружок
             </span>
-            
+
             <div className="w-40 h-40 rounded-full overflow-hidden border-3 border-[#3390ec] bg-black shadow-lg relative">
               <video
                 ref={videoPreviewRef}
@@ -1731,7 +1785,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                 className="w-full h-full object-cover scale-x-[-1]"
               />
             </div>
-            
+
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
               <span className="text-xs font-bold font-mono text-slate-800 dark:text-slate-200">
@@ -1761,11 +1815,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
       {/* Open on Phone QR Code Modal */}
       {showQrModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 select-none animate-pop-in"
           onClick={() => setShowQrModal(false)}
         >
-          <div 
+          <div
             className="w-full max-w-[360px] tg-header rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl border border-slate-200 dark:border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1791,7 +1845,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
             {/* QR Code Image */}
             <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-100 mb-3 flex items-center justify-center">
-              <img 
+              <img
                 src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://mobiles-plots-voluntary-via.trycloudflare.com"
                 alt="QR Code to open chat"
                 className="w-44 h-44 rounded-lg block"
@@ -1905,11 +1959,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
       {/* Telegram Forward Message Modal */}
       {forwardingMessage && (
-        <div 
+        <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-backdrop select-none"
           onClick={() => setForwardingMessage(null)}
         >
-          <div 
+          <div
             className="w-full max-w-sm bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 p-4 flex flex-col gap-3 animate-pop-in text-slate-900 dark:text-white"
             onClick={(e) => e.stopPropagation()}
           >

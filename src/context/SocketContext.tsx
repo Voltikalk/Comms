@@ -3,6 +3,9 @@ import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import type { Message, UserId, Room, ConnectionStatus, CallSession, UserProfile } from '../types';
 import { USER_NAMES, KEY_TO_USER, ALL_ROOMS, SERVER_URL, DEFAULT_USER_PROFILES } from '../constants';
+import authService from '../services/auth.service';
+import type { RegisterRequest } from '../types/auth.types';
+
 
 interface SocketContextType {
   currentUser: UserId | null;
@@ -21,7 +24,8 @@ interface SocketContextType {
   messages: Message[];
   activeMessages: Message[];
   error: string | null;
-  login: (key: string) => Promise<boolean>;
+  login: (emailOrKey: string, password?: string) => Promise<boolean>;
+  register: (payload: RegisterRequest) => Promise<boolean>;
   logout: () => void;
   sendMessage: (
     text: string, 
@@ -110,8 +114,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const targetSocketIdRef = useRef<string>('');
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
-  // Filter rooms based on participants
-  const rooms = ALL_ROOMS.filter(r => currentUser && r.participants.includes(currentUser));
+  // Filter rooms based on participants (including general/family for all registered users)
+  const rooms = ALL_ROOMS.filter(r => currentUser && (r.participants.includes(currentUser) || r.id === 'family'));
   const activeRoom = rooms.find(r => r.id === activeRoomId) || rooms[0] || null;
 
   // Sync activeRoomId if it becomes invalid or empty
@@ -197,6 +201,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       socketRef.current.disconnect();
       socketRef.current = null;
     }
+    authService.logout().catch(() => {});
     setCurrentUser(null);
     setAuthKey(null);
     setMessages([]);
@@ -566,28 +571,115 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [currentUser, authKey]);
 
-  const login = async (key: string): Promise<boolean> => {
+  const login = async (emailOrKey: string, password?: string): Promise<boolean> => {
     setError(null);
-    const normalizedKey = key.trim();
-    const mappedUser = KEY_TO_USER[normalizedKey];
+    const normalizedInput = emailOrKey.trim();
 
-    if (!mappedUser) {
-      setError('Неверный ключ. Попробуйте "vladpass", "anyapass", "mompass" и т.д.');
+    // 1. If password is provided, perform real API login via JWT & MongoDB
+    if (password !== undefined && password !== '') {
+      try {
+        const authData = await authService.login({
+          email: normalizedInput,
+          password
+        });
+
+        const loggedUser = authData.user;
+        const uid = loggedUser.userId as UserId;
+        const token = authData.tokens.accessToken;
+
+        setCurrentUser(uid);
+        setAuthKey(token);
+
+        // Update profile in state
+        setUserProfiles((prev) => ({
+          ...prev,
+          [uid]: {
+            userId: uid,
+            firstName: loggedUser.firstName || loggedUser.username,
+            lastName: loggedUser.lastName || '',
+            bio: loggedUser.bio || '',
+            username: loggedUser.username,
+            phoneNumber: loggedUser.phoneNumber || '',
+            avatarUrl: loggedUser.avatarUrl || '',
+            statusEmoji: loggedUser.statusEmoji || ''
+          }
+        }));
+
+        localStorage.setItem('chat_user_v2', uid);
+        localStorage.setItem('chat_auth_key_v2', token);
+
+        const userRooms = ALL_ROOMS.filter(r => r.participants.includes(uid) || r.id === 'family');
+        if (userRooms.length > 0) {
+          setActiveRoomId(userRooms[0].id);
+          localStorage.setItem('chat_active_room_v2', userRooms[0].id);
+        }
+
+        return true;
+      } catch (err: any) {
+        setError(err.message || 'Ошибка авторизации');
+        return false;
+      }
+    }
+
+    // 2. Legacy key or preset account login (e.g. 'vladpass', 'anyapass')
+    const mappedUser = KEY_TO_USER[normalizedInput];
+    if (mappedUser) {
+      setCurrentUser(mappedUser);
+      setAuthKey(normalizedInput);
+      localStorage.setItem('chat_user_v2', mappedUser);
+      localStorage.setItem('chat_auth_key_v2', normalizedInput);
+
+      const userRooms = ALL_ROOMS.filter(r => r.participants.includes(mappedUser) || r.id === 'family');
+      if (userRooms.length > 0) {
+        setActiveRoomId(userRooms[0].id);
+        localStorage.setItem('chat_active_room_v2', userRooms[0].id);
+      }
+      return true;
+    }
+
+    setError('Неверный логин или пароль.');
+    return false;
+  };
+
+  const register = async (payload: RegisterRequest): Promise<boolean> => {
+    setError(null);
+    try {
+      const authData = await authService.register(payload);
+      const registeredUser = authData.user;
+      const uid = registeredUser.userId as UserId;
+      const token = authData.tokens.accessToken;
+
+      setCurrentUser(uid);
+      setAuthKey(token);
+
+      setUserProfiles((prev) => ({
+        ...prev,
+        [uid]: {
+          userId: uid,
+          firstName: registeredUser.firstName || registeredUser.username,
+          lastName: registeredUser.lastName || '',
+          bio: registeredUser.bio || '',
+          username: registeredUser.username,
+          phoneNumber: registeredUser.phoneNumber || '',
+          avatarUrl: registeredUser.avatarUrl || '',
+          statusEmoji: registeredUser.statusEmoji || ''
+        }
+      }));
+
+      localStorage.setItem('chat_user_v2', uid);
+      localStorage.setItem('chat_auth_key_v2', token);
+
+      const userRooms = ALL_ROOMS.filter(r => r.participants.includes(uid) || r.id === 'family');
+      if (userRooms.length > 0) {
+        setActiveRoomId(userRooms[0].id);
+        localStorage.setItem('chat_active_room_v2', userRooms[0].id);
+      }
+
+      return true;
+    } catch (err: any) {
+      setError(err.message || 'Ошибка при регистрации');
       return false;
     }
-
-    setCurrentUser(mappedUser);
-    setAuthKey(normalizedKey);
-    localStorage.setItem('chat_user_v2', mappedUser);
-    localStorage.setItem('chat_auth_key_v2', normalizedKey);
-
-    const userRooms = ALL_ROOMS.filter(r => r.participants.includes(mappedUser));
-    if (userRooms.length > 0) {
-      setActiveRoomId(userRooms[0].id);
-      localStorage.setItem('chat_active_room_v2', userRooms[0].id);
-    }
-
-    return true;
   };
 
   const sendTypingStatus = (isTyping: boolean) => {
@@ -943,6 +1035,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activeMessages,
         error,
         login,
+        register,
         logout,
         sendMessage,
         editMessage,

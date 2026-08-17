@@ -7,7 +7,8 @@
     "timestamp": 1786702899029,
     "readBy": [
       "mom",
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ],
     "reactions": {}
   },
@@ -19,7 +20,8 @@
     "timestamp": 1786703213311,
     "readBy": [
       "mom",
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ],
     "reactions": {}
   },
@@ -32,7 +34,8 @@
     "replyToId": "x8c5i1l",
     "readBy": [
       "vlad",
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ],
     "reactions": {}
   },
@@ -44,7 +47,8 @@
     "timestamp": 1786703295047,
     "readBy": [
       "vlad",
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ],
     "reactions": {
       "❤️": [
@@ -60,7 +64,8 @@
     "timestamp": 1786703298784,
     "readBy": [
       "vlad",
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ],
     "reactions": {}
   },
@@ -116,7 +121,8 @@
     },
     "readBy": [
       "sister",
-      "mom"
+      "mom",
+      "usr_2o2uuvp"
     ],
     "reactions": {
       "💩": [
@@ -132,7 +138,8 @@
     "timestamp": 1786704300058,
     "readBy": [
       "mom",
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ],
     "reactions": {
       "❤️": [
@@ -161,7 +168,8 @@
     "text": "привет",
     "timestamp": 1786706407735,
     "readBy": [
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ]
   },
   {
@@ -171,7 +179,8 @@
     "text": "🥳",
     "timestamp": 1786707010356,
     "readBy": [
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ],
     "reactions": {}
   },
@@ -182,7 +191,8 @@
     "text": "Хахаха",
     "timestamp": 1786707014966,
     "readBy": [
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ]
   },
   {
@@ -198,7 +208,8 @@
       "size": 956702
     },
     "readBy": [
-      "sister"
+      "sister",
+      "usr_2o2uuvp"
     ],
     "reactions": {}
   },
@@ -241,7 +252,9 @@
       "data": "/uploads/1786707228363-emf8hbe.mov",
       "size": 18395201
     },
-    "readBy": [],
+    "readBy": [
+      "usr_2o2uuvp"
+    ],
     "reactions": {}
   },
   {
@@ -250,7 +263,9 @@
     "sender": "vlad",
     "text": "🤔",
     "timestamp": 1786725081104,
-    "readBy": []
+    "readBy": [
+      "usr_2o2uuvp"
+    ]
   },
   {
     "id": "timpgmr",
@@ -258,7 +273,9 @@
     "sender": "vlad",
     "text": "❤️",
     "timestamp": 1786725126130,
-    "readBy": [],
+    "readBy": [
+      "usr_2o2uuvp"
+    ],
     "reactions": {}
   },
   {
@@ -267,7 +284,9 @@
     "sender": "vlad",
     "text": "Хахх",
     "timestamp": 1786725141190,
-    "readBy": [],
+    "readBy": [
+      "usr_2o2uuvp"
+    ],
     "reactions": {
       "🐳": [
         "vlad"
@@ -280,7 +299,9 @@
     "sender": "vlad",
     "text": "Джемени лох",
     "timestamp": 1786725146576,
-    "readBy": []
+    "readBy": [
+      "usr_2o2uuvp"
+    ]
   },
   {
     "id": "hff6us9",
@@ -294,7 +315,9 @@
       "data": "/uploads/1786725168712-g41su6d.jpeg",
       "size": 1313281
     },
-    "readBy": []
+    "readBy": [
+      "mom"
+    ]
   },
   {
     "id": "4uvup63",
@@ -302,7 +325,9 @@
     "sender": "vlad",
     "text": "test message",
     "timestamp": 1786725198720,
-    "readBy": []
+    "readBy": [
+      "usr_2o2uuvp"
+    ]
   },
   {
     "id": "q9n741i",
@@ -316,7 +341,9 @@
       "data": "/uploads/1786725271828-ivzmnaq.webm",
       "size": 65655
     },
-    "readBy": []
+    "readBy": [
+      "anya"
+    ]
   },
   {
     "id": "n7zl8u9",
@@ -330,7 +357,9 @@
       "data": "/uploads/1786725285836-tb28n5e.webm",
       "size": 165762
     },
-    "readBy": []
+    "readBy": [
+      "anya"
+    ]
   },
   {
     "id": "8ewrcno",
@@ -344,7 +373,9 @@
       "data": "/uploads/1786725308929-85cx3jf.webm",
       "size": 4575783
     },
-    "readBy": [],
+    "readBy": [
+      "anya"
+    ],
     "reactions": {
       "🐳": [
         "vlad"
@@ -366,7 +397,9 @@
       "data": "/uploads/1786725360963-undf9p0.jpeg",
       "size": 170597
     },
-    "readBy": [],
+    "readBy": [
+      "usr_2o2uuvp"
+    ],
     "reactions": {}
   },
   {
@@ -381,7 +414,9 @@
       "data": "/uploads/1786725918483-pqqo1zu.webm",
       "size": 64881
     },
-    "readBy": []
+    "readBy": [
+      "usr_2o2uuvp"
+    ]
   },
   {
     "id": "9o3j6la",

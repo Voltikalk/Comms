@@ -5,6 +5,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,14 +18,14 @@ const httpServer = createServer(app);
 // Trust proxy headers for reverse proxies (like Nginx)
 app.set('trust proxy', 1);
 
-// Increase JSON body limits for large base64 file payloads (legacy fallback)
+// JSON and URL-encoded parsers
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // Enable CORS for API routes
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -76,7 +79,7 @@ const uploadMiddleware = multer({
   limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
 });
 
-// File Upload endpoint supporting both FormData (binary) and JSON base64 fallback
+// File Upload endpoint
 app.post('/api/upload', (req, res) => {
   uploadMiddleware.single('file')(req, res, (err) => {
     if (err) {
@@ -84,7 +87,6 @@ app.post('/api/upload', (req, res) => {
       return res.status(400).json({ error: err.message || 'File upload error' });
     }
 
-    // Binary file uploaded via FormData
     if (req.file) {
       const relativeUrl = `/uploads/${req.file.filename}`;
       return res.json({ url: relativeUrl });
@@ -122,15 +124,524 @@ app.post('/api/upload', (req, res) => {
   });
 });
 
+// =============================================================================
+// 🔐 AUTHENTICATION, MONGODB SCHEMAS & JWT CONFIGURATION
+// =============================================================================
+
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'comms_jwt_access_secret_super_secure_key_2026';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'comms_jwt_refresh_secret_super_secure_key_2026';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/comms_db';
+
+const ACCESS_TOKEN_EXPIRY = '15m';
+const REFRESH_TOKEN_EXPIRY = '7d';
+const ACCESS_TOKEN_EXPIRY_SECONDS = 15 * 60;
+const REFRESH_TOKEN_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
+const BCRYPT_SALT_ROUNDS = 12;
+
+let isMongoConnected = false;
+
+// Connect to MongoDB with graceful fallback
+mongoose.connect(MONGODB_URI, {
+  serverSelectionTimeoutMS: 3000,
+  maxPoolSize: 20
+}).then(() => {
+  isMongoConnected = true;
+  console.log(`✅ [MongoDB] Connected successfully to ${MONGODB_URI.replace(/\/\/.*@/, '//<credentials>@')}`);
+}).catch((err) => {
+  isMongoConnected = false;
+  console.warn(`⚠️ [MongoDB] Connection offline (${err.message}). Using resilient local in-memory auth.`);
+});
+
+// --- Mongoose Schemas & Models ---
+const userSchema = new mongoose.Schema({
+  userId: { type: String, required: true, unique: true, index: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+  username: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+  passwordHash: { type: String, required: true },
+  salt: { type: String, required: true },
+  isActive: { type: Boolean, default: true },
+  lastLogin: { type: Date, default: null },
+  firstName: { type: String, default: '' },
+  lastName: { type: String, default: '' },
+  bio: { type: String, default: '' },
+  phoneNumber: { type: String, default: '' },
+  avatarUrl: { type: String, default: '' },
+  statusEmoji: { type: String, default: '' }
+}, { timestamps: true });
+
+const sessionSchema = new mongoose.Schema({
+  sessionId: { type: String, required: true, unique: true, index: true },
+  userId: { type: String, required: true, index: true },
+  token: { type: String, required: true },
+  refreshToken: { type: String, required: true, unique: true, index: true },
+  expiresAt: { type: Date, required: true, index: { expires: 0 } },
+  userAgent: { type: String, default: '' },
+  ipAddress: { type: String, default: '' }
+}, { timestamps: { createdAt: true, updatedAt: false } });
+
+const loginAttemptSchema = new mongoose.Schema({
+  attemptId: { type: String, required: true, unique: true },
+  email: { type: String, required: true, lowercase: true, index: true },
+  success: { type: Boolean, required: true },
+  timestamp: { type: Date, default: Date.now, expires: 30 * 24 * 60 * 60 },
+  ipAddress: { type: String, default: '' },
+  userAgent: { type: String, default: '' }
+});
+
+const DbUser = mongoose.models.User || mongoose.model('User', userSchema);
+const DbSession = mongoose.models.Session || mongoose.model('Session', sessionSchema);
+const DbLoginAttempt = mongoose.models.LoginAttempt || mongoose.model('LoginAttempt', loginAttemptSchema);
+
+// In-memory fallback storage for when MongoDB is disconnected during local testing
+const memoryUsers = new Map();
+const memorySessions = new Map();
+const memoryAttempts = [];
+
+// Helper to sanitize user object for client response
+function sanitizeUser(user) {
+  return {
+    userId: user.userId,
+    email: user.email,
+    username: user.username,
+    createdAt: user.createdAt || new Date(),
+    updatedAt: user.updatedAt || new Date(),
+    lastLogin: user.lastLogin || null,
+    isActive: user.isActive !== false,
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    bio: user.bio || '',
+    phoneNumber: user.phoneNumber || '',
+    avatarUrl: user.avatarUrl || '',
+    statusEmoji: user.statusEmoji || ''
+  };
+}
+
+// Seed default users for instant development login
+const SEED_USERS = [
+  { userId: 'vlad', email: 'vlad@telegram.org', username: 'vlad', pass: 'vladpass', firstName: 'Влад', lastName: 'Админ', bio: 'Creator of Comms', statusEmoji: '⚡' },
+  { userId: 'anya', email: 'anya@telegram.org', username: 'anya', pass: 'anyapass', firstName: 'Аня', lastName: '', bio: 'Designer & Artist', statusEmoji: '🌸' },
+  { userId: 'mom', email: 'mom@telegram.org', username: 'mom', pass: 'mompass', firstName: 'Мама', lastName: '', bio: 'Family first ❤️', statusEmoji: '❤️' },
+  { userId: 'dad', email: 'dad@telegram.org', username: 'dad', pass: 'dadpass', firstName: 'Папа', lastName: '', bio: 'Engineering & Tech', statusEmoji: '🚀' },
+  { userId: 'sister', email: 'sister@telegram.org', username: 'sister', pass: 'sispass', firstName: 'Сестра', lastName: '', bio: 'Music & Books ✨', statusEmoji: '✨' }
+];
+
+async function seedDefaultUsers() {
+  for (const u of SEED_USERS) {
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(u.pass, salt);
+    
+    const userDoc = {
+      userId: u.userId,
+      email: u.email.toLowerCase(),
+      username: u.username.toLowerCase(),
+      passwordHash,
+      salt,
+      isActive: true,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      bio: u.bio,
+      statusEmoji: u.statusEmoji,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    memoryUsers.set(u.userId, userDoc);
+    memoryUsers.set(u.email.toLowerCase(), userDoc);
+    memoryUsers.set(u.username.toLowerCase(), userDoc);
+
+    if (isMongoConnected) {
+      try {
+        await DbUser.findOneAndUpdate(
+          { userId: u.userId },
+          { $setOnInsert: userDoc },
+          { upsert: true, new: true }
+        );
+      } catch (err) {
+        // Ignored
+      }
+    }
+  }
+  console.log(`[Auth] Seeded ${SEED_USERS.length} default users with Bcrypt hashes.`);
+}
+seedDefaultUsers();
+
+// Token Generation Helper
+function generateTokenPair(user, sessionId) {
+  const payload = {
+    userId: user.userId,
+    email: user.email,
+    username: user.username,
+    sessionId
+  };
+
+  const accessToken = jwt.sign({ ...payload, type: 'access' }, JWT_ACCESS_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRY
+  });
+
+  const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, JWT_REFRESH_SECRET, {
+    expiresIn: REFRESH_TOKEN_EXPIRY
+  });
+
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_SECONDS * 1000);
+
+  return {
+    tokens: {
+      accessToken,
+      refreshToken,
+      expiresIn: ACCESS_TOKEN_EXPIRY_SECONDS,
+      tokenType: 'Bearer'
+    },
+    expiresAt
+  };
+}
+
+// Check brute-force lock (5 failed attempts in 15 mins)
+async function isAccountLocked(email) {
+  const windowMs = 15 * 60 * 1000;
+  const since = new Date(Date.now() - windowMs);
+  const cleanEmail = email.toLowerCase().trim();
+
+  if (isMongoConnected) {
+    try {
+      const count = await DbLoginAttempt.countDocuments({
+        email: cleanEmail,
+        success: false,
+        timestamp: { $gte: since }
+      });
+      return count >= 5;
+    } catch {
+      // Fallback
+    }
+  }
+
+  const memCount = memoryAttempts.filter(
+    (a) => a.email === cleanEmail && !a.success && a.timestamp >= since
+  ).length;
+  return memCount >= 5;
+}
+
+// Log attempt
+async function logAttempt(email, success, ipAddress, userAgent) {
+  const entry = {
+    attemptId: 'att_' + Math.random().toString(36).substring(2, 11),
+    email: email.toLowerCase().trim(),
+    success,
+    timestamp: new Date(),
+    ipAddress: ipAddress || '',
+    userAgent: userAgent || ''
+  };
+
+  memoryAttempts.push(entry);
+  if (memoryAttempts.length > 500) memoryAttempts.shift();
+
+  if (isMongoConnected) {
+    try {
+      await DbLoginAttempt.create(entry);
+    } catch {
+      // Fallback
+    }
+  }
+}
+
+// Find User by email or username
+async function findUserByIdentifier(identifier) {
+  const clean = identifier.toLowerCase().trim();
+  if (isMongoConnected) {
+    try {
+      const user = await DbUser.findOne({
+        $or: [{ email: clean }, { username: clean }, { userId: clean }]
+      });
+      if (user) return user;
+    } catch {
+      // Fallback to memory
+    }
+  }
+  return memoryUsers.get(clean) || null;
+}
+
+// =============================================================================
+// 🚀 AUTH REST API ENDPOINTS
+// =============================================================================
+
+// POST /api/auth/register
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, username, password, firstName, lastName, bio, phoneNumber } = req.body || {};
+
+    if (!email || !username || !password) {
+      return res.status(400).json({ error: 'Заполните обязательные поля: Email, Username и Пароль.' });
+    }
+
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ error: 'Укажите корректный адрес электронной почты.' });
+    }
+
+    if (username.trim().length < 3) {
+      return res.status(400).json({ error: 'Username должен содержать минимум 3 символа.' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов.' });
+    }
+
+    const existingUser = await findUserByIdentifier(email) || await findUserByIdentifier(username);
+    if (existingUser) {
+      return res.status(409).json({ error: 'Пользователь с таким Email или Username уже существует.' });
+    }
+
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(password, salt);
+    const userId = 'usr_' + Math.random().toString(36).substring(2, 9);
+
+    const userDoc = {
+      userId,
+      email: email.toLowerCase().trim(),
+      username: username.toLowerCase().trim(),
+      passwordHash,
+      salt,
+      isActive: true,
+      firstName: (firstName || username).trim(),
+      lastName: (lastName || '').trim(),
+      bio: (bio || '').trim(),
+      phoneNumber: (phoneNumber || '').trim(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastLogin: new Date()
+    };
+
+    if (isMongoConnected) {
+      await DbUser.create(userDoc);
+    }
+    memoryUsers.set(userId, userDoc);
+    memoryUsers.set(userDoc.email, userDoc);
+    memoryUsers.set(userDoc.username, userDoc);
+
+    // Register user for room broadcasting
+    if (!USER_ROOMS[userId]) {
+      USER_ROOMS[userId] = ['family'];
+    }
+    if (!ALL_USERS.includes(userId)) {
+      ALL_USERS.push(userId);
+      userSockets.set(userId, new Set());
+    }
+
+    const sessionId = 'sess_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+    const { tokens, expiresAt } = generateTokenPair(userDoc, sessionId);
+
+    const sessionDoc = {
+      sessionId,
+      userId,
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt,
+      userAgent: req.headers['user-agent'] || '',
+      ipAddress: req.ip || ''
+    };
+
+    if (isMongoConnected) {
+      await DbSession.create(sessionDoc);
+    }
+    memorySessions.set(sessionId, sessionDoc);
+    memorySessions.set(tokens.refreshToken, sessionDoc);
+
+    return res.status(201).json({
+      user: sanitizeUser(userDoc),
+      tokens,
+      session: { sessionId, expiresAt }
+    });
+  } catch (err) {
+    console.error('[Auth Register Error]', err);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера при регистрации.' });
+  }
+});
+
+// POST /api/auth/login
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const ipAddress = req.ip || '';
+    const userAgent = req.headers['user-agent'] || '';
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Введите логин/Email и пароль.' });
+    }
+
+    if (await isAccountLocked(email)) {
+      return res.status(429).json({
+        error: 'Слишком много неудачных попыток входа. Аккаунт временно заблокирован на 15 минут.'
+      });
+    }
+
+    const user = await findUserByIdentifier(email);
+    if (!user) {
+      await logAttempt(email, false, ipAddress, userAgent);
+      return res.status(401).json({ error: 'Неверный логин или пароль.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      await logAttempt(email, false, ipAddress, userAgent);
+      return res.status(401).json({ error: 'Неверный логин или пароль.' });
+    }
+
+    await logAttempt(email, true, ipAddress, userAgent);
+
+    // Update lastLogin
+    user.lastLogin = new Date();
+    if (isMongoConnected) {
+      await DbUser.updateOne({ userId: user.userId }, { lastLogin: user.lastLogin });
+    }
+
+    // Register user in active pools
+    if (!USER_ROOMS[user.userId]) {
+      USER_ROOMS[user.userId] = ['family'];
+    }
+    if (!ALL_USERS.includes(user.userId)) {
+      ALL_USERS.push(user.userId);
+      if (!userSockets.has(user.userId)) userSockets.set(user.userId, new Set());
+    }
+
+    const sessionId = 'sess_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+    const { tokens, expiresAt } = generateTokenPair(user, sessionId);
+
+    const sessionDoc = {
+      sessionId,
+      userId: user.userId,
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt,
+      userAgent,
+      ipAddress
+    };
+
+    if (isMongoConnected) {
+      await DbSession.create(sessionDoc);
+    }
+    memorySessions.set(sessionId, sessionDoc);
+    memorySessions.set(tokens.refreshToken, sessionDoc);
+
+    return res.json({
+      user: sanitizeUser(user),
+      tokens,
+      session: { sessionId, expiresAt }
+    });
+  } catch (err) {
+    console.error('[Auth Login Error]', err);
+    return res.status(500).json({ error: 'Ошибка сервера при входе.' });
+  }
+});
+
+// POST /api/auth/refresh
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body || {};
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token не предоставлен.' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Недействительный или просроченный Refresh token.' });
+    }
+
+    const user = await findUserByIdentifier(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'Пользователь не найден.' });
+    }
+
+    let session = memorySessions.get(refreshToken);
+    if (!session && isMongoConnected) {
+      session = await DbSession.findOne({ refreshToken, expiresAt: { $gt: new Date() } });
+    }
+
+    if (!session) {
+      return res.status(401).json({ error: 'Сессия отозвана или истекла.' });
+    }
+
+    const sessionId = session.sessionId || ('sess_' + Math.random().toString(36).substring(2, 11));
+    const { tokens, expiresAt } = generateTokenPair(user, sessionId);
+
+    session.token = tokens.accessToken;
+    session.refreshToken = tokens.refreshToken;
+    session.expiresAt = expiresAt;
+
+    if (isMongoConnected) {
+      await DbSession.updateOne({ sessionId }, {
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt
+      });
+    }
+    memorySessions.set(tokens.refreshToken, session);
+
+    return res.json({ tokens });
+  } catch (err) {
+    console.error('[Auth Refresh Error]', err);
+    return res.status(500).json({ error: 'Ошибка при обновлении токена.' });
+  }
+});
+
+// POST /api/auth/logout
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const { refreshToken } = req.body || {};
+    if (refreshToken) {
+      memorySessions.delete(refreshToken);
+      if (isMongoConnected) {
+        await DbSession.deleteOne({ refreshToken });
+      }
+    }
+    return res.json({ success: true, message: 'Сессия успешно завершена.' });
+  } catch (err) {
+    console.error('[Auth Logout Error]', err);
+    return res.status(500).json({ error: 'Ошибка при выходе.' });
+  }
+});
+
+// GET /api/auth/me
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Требуется токен авторизации.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_ACCESS_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Токен авторизации недействителен или истек.' });
+    }
+
+    const user = await findUserByIdentifier(decoded.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден.' });
+    }
+
+    return res.json({ user: sanitizeUser(user) });
+  } catch (err) {
+    console.error('[Auth Me Error]', err);
+    return res.status(500).json({ error: 'Ошибка при получении профиля.' });
+  }
+});
+
+// =============================================================================
+// 💬 SOCKET.IO REAL-TIME CHAT & WEBRTC
+// =============================================================================
+
 const io = new Server(httpServer, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
   },
-  maxHttpBufferSize: 1e8 // 100MB max packet size for base64 files
+  maxHttpBufferSize: 1e8 // 100MB max packet size
 });
 
-// Map secret keys to user IDs
+// Map secret keys to user IDs (legacy preset support)
 const AUTH_KEYS = {
   'vladpass': 'vlad',
   'anyapass': 'anya',
@@ -174,45 +685,6 @@ try {
     const data = fs.readFileSync(MESSAGES_FILE, 'utf8');
     messageHistory = JSON.parse(data);
     console.log(`[Server] Loaded ${messageHistory.length} messages from persistent storage.`);
-    
-    // Auto-migrate legacy base64 files to static server files to prevent client INP hangs
-    let migratedCount = 0;
-    messageHistory = messageHistory.map((msg) => {
-      if (msg.file && msg.file.data && msg.file.data.startsWith('data:')) {
-        try {
-          const name = msg.file.name || 'migrated_file';
-          const fileDataStr = msg.file.data;
-          
-          const base64Data = fileDataStr.replace(/^data:[^;]+;base64,/, '');
-          const buffer = Buffer.from(base64Data, 'base64');
-          
-          const ext = path.extname(name) || (msg.file.type === 'audio' ? '.webm' : msg.file.type === 'video' ? '.mp4' : '.bin');
-          const uniqueName = `migrated-${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
-          const filePath = path.join(UPLOADS_DIR, uniqueName);
-          
-          fs.writeFileSync(filePath, buffer);
-          
-          migratedCount++;
-          return {
-            ...msg,
-            file: {
-              ...msg.file,
-              data: `/uploads/${uniqueName}`
-            }
-          };
-        } catch (migErr) {
-          console.error('[Server] Failed to migrate base64 message file:', migErr);
-        }
-      }
-      return msg;
-    });
-
-    if (migratedCount > 0) {
-      console.log(`[Server] Successfully migrated ${migratedCount} legacy base64 files to static uploads.`);
-      fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messageHistory, null, 2));
-    }
-  } else {
-    console.log('[Server] No persistent message file found. Starting with empty history.');
   }
 } catch (err) {
   console.error('[Server] Error loading persistent messages:', err);
@@ -236,56 +708,73 @@ function persistMessages() {
   }, 100);
 }
 
-io.on('connection', (socket) => {
-  const key = socket.handshake.auth?.token || socket.handshake.query?.token;
-  const user = AUTH_KEYS[key];
+// Socket.io Connection & JWT Verification
+io.on('connection', async (socket) => {
+  const tokenOrKey = socket.handshake.auth?.token || socket.handshake.query?.token;
+  let user = null;
+
+  if (tokenOrKey) {
+    // 1. Try resolving as JWT Token
+    try {
+      const decoded = jwt.verify(tokenOrKey, JWT_ACCESS_SECRET);
+      if (decoded && decoded.userId) {
+        user = decoded.userId;
+      }
+    } catch {
+      // 2. Try resolving as legacy secret key
+      user = AUTH_KEYS[tokenOrKey] || null;
+    }
+  }
 
   if (!user) {
     console.log(`[Server] Unauthorized connection attempt: ${socket.id}`);
-    socket.emit('auth_error', { message: 'Invalid access key' });
+    socket.emit('auth_error', { message: 'Сессия недействительна. Пожалуйста, выполните вход.' });
     socket.disconnect(true);
     return;
   }
 
-  // Assign user mapping & multi-device tracking
-  socketToUser.set(socket.id, user);
+  // Ensure user registration in tracking collections
   if (!userSockets.has(user)) {
     userSockets.set(user, new Set());
   }
+  if (!ALL_USERS.includes(user)) {
+    ALL_USERS.push(user);
+  }
+  if (!USER_ROOMS[user]) {
+    USER_ROOMS[user] = ['family'];
+  }
+
+  socketToUser.set(socket.id, user);
   userSockets.get(user).add(socket.id);
 
-  console.log(`[Server] User connected: ${user} (Socket: ${socket.id}, Active devices: ${userSockets.get(user).size})`);
+  console.log(`[Server] User connected: ${user} (Socket: ${socket.id}, Devices: ${userSockets.get(user).size})`);
 
   // Join user to their authorized rooms
-  const allowedRooms = USER_ROOMS[user] || [];
+  const allowedRooms = USER_ROOMS[user] || ['family'];
   allowedRooms.forEach((roomId) => {
     socket.join(roomId);
-    console.log(`[Server] Socket ${socket.id} (${user}) joined room: ${roomId}`);
   });
 
   // Broadcast updated presence statuses to all clients
   io.emit('status_update', getOnlineStatus());
 
-  // Send message history for the rooms this user is authorized to see
+  // Send message history
   const userHistory = messageHistory.filter((msg) => allowedRooms.includes(msg.roomId));
   socket.emit('history', userHistory);
 
   // Handle incoming messages
   socket.on('send_message', (data) => {
-    // Security check: Verify sender authenticity and room authorization
     if (data.sender !== user) {
-      console.warn(`[Server] Sender spoofing check failed: Socket ${user} tried to send as ${data.sender}`);
+      console.warn(`[Server] Spoofing check failed: ${user} tried to send as ${data.sender}`);
       return;
     }
 
     if (!allowedRooms.includes(data.roomId)) {
-      console.warn(`[Server] Unauthorized room send check failed: User ${user} tried to send to unauthorized room ${data.roomId}`);
+      console.warn(`[Server] Unauthorized room send check failed: ${user} in ${data.roomId}`);
       return;
     }
 
     let finalFile = data.file;
-    
-    // If the file is still a Base64 string (fallback from client), save it to disk
     if (finalFile && finalFile.data && finalFile.data.startsWith('data:')) {
       try {
         let base64Data = finalFile.data;
@@ -297,7 +786,7 @@ io.on('connection', (socket) => {
           base64Data = base64Data.replace(/^data:.*?,/, '');
         }
         const buffer = Buffer.from(base64Data, 'base64');
-        const ext = path.extname(finalFile.name || '') || (finalFile.type === 'audio' ? '.webm' : (finalFile.type === 'video' || finalFile.type === 'video_note') ? '.webm' : '.bin');
+        const ext = path.extname(finalFile.name || '') || (finalFile.type === 'audio' ? '.webm' : '.bin');
         const uniqueName = `fallback-${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
         const filePath = path.join(UPLOADS_DIR, uniqueName);
         fs.writeFileSync(filePath, buffer);
@@ -329,44 +818,28 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Persist messages to file safely
     persistMessages();
-
-    // Relay message ONLY to participants of this specific room
     io.to(data.roomId).emit('receive_message', newMessage);
-    console.log(`[Server] Message from ${user} in "${data.roomId}": "${data.text}"`);
   });
 
   // Handle editing a message
   socket.on('edit_message', ({ messageId, roomId, newText }) => {
-    // Security check: Verify sender is authorized for this room
     if (!allowedRooms.includes(roomId)) return;
-
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
-    if (msgIndex === -1) return;
-
-    // Security check: Verify editing is done by the sender
-    if (messageHistory[msgIndex].sender !== user) return;
+    if (msgIndex === -1 || messageHistory[msgIndex].sender !== user) return;
 
     messageHistory[msgIndex].text = newText;
     messageHistory[msgIndex].isEdited = true;
-
     persistMessages();
 
-    // Broadcast update to room
     io.to(roomId).emit('message_edited', { messageId, roomId, newText });
   });
 
   // Handle deleting a message
   socket.on('delete_message', ({ messageId, roomId }) => {
-    // Security check: Verify sender is authorized for this room
     if (!allowedRooms.includes(roomId)) return;
-
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
-    if (msgIndex === -1) return;
-
-    // Security check: Verify deleting is done by the sender
-    if (messageHistory[msgIndex].sender !== user) return;
+    if (msgIndex === -1 || messageHistory[msgIndex].sender !== user) return;
 
     const [deletedMsg] = messageHistory.splice(msgIndex, 1);
     if (deletedMsg && deletedMsg.file && deletedMsg.file.data) {
@@ -374,23 +847,17 @@ io.on('connection', (socket) => {
     }
 
     persistMessages();
-
-    // Broadcast delete event
     io.to(roomId).emit('message_deleted', { messageId, roomId });
   });
 
   // Handle emoji reactions
   socket.on('toggle_reaction', ({ messageId, roomId, reaction }) => {
-    // Security check: Verify sender is authorized for this room
     if (!allowedRooms.includes(roomId)) return;
-
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
     if (msgIndex === -1) return;
 
     const msg = messageHistory[msgIndex];
-    if (!msg.reactions) {
-      msg.reactions = {};
-    }
+    if (!msg.reactions) msg.reactions = {};
 
     const reactors = msg.reactions[reaction] || [];
     const reactorIndex = reactors.indexOf(user);
@@ -408,15 +875,12 @@ io.on('connection', (socket) => {
     }
 
     persistMessages();
-
-    // Broadcast reaction update
     io.to(roomId).emit('reactions_updated', { messageId, roomId, reactions: msg.reactions });
   });
 
-  // Handle read receipts — mark messages as read by this user
+  // Handle read receipts
   socket.on('mark_read', ({ roomId, messageIds }) => {
-    if (!allowedRooms.includes(roomId)) return;
-    if (!Array.isArray(messageIds)) return;
+    if (!allowedRooms.includes(roomId) || !Array.isArray(messageIds)) return;
 
     const updatedMessages = [];
     messageIds.forEach((messageId) => {
@@ -424,7 +888,7 @@ io.on('connection', (socket) => {
       if (msgIndex === -1) return;
 
       const msg = messageHistory[msgIndex];
-      if (msg.sender === user) return; // Can't mark own message
+      if (msg.sender === user) return;
 
       if (!msg.readBy) msg.readBy = [];
       if (!msg.readBy.includes(user)) {
@@ -439,7 +903,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle typing indicators
+  // Typing indicators
   socket.on('typing', ({ roomId, isTyping }) => {
     if (!allowedRooms.includes(roomId)) return;
     socket.to(roomId).emit('typing_update', {
@@ -452,15 +916,12 @@ io.on('connection', (socket) => {
   // WebRTC Calling Handlers
   socket.on('call_user', ({ roomId, receiver, type }) => {
     if (!allowedRooms.includes(roomId)) return;
-    
-    // Broadcast incoming call to other users in this direct room with caller's socketId
     socket.to(roomId).emit('call_incoming', {
       roomId,
       caller: user,
       callerSocketId: socket.id,
       type
     });
-    console.log(`[Server] ${user} is calling ${receiver} in room ${roomId} (${type}, socket: ${socket.id})`);
   });
 
   socket.on('call_accept', ({ roomId, targetSocketId }) => {
@@ -470,7 +931,6 @@ io.on('connection', (socket) => {
     } else {
       socket.to(roomId).emit('call_accepted', { roomId, targetSocketId: socket.id });
     }
-    console.log(`[Server] Call accepted in room ${roomId} (callee socket: ${socket.id})`);
   });
 
   socket.on('call_reject', ({ roomId, targetSocketId }) => {
@@ -480,7 +940,6 @@ io.on('connection', (socket) => {
     } else {
       socket.to(roomId).emit('call_rejected', { roomId });
     }
-    console.log(`[Server] Call rejected in room ${roomId}`);
   });
 
   socket.on('call_end', ({ roomId, targetSocketId }) => {
@@ -490,7 +949,6 @@ io.on('connection', (socket) => {
     } else {
       socket.to(roomId).emit('call_ended', { roomId });
     }
-    console.log(`[Server] Call ended in room ${roomId}`);
   });
 
   socket.on('webrtc_signal', ({ roomId, targetSocketId, signal }) => {
@@ -502,12 +960,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle manual status check
   socket.on('get_status', () => {
     socket.emit('status_update', getOnlineStatus());
   });
 
-  // Handle disconnects
+  // Disconnect
   socket.on('disconnect', () => {
     const disconnectedUser = socketToUser.get(socket.id);
     if (disconnectedUser) {
@@ -516,7 +973,7 @@ io.on('connection', (socket) => {
       if (userSocketsSet) {
         userSocketsSet.delete(socket.id);
       }
-      console.log(`[Server] User disconnected: ${disconnectedUser} (Socket: ${socket.id}, Remaining devices: ${userSocketsSet?.size || 0})`);
+      console.log(`[Server] User disconnected: ${disconnectedUser} (Socket: ${socket.id})`);
       io.emit('status_update', getOnlineStatus());
     }
   });
@@ -525,8 +982,8 @@ io.on('connection', (socket) => {
 const PORT = 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`\n======================================================`);
-  console.log(`  Chat Socket.io server running:`);
-  console.log(`  - Local:   http://localhost:${PORT}`);
-  console.log(`  - Network: http://192.168.0.9:${PORT}`);
+  console.log(`  🚀 Secure Comms Server Active:`);
+  console.log(`  - API & WebSockets: http://localhost:${PORT}`);
+  console.log(`  - Local Network:    http://192.168.0.9:${PORT}`);
   console.log(`======================================================\n`);
 });

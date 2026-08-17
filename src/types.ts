@@ -1,4 +1,5 @@
-export type UserId = 'vlad' | 'anya' | 'mom' | 'dad' | 'sister';
+export type UserId = 'vlad' | 'anya' | 'mom' | 'dad' | 'sister' | (string & {});
+
 
 export interface Message {
   id: string;
