@@ -2039,6 +2039,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         </div>
       )}
 
+      {/* Profile Edit Modal */}
+      {showProfileModal && (
+        <ProfileEditModal
+          onClose={() => setShowProfileModal(false)}
+          onToast={showToast}
+        />
+      )}
+
     </div>
   );
 };
