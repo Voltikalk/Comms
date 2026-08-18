@@ -10,7 +10,13 @@ import {
   Sun, 
   Moon, 
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  RotateCw,
+  Dices,
+  Smile,
+  ShieldCheck,
+  Zap,
+  Sliders
 } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 
@@ -23,18 +29,25 @@ export interface TelegramRegistrationWizardProps {
 
 // Telegram Avatar Gradient Presets
 const AVATAR_GRADIENTS = [
-  'from-[#3390ec] to-[#0066FF]',
-  'from-[#FF5E62] to-[#FF9966]',
-  'from-[#11998e] to-[#38ef7d]',
-  'from-[#8E2DE2] to-[#4A00E0]',
-  'from-[#F2994A] to-[#F2C94C]',
-  'from-[#EC008C] to-[#FC6767]',
-  'from-[#00c6ff] to-[#0072ff]',
+  { id: 'blue', class: 'from-[#3390ec] to-[#0066FF]', name: 'Классический синий' },
+  { id: 'sunset', class: 'from-[#FF5E62] to-[#FF9966]', name: 'Закат' },
+  { id: 'emerald', class: 'from-[#11998e] to-[#38ef7d]', name: 'Изумруд' },
+  { id: 'purple', class: 'from-[#8E2DE2] to-[#4A00E0]', name: 'Аметист' },
+  { id: 'amber', class: 'from-[#F2994A] to-[#F2C94C]', name: 'Янтарь' },
+  { id: 'crimson', class: 'from-[#EC008C] to-[#FC6767]', name: 'Малина' },
+  { id: 'cyan', class: 'from-[#00c6ff] to-[#0072ff]', name: 'Лазурь' },
+  { id: 'midnight', class: 'from-[#2c3e50] to-[#3498db]', name: 'Полночь' },
 ];
+
+// Preset Emoji Stickers for Instant Avatar Selection
+const EMOJI_STICKER_PRESETS = ['🚀', '😎', '🔥', '⚡', '👑', '💎', '🐱', '🦊', '🦄', '👾', '🎯', '✨'];
+
+const RANDOM_ADJECTIVES = ['Super', 'Fast', 'Cosmic', 'Hyper', 'Ultra', 'Cyber', 'Neon', 'Stealth', 'Alpha', 'Quantum'];
+const RANDOM_NOUNS = ['Pilot', 'Ninja', 'Fox', 'Eagle', 'Wave', 'Phoenix', 'Cipher', 'Vortex', 'Runner', 'Knight'];
 
 const slideVariants: Variants = {
   enter: (dir: number) => ({
-    x: dir > 0 ? 50 : -50,
+    x: dir > 0 ? 40 : -40,
     opacity: 0,
     scale: 0.98,
   }),
@@ -44,16 +57,16 @@ const slideVariants: Variants = {
     scale: 1,
   },
   exit: (dir: number) => ({
-    x: dir > 0 ? -50 : 50,
+    x: dir > 0 ? -40 : 40,
     opacity: 0,
     scale: 0.98,
   }),
 };
 
 const slideTransition: Transition = {
-  x: { duration: 0.28, ease: 'easeInOut' },
-  opacity: { duration: 0.22 },
-  scale: { duration: 0.28 },
+  x: { duration: 0.26, ease: 'easeInOut' },
+  opacity: { duration: 0.2 },
+  scale: { duration: 0.26 },
 };
 
 export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProps> = ({
@@ -66,7 +79,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
   // Wizard Navigation State
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [direction, setDirection] = useState<number>(1); // 1 = forward, -1 = backward
+  const [direction, setDirection] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
 
@@ -79,19 +92,24 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
   const [codeError, setCodeError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState<number>(30);
   const [isCodeResent, setIsCodeResent] = useState<boolean>(false);
+  const [showConfetti, setShowConfetti] = useState<boolean>(false);
   const digitInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Step 3: Names & Username
+  // Step 3: Names, Username & Custom Avatar Color
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
   const [username, setUsername] = useState<string>('');
+  const [selectedGradientIndex, setSelectedGradientIndex] = useState<number>(0);
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
 
-  // Step 4: Avatar Upload & Crop
+  // Step 4: Avatar Upload, Crop & Filter
   const [avatarRawUrl, setAvatarRawUrl] = useState<string | null>(null);
   const [avatarCroppedUrl, setAvatarCroppedUrl] = useState<string | null>(null);
   const [isCropping, setIsCropping] = useState<boolean>(false);
   const [cropZoom, setCropZoom] = useState<number>(1);
+  const [cropRotation, setCropRotation] = useState<number>(0);
+  const [cropFilter, setCropFilter] = useState<'none' | 'vivid' | 'mono' | 'warm'>('none');
   const [cropPosition, setCropPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDraggingCrop, setIsDraggingCrop] = useState<boolean>(false);
   const dragStartRef = useRef<{ startX: number; startY: number; posX: number; posY: number }>({ startX: 0, startY: 0, posX: 0, posY: 0 });
@@ -141,7 +159,6 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
     setEmailError(null);
     setResendTimer(30);
     setIsCodeResent(false);
-    // Auto-generate username base if empty
     if (!username) {
       const suggested = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
       setUsername(suggested || 'user');
@@ -165,23 +182,23 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
     next[index] = digit;
     setCodeDigits(next);
 
-    // Auto-focus next cell
     if (index < 5 && digit) {
       digitInputRefs.current[index + 1]?.focus();
     }
 
-    // Auto submit if all 6 digits entered
     if (index === 5 || next.every((d) => d.length === 1)) {
       const fullCode = next.join('');
       if (fullCode.length === 6) {
+        setShowConfetti(true);
         setTimeout(() => {
+          setShowConfetti(false);
           goToNextStep(3);
-        }, 150);
+        }, 300);
       }
     }
   };
 
-  // Step 2: Handle KeyDown (Backspace & Arrow Navigation)
+  // Step 2: Handle KeyDown
   const handleDigitKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace') {
       if (!codeDigits[index] && index > 0) {
@@ -203,6 +220,17 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
     }
   };
 
+  // Step 2: Quick Demo Auto-fill
+  const handleAutoFillDemoCode = () => {
+    const demo = ['7', '7', '7', '7', '7', '7'];
+    setCodeDigits(demo);
+    setShowConfetti(true);
+    setTimeout(() => {
+      setShowConfetti(false);
+      goToNextStep(3);
+    }, 280);
+  };
+
   // Step 2: Handle Paste
   const handleDigitPaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
@@ -219,9 +247,11 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
     digitInputRefs.current[targetFocus]?.focus();
 
     if (pasted.length === 6) {
+      setShowConfetti(true);
       setTimeout(() => {
+        setShowConfetti(false);
         goToNextStep(3);
-      }, 180);
+      }, 280);
     }
   };
 
@@ -235,6 +265,14 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
     setTimeout(() => setIsCodeResent(false), 3000);
   };
 
+  // Step 3: Random Username Generator
+  const generateRandomUsername = () => {
+    const adj = RANDOM_ADJECTIVES[Math.floor(Math.random() * RANDOM_ADJECTIVES.length)];
+    const noun = RANDOM_NOUNS[Math.floor(Math.random() * RANDOM_NOUNS.length)];
+    const num = Math.floor(100 + Math.random() * 900);
+    setUsername(`${adj.toLowerCase()}_${noun.toLowerCase()}${num}`);
+  };
+
   // Step 3: Submit Names
   const handleNamesSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -246,23 +284,14 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
     goToNextStep(4);
   };
 
-  // Initials generator for live avatar preview
+  // Initials generator
   const getInitials = () => {
+    if (selectedEmoji) return selectedEmoji;
     const f = firstName.trim();
     const l = lastName.trim();
     if (!f && !l) return email ? email.charAt(0).toUpperCase() : '?';
     if (f && l) return `${f.charAt(0)}${l.charAt(0)}`.toUpperCase();
     return f.charAt(0).toUpperCase();
-  };
-
-  // Avatar gradient selector based on name
-  const getGradientIndex = () => {
-    const str = `${firstName}${lastName}${email}`;
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return Math.abs(hash) % AVATAR_GRADIENTS.length;
   };
 
   // Step 4: Handle File Upload
@@ -277,18 +306,20 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
       const url = e.target?.result as string;
       setAvatarRawUrl(url);
       setCropZoom(1);
+      setCropRotation(0);
+      setCropFilter('none');
       setCropPosition({ x: 0, y: 0 });
       setIsCropping(true);
     };
     reader.readAsDataURL(file);
   };
 
-  // Step 4: Perform Canvas Circular Crop
+  // Step 4: Perform Canvas Circular Crop with Rotation and Filters
   const applyCrop = useCallback(() => {
     if (!rawImageRef.current) return;
     const img = rawImageRef.current;
     const canvas = document.createElement('canvas');
-    const size = 320; // High resolution crop
+    const size = 320;
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
@@ -296,7 +327,22 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+
+    // Apply color filter if selected
+    if (cropFilter === 'mono') {
+      ctx.filter = 'grayscale(100%) contrast(1.1)';
+    } else if (cropFilter === 'vivid') {
+      ctx.filter = 'saturate(1.4) contrast(1.1)';
+    } else if (cropFilter === 'warm') {
+      ctx.filter = 'sepia(30%) saturate(1.2)';
+    }
+
     ctx.clearRect(0, 0, size, size);
+
+    // Coordinate transforms for center, rotation and scale
+    ctx.save();
+    ctx.translate(size / 2 + cropPosition.x, size / 2 + cropPosition.y);
+    ctx.rotate((cropRotation * Math.PI) / 180);
 
     const imgWidth = img.naturalWidth || img.width;
     const imgHeight = img.naturalHeight || img.height;
@@ -305,15 +351,14 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
     const drawWidth = imgWidth * finalScale;
     const drawHeight = imgHeight * finalScale;
-    const drawX = (size - drawWidth) / 2 + cropPosition.x;
-    const drawY = (size - drawHeight) / 2 + cropPosition.y;
 
-    ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+    ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    ctx.restore();
 
     const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
     setAvatarCroppedUrl(croppedDataUrl);
     setIsCropping(false);
-  }, [cropZoom, cropPosition]);
+  }, [cropZoom, cropRotation, cropFilter, cropPosition]);
 
   // Final Registration Action
   const handleFinalSubmit = async () => {
@@ -348,8 +393,12 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-50 dark:bg-[#0e1621] text-slate-900 dark:text-white transition-colors duration-300 relative select-none">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-50 dark:bg-[#0e1621] text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden">
       
+      {/* Subtle Background Glow Orbs */}
+      <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-[#3390ec]/10 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-[#0066FF]/10 blur-[100px] pointer-events-none" />
+
       {/* Top Bar: Back button (Step > 1) & Theme toggle */}
       <div className="fixed top-4 left-4 right-4 max-w-lg mx-auto flex items-center justify-between z-40 pointer-events-auto">
         {currentStep > 1 ? (
@@ -391,7 +440,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
       </div>
 
       {/* Main Centered Content (Max ~400px) */}
-      <div className="w-full max-w-[400px] flex flex-col items-center justify-center min-h-[460px] relative">
+      <div className="w-full max-w-[400px] flex flex-col items-center justify-center min-h-[460px] relative z-10">
         <AnimatePresence initial={false} custom={direction} mode="wait">
           
           {/* ================================================================= */}
@@ -408,15 +457,19 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               exit="exit"
               className="w-full flex flex-col items-center text-center"
             >
-              {/* Telegram Logo / App Icon */}
-              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#3390ec] to-[#0072ff] text-white flex items-center justify-center shadow-lg shadow-[#3390ec]/25 mb-6">
+              {/* Telegram Logo / App Icon with Hover Pulse */}
+              <motion.div 
+                whileHover={{ scale: 1.06, rotate: 4 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#3390ec] to-[#0072ff] text-white flex items-center justify-center shadow-lg shadow-[#3390ec]/25 mb-6 cursor-pointer"
+              >
                 <Mail className="w-9 h-9 text-white" />
-              </div>
+              </motion.div>
 
               <h1 className="text-2xl sm:text-[26px] font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
                 Регистрация
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-8">
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-7">
                 Введите ваш адрес эл. почты для получения кода подтверждения
               </p>
 
@@ -437,6 +490,11 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                         : 'border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 shadow-xs'
                     }`}
                   />
+                  {isEmailValid && (
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-500 flex items-center">
+                      <Check className="w-5 h-5" />
+                    </div>
+                  )}
                 </div>
 
                 {emailError && (
@@ -444,6 +502,12 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     {emailError}
                   </p>
                 )}
+
+                {/* Trust badge */}
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#3390ec]" />
+                  <span>Ваши данные надежно защищены сквозным шифрованием</span>
+                </div>
 
                 <button
                   type="submit"
@@ -484,21 +548,34 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               initial="enter"
               animate="center"
               exit="exit"
-              className="w-full flex flex-col items-center text-center"
+              className="w-full flex flex-col items-center text-center relative"
             >
+              {/* Confetti Visual Feedback */}
+              {showConfetti && (
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1.2, opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute -top-12 z-50 px-4 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-lg flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Код подтвержден!</span>
+                </motion.div>
+              )}
+
               <div className="w-16 h-16 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center mb-5">
-                <Sparkles className="w-8 h-8" />
+                <Sparkles className="w-8 h-8 animate-pulse" />
               </div>
 
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                 Код подтверждения
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-8">
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-6">
                 Мы отправили 6-значный код на <strong className="font-semibold text-slate-800 dark:text-slate-200">{email}</strong>
               </p>
 
               {/* 6 Digit Input Cells */}
-              <div className="flex items-center justify-center gap-2 sm:gap-2.5 mb-6 w-full" onPaste={handleDigitPaste}>
+              <div className="flex items-center justify-center gap-2 sm:gap-2.5 mb-4 w-full" onPaste={handleDigitPaste}>
                 {codeDigits.map((digit, idx) => (
                   <input
                     key={idx}
@@ -516,8 +593,21 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 ))}
               </div>
 
+              {/* Interactive Demo Auto-fill Helper */}
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={handleAutoFillDemoCode}
+                  className="px-3 py-1.5 rounded-full bg-[#3390ec]/10 hover:bg-[#3390ec]/20 text-[#3390ec] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  title="Нажмите для тестового ввода кода 777777"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Быстрый ввод: 777777</span>
+                </button>
+              </div>
+
               {codeError && (
-                <p className="text-xs text-rose-500 mb-4 font-medium">
+                <p className="text-xs text-rose-500 mb-3 font-medium">
                   {codeError}
                 </p>
               )}
@@ -561,7 +651,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
           )}
 
           {/* ================================================================= */}
-          {/* STEP 3: FIRST & LAST NAME WITH LIVE INITIALS PREVIEW               */}
+          {/* STEP 3: FIRST & LAST NAME + COLOR PALETTE & USERNAME PICKER        */}
           {/* ================================================================= */}
           {currentStep === 3 && (
             <motion.div
@@ -574,21 +664,68 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               exit="exit"
               className="w-full flex flex-col items-center text-center"
             >
-              {/* Dynamic Live Initials Avatar */}
-              <div className="relative mb-6">
-                <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr ${AVATAR_GRADIENTS[getGradientIndex()]} text-white flex items-center justify-center text-3xl sm:text-4xl font-bold shadow-xl ring-4 ring-white dark:ring-[#17212b] transition-all duration-300 select-none`}>
+              {/* Dynamic Live Avatar with Spring Animation */}
+              <div className="relative mb-4">
+                <motion.div 
+                  key={`${getInitials()}-${selectedGradientIndex}`}
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                  className={`w-24 h-24 sm:w-26 sm:h-26 rounded-full bg-gradient-to-tr ${AVATAR_GRADIENTS[selectedGradientIndex].class} text-white flex items-center justify-center text-3xl sm:text-4xl font-bold shadow-xl ring-4 ring-white dark:ring-[#17212b] select-none`}
+                >
                   {getInitials()}
-                </div>
+                </motion.div>
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              {/* Interactive Avatar Gradient Palette Swatches */}
+              <div className="flex items-center justify-center gap-1.5 mb-5 w-full">
+                {AVATAR_GRADIENTS.map((grad, idx) => (
+                  <button
+                    key={grad.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedGradientIndex(idx);
+                      setSelectedEmoji(null);
+                    }}
+                    title={grad.name}
+                    className={`w-6 h-6 rounded-full bg-gradient-to-tr ${grad.class} transition-all cursor-pointer flex items-center justify-center ${
+                      selectedGradientIndex === idx && !selectedEmoji
+                        ? 'ring-2 ring-[#3390ec] scale-110 shadow-xs'
+                        : 'opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    {selectedGradientIndex === idx && !selectedEmoji && (
+                      <Check className="w-3 h-3 text-white" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Emoji Sticker Presets */}
+              <div className="flex items-center justify-center gap-1.5 mb-5 overflow-x-auto max-w-xs py-1 px-2 rounded-xl bg-black/5 dark:bg-white/5">
+                <Smile className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                {EMOJI_STICKER_PRESETS.slice(0, 6).map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => setSelectedEmoji(selectedEmoji === emoji ? null : emoji)}
+                    className={`text-base p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-all cursor-pointer ${
+                      selectedEmoji === emoji ? 'bg-[#3390ec]/20 scale-115' : 'opacity-70'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
                 Ваше имя
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-6">
-                Введите ваше имя и фамилию для отображения в профиле
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-4">
+                Введите ваше имя и выберите уникальный username
               </p>
 
-              <form onSubmit={handleNamesSubmit} className="w-full space-y-3.5">
+              <form onSubmit={handleNamesSubmit} className="w-full space-y-3">
                 <div className="w-full">
                   <input
                     type="text"
@@ -617,6 +754,26 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                   />
                 </div>
 
+                {/* Username with Random Generator Button */}
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.replace(/\s+/g, '').toLowerCase())}
+                    placeholder="username (никнейм)"
+                    className="w-full pl-8 pr-10 py-3 rounded-2xl text-base bg-white dark:bg-[#17212b] border border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs font-mono text-sm"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm">@</span>
+                  <button
+                    type="button"
+                    onClick={generateRandomUsername}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-[#3390ec] hover:bg-[#3390ec]/10 transition-all cursor-pointer"
+                    title="Сгенерировать случайный никнейм"
+                  >
+                    <Dices className="w-4 h-4" />
+                  </button>
+                </div>
+
                 {nameError && (
                   <p className="text-xs text-rose-500 text-left px-1 font-medium">
                     {nameError}
@@ -639,7 +796,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
           )}
 
           {/* ================================================================= */}
-          {/* STEP 4: OPTIONAL AVATAR UPLOAD & CIRCULAR CROPPER                  */}
+          {/* STEP 4: AVATAR UPLOAD, CROPPER & FILTER PRESETS                    */}
           {/* ================================================================= */}
           {currentStep === 4 && (
             <motion.div
@@ -652,11 +809,11 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               exit="exit"
               className="w-full flex flex-col items-center text-center"
             >
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1.5">
                 Фото профиля
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-6">
-                Загрузите фото профиля или оставьте стильную аватарку с инициалами
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-5">
+                Загрузите собственное фото или оставьте стильную аватарку
               </p>
 
               {/* Hidden File Input */}
@@ -673,10 +830,10 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
               {/* Cropper View or Circular Avatar Display */}
               {!isCropping ? (
-                <div className="flex flex-col items-center mb-8">
+                <div className="flex flex-col items-center mb-6 w-full">
                   <div 
                     onClick={() => fileInputRef.current?.click()}
-                    className="relative group cursor-pointer"
+                    className="relative group cursor-pointer mb-3"
                     title="Нажмите для выбора фото"
                   >
                     {avatarCroppedUrl ? (
@@ -686,7 +843,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                         className="w-32 h-32 sm:w-36 sm:h-36 rounded-full object-cover shadow-xl ring-4 ring-[#3390ec]/30 group-hover:opacity-90 transition-all"
                       />
                     ) : (
-                      <div className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-tr ${AVATAR_GRADIENTS[getGradientIndex()]} text-white flex items-center justify-center text-4xl sm:text-5xl font-bold shadow-xl ring-4 ring-white dark:ring-[#17212b] group-hover:scale-[1.02] transition-all`}>
+                      <div className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-tr ${AVATAR_GRADIENTS[selectedGradientIndex].class} text-white flex items-center justify-center text-4xl sm:text-5xl font-bold shadow-xl ring-4 ring-white dark:ring-[#17212b] group-hover:scale-[1.02] transition-all select-none`}>
                         {getInitials()}
                       </div>
                     )}
@@ -697,29 +854,49 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     </div>
                   </div>
 
-                  {avatarCroppedUrl && (
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setAvatarCroppedUrl(null);
-                        setAvatarRawUrl(null);
-                      }}
-                      className="mt-3 text-xs text-rose-500 hover:underline cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3.5 py-1.5 rounded-full bg-[#3390ec]/10 hover:bg-[#3390ec]/20 text-[#3390ec] text-xs font-semibold transition-all cursor-pointer"
                     >
-                      Удалить фото
+                      Загрузить фото
                     </button>
-                  )}
+                    {avatarCroppedUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAvatarCroppedUrl(null);
+                          setAvatarRawUrl(null);
+                        }}
+                        className="px-3 py-1.5 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-xs font-medium transition-all cursor-pointer"
+                      >
+                        Сбросить
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
-                /* Built-in Circular Crop Interface */
-                <div className="w-full flex flex-col items-center mb-6 bg-slate-100 dark:bg-[#17212b] p-4 rounded-3xl border border-slate-200 dark:border-white/10">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 font-medium">
-                    Перетащите и масштабируйте фото в круге:
-                  </p>
+                /* Built-in Circular Crop Interface with Filters & Rotation */
+                <div className="w-full flex flex-col items-center mb-5 bg-slate-100 dark:bg-[#17212b] p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-lg">
+                  <div className="flex items-center justify-between w-full mb-3 px-1">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      Перетащите и настройте фото:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCropRotation((prev) => (prev + 90) % 360)}
+                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer flex items-center gap-1 text-xs"
+                      title="Повернуть на 90°"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      <span>90°</span>
+                    </button>
+                  </div>
 
                   {/* Circular Crop Viewport */}
                   <div 
-                    className="relative w-44 h-44 rounded-full overflow-hidden border-4 border-[#3390ec] shadow-2xl cursor-grab active:cursor-grabbing select-none touch-none bg-black flex items-center justify-center"
+                    className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-[#3390ec] shadow-2xl cursor-grab active:cursor-grabbing select-none touch-none bg-black flex items-center justify-center"
                     onMouseDown={(e) => {
                       setIsDraggingCrop(true);
                       dragStartRef.current = {
@@ -769,11 +946,12 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                         alt="Crop target"
                         draggable={false}
                         style={{
-                          transform: `translate(${cropPosition.x}px, ${cropPosition.y}px) scale(${cropZoom})`,
+                          transform: `translate(${cropPosition.x}px, ${cropPosition.y}px) rotate(${cropRotation}deg) scale(${cropZoom})`,
                           transformOrigin: 'center center',
                           maxWidth: 'none',
                           userSelect: 'none',
                           pointerEvents: 'none',
+                          filter: cropFilter === 'mono' ? 'grayscale(100%)' : cropFilter === 'vivid' ? 'saturate(1.4)' : cropFilter === 'warm' ? 'sepia(30%)' : 'none'
                         }}
                         className="transition-transform duration-75"
                       />
@@ -781,7 +959,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                   </div>
 
                   {/* Zoom Slider */}
-                  <div className="flex items-center gap-3 w-full max-w-[260px] mt-4">
+                  <div className="flex items-center gap-3 w-full max-w-[240px] mt-3">
                     <ZoomOut className="w-4 h-4 text-slate-400 shrink-0" />
                     <input
                       type="range"
@@ -793,6 +971,25 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                       className="w-full accent-[#3390ec] cursor-pointer"
                     />
                     <ZoomIn className="w-4 h-4 text-slate-400 shrink-0" />
+                  </div>
+
+                  {/* Filter Swatches */}
+                  <div className="flex items-center gap-1.5 mt-3">
+                    <Sliders className="w-3.5 h-3.5 text-slate-400 mr-1" />
+                    {(['none', 'vivid', 'mono', 'warm'] as const).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setCropFilter(f)}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                          cropFilter === f 
+                            ? 'bg-[#3390ec] text-white shadow-xs' 
+                            : 'bg-black/5 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-black/10'
+                        }`}
+                      >
+                        {f === 'none' ? 'Оригинал' : f === 'vivid' ? 'Яркий' : f === 'mono' ? 'Ч/Б' : 'Теплый'}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Cropper Action Buttons */}
