@@ -237,6 +237,13 @@ npm run storybook
 
 ---
 
+### [v2.78.0] — 18 августа 2026 г.
+* **Редизайн экрана входа в монолитный стиль Telegram Web (Telegram Web Unified Login Aesthetic)**:
+  * **Полная унификация дизайна**: в [`src/components/LoginScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/LoginScreen.tsx) убран старый фиолетовый фон с градиентными частицами и стеклянной карточкой. Теперь экран входа выполнен в чистом минималистичном стиле Telegram Web (`bg-slate-50` / dark `bg-[#0e1621]`, центрированный контейнер 400px, фирменный круглый логотип Telegram Blue `#3390ec` с самолетиком).
+  * **Сетка быстрых демо-аккаунтов**: стилизована под Telegram-аватарки с мягкими скруглениями `rounded-2xl`, цветными градиентами и hover-подсветкой.
+  * **Крупные поля ввода и кнопка «Войти»**: фирменные поля `rounded-2xl` с мягкой обводкой и подсветкой фокуса `#3390ec`, кнопка переключения видимости пароля и кнопка «Войти».
+  * **Бесшовный переход к регистрации**: кнопка «Нет аккаунта? Зарегистрироваться» плавно запускает многошаговый мастер регистрации [`TelegramRegistrationWizard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/TelegramRegistrationWizard.tsx), а кнопка «Назад» и «Уже зарегистрированы? Войти» мгновенно возвращают на экран входа.
+
 ### [v2.77.0] — 18 августа 2026 г.
 * **Многошаговый визард регистрации в стиле Telegram Web (Telegram Multi-Step Registration Wizard)**:
   * **Компонент [`TelegramRegistrationWizard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/TelegramRegistrationWizard.tsx)**: разработан полнофункциональный 4-шаговый мастер регистрации без перезагрузки страниц в фирменной эстетике Telegram (акцентный цвет `#3390ec`, типографика, скругления `rounded-2xl`, центрирование до 400px).
