@@ -148,17 +148,10 @@ const VideoFeedbackOverlay: React.FC = () => {
 };
 
 const VideoPlayerContent: React.FC = () => {
-  const { props, containerRef } = useVideoPlayerContext();
-  const { resetControlsTimer } = useVideoPlayer();
+  const { props } = useVideoPlayerContext();
 
   return (
-    <div
-      ref={containerRef}
-      onMouseMove={resetControlsTimer}
-      onMouseEnter={resetControlsTimer}
-      onTouchStart={resetControlsTimer}
-      className={`relative w-full h-full flex items-center justify-center overflow-hidden comms-video-player-container ${props.className || ''}`}
-    >
+    <>
       {/* HTML5 Video */}
       <VideoElement />
 
@@ -167,7 +160,7 @@ const VideoPlayerContent: React.FC = () => {
 
       {/* Loading / Error Feedback */}
       <VideoFeedbackOverlay />
-    </div>
+    </>
   );
 };
 

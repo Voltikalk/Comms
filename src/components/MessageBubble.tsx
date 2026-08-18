@@ -353,7 +353,6 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
 
   const isPureImage = hasFile && isImageFile && !hasText && !parentMessage;
   const isPureAudio = hasFile && isAudioFile && !hasText;
-  const isPureVideo = hasFile && isRegularVideo && !hasText;
   const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
   const isPending = !!message.pending;
 
