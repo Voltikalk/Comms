@@ -9,6 +9,11 @@ export interface Message {
   timestamp: number;
   reactions?: Record<string, UserId[]>;
   replyToId?: string;
+  forwardedFrom?: {
+    sender: UserId;
+    senderName: string;
+    originalMessageId?: string;
+  };
   isEdited?: boolean;
   pending?: boolean; // Optimistic local message not yet confirmed by server
   readBy?: UserId[]; // Users who have read this message (excludes sender)

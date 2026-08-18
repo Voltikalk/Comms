@@ -147,22 +147,37 @@ const VideoFeedbackOverlay: React.FC = () => {
   return null;
 };
 
+const VideoPlayerContent: React.FC = () => {
+  const { props, containerRef } = useVideoPlayerContext();
+  const { resetControlsTimer } = useVideoPlayer();
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseMove={resetControlsTimer}
+      onMouseEnter={resetControlsTimer}
+      onTouchStart={resetControlsTimer}
+      className={`relative w-full h-full flex items-center justify-center overflow-hidden comms-video-player-container ${props.className || ''}`}
+    >
+      {/* HTML5 Video */}
+      <VideoElement />
+
+      {/* Master Modular Control Bar */}
+      {props.controls !== false && <ControlBar />}
+
+      {/* Loading / Error Feedback */}
+      <VideoFeedbackOverlay />
+    </div>
+  );
+};
+
 /**
  * Main Comms Custom Video Player Component
  */
 export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
   return (
     <VideoPlayerProvider props={props}>
-      <div className="relative w-full h-full flex items-center justify-center overflow-hidden comms-video-player-container">
-        {/* HTML5 Video */}
-        <VideoElement />
-
-        {/* Master Modular Control Bar */}
-        {props.controls !== false && <ControlBar />}
-
-        {/* Loading / Error Feedback */}
-        <VideoFeedbackOverlay />
-      </div>
+      <VideoPlayerContent />
     </VideoPlayerProvider>
   );
 };

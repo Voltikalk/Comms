@@ -31,8 +31,11 @@ interface SocketContextType {
   sendMessage: (
     text: string, 
     replyToId?: string,
-    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; data: string; size: number; rawBlob?: Blob | File }
+    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; data: string; size: number; rawBlob?: Blob | File },
+    targetRoomId?: string,
+    forwardedFrom?: { sender: UserId; senderName: string; originalMessageId?: string }
   ) => void;
+  forwardMessage: (targetRoomId: string, message: Message) => void;
   editMessage: (messageId: string, newText: string) => void;
   deleteMessage: (messageId: string) => void;
   toggleReaction: (messageId: string, reaction: string) => void;
@@ -63,9 +66,26 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 const sanitizeMessage = (msg: Message): Message => {
+  let forwardedFrom = msg.forwardedFrom;
+  if (!forwardedFrom && msg.text) {
+    const zeroWidthMatch = msg.text.match(/^\u200B\u200B\[fwd:([^\]]+)\]\u200B\u200B/);
+    if (zeroWidthMatch) {
+      try {
+        const parsed = JSON.parse(zeroWidthMatch[1]);
+        forwardedFrom = {
+          sender: parsed.s,
+          senderName: parsed.n || parsed.s
+        };
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   if (msg.file) {
     return {
       ...msg,
+      forwardedFrom,
       file: {
         ...msg.file,
         isUploading: false,
@@ -74,7 +94,10 @@ const sanitizeMessage = (msg: Message): Message => {
       }
     };
   }
-  return msg;
+  return {
+    ...msg,
+    forwardedFrom
+  };
 };
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -158,7 +181,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [currentUser]);
 
   const getUserDisplayName = useCallback((userId: UserId) => {
-    const profile = userProfiles[userId];
+    const profile = userProfiles[userId] || DEFAULT_USER_PROFILES[userId];
     if (profile) {
       const full = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
       if (full) return full;
@@ -710,9 +733,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const sendMessage = async (
     text: string, 
     replyToId?: string,
-    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; data: string; size: number; rawBlob?: Blob | File }
+    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; data: string; size: number; rawBlob?: Blob | File },
+    targetRoomId?: string,
+    forwardedFrom?: { sender: UserId; senderName: string; originalMessageId?: string }
   ) => {
-    if (!socketRef.current || !isConnected || !currentUser || !activeRoomId) {
+    const effectiveRoomId = targetRoomId || activeRoomId;
+    if (!socketRef.current || !isConnected || !currentUser || !effectiveRoomId) {
       setError('Не удалось отправить сообщение. Ошибка подключения.');
       return;
     }
@@ -721,14 +747,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let finalFilePayload = filePayload ? { ...filePayload } : undefined;
 
     // Optimistic rendering: add text-only messages to UI immediately
-    if (!filePayload && text.trim()) {
+    if (!filePayload && (text.trim() || forwardedFrom)) {
       const optimisticMessage: Message = {
         id: messageId,
-        roomId: activeRoomId,
+        roomId: effectiveRoomId,
         sender: currentUser,
         text: text.trim(),
         timestamp: Date.now(),
         replyToId: replyToId || undefined,
+        forwardedFrom: forwardedFrom || undefined,
         pending: true
       };
       setMessages((prev) => [...prev, optimisticMessage]);
@@ -737,11 +764,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (filePayload) {
       const tempMessage: Message = {
         id: messageId,
-        roomId: activeRoomId,
+        roomId: effectiveRoomId,
         sender: currentUser,
         text: text.trim(),
         timestamp: Date.now(),
         replyToId,
+        forwardedFrom: forwardedFrom || undefined,
         file: {
           ...filePayload,
           isUploading: true,
@@ -850,13 +878,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    const payload = {
+    const payload: Message = {
       id: messageId,
-      roomId: activeRoomId,
+      roomId: effectiveRoomId,
       sender: currentUser,
       text: text.trim(),
       timestamp: Date.now(),
       replyToId: replyToId || undefined,
+      forwardedFrom: forwardedFrom || undefined,
       file: finalFilePayload || undefined
     };
 
@@ -879,10 +908,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         // 2. Resolve Room
-        const roomName = activeRoom?.name || activeRoomId;
+        const targetRoomObj = rooms.find(r => r.id === effectiveRoomId);
+        const roomName = targetRoomObj?.name || effectiveRoomId;
         let targetRoom: { id: string } | null = null;
-        if (isUuid(activeRoomId)) {
-          const { data } = await supabase.from('rooms').select('id').eq('id', activeRoomId).maybeSingle();
+        if (isUuid(effectiveRoomId)) {
+          const { data } = await supabase.from('rooms').select('id').eq('id', effectiveRoomId).maybeSingle();
           targetRoom = data;
         }
         if (!targetRoom) {
@@ -931,6 +961,54 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     })();
   };
+
+  const forwardMessage = useCallback((targetRoomId: string, messageToForward: Message) => {
+    if (!socketRef.current || !isConnected || !currentUser || !targetRoomId) {
+      setError('Не удалось переслать сообщение. Ошибка подключения.');
+      return;
+    }
+
+    const messageId = Math.random().toString(36).substring(2, 9);
+    const originalSender = messageToForward.forwardedFrom?.sender || messageToForward.sender;
+    const originalSenderName = messageToForward.forwardedFrom?.senderName || 
+      getUserDisplayName(originalSender) || 
+      USER_NAMES[originalSender] || 
+      DEFAULT_USER_PROFILES[originalSender]?.firstName || 
+      originalSender;
+
+    // Clean text of any legacy or zero-width forward prefix if present
+    const rawCleanText = (messageToForward.text || '')
+      .replace(/^\u200B\u200B\[fwd:[^\]]+\]\u200B\u200B/, '')
+      .replace(/^\[Переслано от [^\]]+\]:\s*/, '');
+
+    // Encode zero-width metadata tag for 100% resilient transport
+    const fwdMeta = `\u200B\u200B[fwd:${JSON.stringify({ s: originalSender, n: originalSenderName })}]\u200B\u200B`;
+    const payloadText = `${fwdMeta}${rawCleanText}`;
+
+    const forwardedPayload: Message = {
+      id: messageId,
+      roomId: targetRoomId,
+      sender: currentUser,
+      text: payloadText,
+      timestamp: Date.now(),
+      forwardedFrom: {
+        sender: originalSender,
+        senderName: originalSenderName,
+        originalMessageId: messageToForward.forwardedFrom?.originalMessageId || messageToForward.id
+      },
+      file: messageToForward.file ? {
+        ...messageToForward.file,
+        isUploading: false,
+        uploadProgress: undefined
+      } : undefined
+    };
+
+    // Optimistic local add
+    setMessages((prev) => [...prev, { ...forwardedPayload, pending: true }]);
+
+    // Emit over socket
+    socketRef.current.emit('send_message', forwardedPayload);
+  }, [currentUser, isConnected, getUserDisplayName]);
 
   // WebRTC Signaling functions
   const initPeerConnection = (stream: MediaStream, roomId: string) => {
@@ -1161,6 +1239,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         register,
         logout,
         sendMessage,
+        forwardMessage,
         editMessage,
         deleteMessage,
         toggleReaction,

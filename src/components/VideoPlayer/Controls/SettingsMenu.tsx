@@ -109,13 +109,13 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                 onClick={() => setActiveTab('speed')}
                 className="comms-video-menu-item"
               >
-                <div className="flex items-center gap-2">
-                  <IconGauge size={16} className="text-slate-400" />
-                  <span>Скорость</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <IconGauge size={14} className="text-slate-400 shrink-0" />
+                  <span className="truncate">Скорость</span>
                 </div>
-                <div className="flex items-center gap-1 text-slate-400 text-xs font-mono">
-                  <span>{playbackRate === 1 ? 'Обычная' : `${playbackRate}x`}</span>
-                  <IconChevronRight size={14} />
+                <div className="flex items-center gap-0.5 text-slate-400 text-[11px] font-sans font-medium shrink-0">
+                  <span>{playbackRate === 1 ? '1x' : `${playbackRate}x`}</span>
+                  <IconChevronRight size={13} />
                 </div>
               </button>
 
@@ -125,13 +125,13 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                 onClick={() => setActiveTab('quality')}
                 className="comms-video-menu-item"
               >
-                <div className="flex items-center gap-2">
-                  <IconAdjustments size={16} className="text-slate-400" />
-                  <span>Качество</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <IconAdjustments size={14} className="text-slate-400 shrink-0" />
+                  <span className="truncate">Качество</span>
                 </div>
-                <div className="flex items-center gap-1 text-slate-400 text-xs font-mono uppercase">
+                <div className="flex items-center gap-0.5 text-slate-400 text-[11px] font-sans font-medium uppercase shrink-0">
                   <span>{quality}</span>
-                  <IconChevronRight size={14} />
+                  <IconChevronRight size={13} />
                 </div>
               </button>
 
@@ -141,11 +141,11 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                 onClick={() => setActiveTab('info')}
                 className="comms-video-menu-item"
               >
-                <div className="flex items-center gap-2">
-                  <IconInfoCircle size={16} className="text-slate-400" />
-                  <span>Статистика</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <IconInfoCircle size={14} className="text-slate-400 shrink-0" />
+                  <span className="truncate">Инфо</span>
                 </div>
-                <IconChevronRight size={14} className="text-slate-400" />
+                <IconChevronRight size={13} className="text-slate-400 shrink-0" />
               </button>
             </div>
           )}
@@ -167,7 +167,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                   key={rate}
                   type="button"
                   onClick={() => handleSpeedSelect(rate)}
-                  className={`comms-video-menu-item ${playbackRate === rate ? 'active' : ''}`}
+                  className={`comms-video-menu-item font-sans tabular-nums ${playbackRate === rate ? 'active' : ''}`}
                 >
                   <span>{rate === 1 ? 'Обычная (1x)' : `${rate}x`}</span>
                   {playbackRate === rate && <IconCheck size={14} />}
@@ -193,7 +193,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                   key={q}
                   type="button"
                   onClick={() => handleQualitySelect(q)}
-                  className={`comms-video-menu-item ${quality === q ? 'active' : ''}`}
+                  className={`comms-video-menu-item font-sans ${quality === q ? 'active' : ''}`}
                 >
                   <span className="uppercase">{q}</span>
                   {quality === q && <IconCheck size={14} />}
@@ -214,7 +214,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                   ← Назад
                 </button>
               </div>
-              <div className="space-y-1 font-mono text-[11px] text-slate-300">
+              <div className="space-y-1 font-sans tabular-nums text-[11px] text-slate-300">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Формат:</span>
                   <span>MP4 / H.264</span>

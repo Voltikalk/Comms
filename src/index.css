@@ -206,12 +206,12 @@ html.dark, body.dark {
 
 @keyframes chatFadeSlide {
   0% {
-    opacity: 0;
-    transform: translateY(8px);
+    opacity: 0.15;
+    transform: scale(0.995);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1);
   }
 }
 
@@ -298,6 +298,29 @@ html.dark, body.dark {
 
 .animate-check-bounce {
   animation: checkBounce 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Telegram Authentic Row Flash/Highlight on Search / Quote Jump */
+@keyframes tgRowFlash {
+  0% {
+    background-color: rgba(51, 144, 236, 0.3);
+  }
+  35% {
+    background-color: rgba(51, 144, 236, 0.22);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.tg-message-row-highlight {
+  animation: tgRowFlash 2.5s ease-out forwards !important;
+  border-radius: 12px;
+}
+
+.tg-message-row-selected {
+  background-color: rgba(51, 144, 236, 0.15) !important;
+  border-radius: 12px;
 }
 
 /* Custom Scrollbar */

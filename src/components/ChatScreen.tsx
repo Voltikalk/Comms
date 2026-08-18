@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { USER_NAMES } from '../constants';
 import { MessageBubble } from './MessageBubble';
@@ -44,6 +44,7 @@ import { ProfileEditModal } from './ProfileEditModal';
 import { SearchPage } from '../pages/SearchPage';
 import { AdvancedSearchModal } from './Search/AdvancedSearchModal';
 import { applyFilters, type FilterOptions } from '../lib/filter-utils';
+import { triggerTelegramDisintegrate } from './effects/disintegrate';
 
 interface ChatScreenProps {
   darkMode: boolean;
@@ -90,6 +91,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     activeMessages,
     logout,
     sendMessage,
+    forwardMessage,
     deleteMessage,
     editMessage,
     toggleReaction,
@@ -148,13 +150,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [pinnedMessages, setPinnedMessages] = useState<Record<string, string>>({});
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    text: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null>(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
 
-  const showToast = (text: string) => {
-    setToastMessage(text);
-    setTimeout(() => setToastMessage(null), 2500);
+  const showToast = (
+    textOrConfig: string | { text: string; actionLabel?: string; onAction?: () => void }
+  ) => {
+    if (typeof textOrConfig === 'string') {
+      setToast({ text: textOrConfig });
+    } else {
+      setToast(textOrConfig);
+    }
+    setTimeout(() => setToast(null), 3500);
   };
 
   // File & Voice Attachment states
@@ -196,9 +208,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  // Reset visible count on room switch
+  // Reset visible count on room switch (unless pending message navigation is active)
   useEffect(() => {
-    setVisibleCount(40);
+    if (!pendingNavigateMessageIdRef.current) {
+      setVisibleCount(40);
+    }
     setShowEmojiPicker(false);
   }, [activeRoomId]);
 
@@ -224,21 +238,135 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     });
   };
 
+  const COMPACT_SIDEBAR_WIDTH = 72;
+  const SNAP_THRESHOLD = 175;
+  const MIN_EXPANDED_WIDTH = 250;
+  const MAX_SIDEBAR_WIDTH = 640;
+  const DEFAULT_SIDEBAR_WIDTH = 380;
+
+  // Resizable Chat List Sidebar width state (Telegram Desktop behavior)
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tg_sidebar_width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && ((parsed >= MIN_EXPANDED_WIDTH && parsed <= MAX_SIDEBAR_WIDTH) || parsed === COMPACT_SIDEBAR_WIDTH)) {
+          return parsed;
+        }
+      }
+    }
+    return DEFAULT_SIDEBAR_WIDTH;
+  });
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const isCompactSidebar = sidebarWidth <= 130;
+
+  const startResizingSidebar = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsResizingSidebar(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizingSidebar) return;
+
+    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const maxAllowed = Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * 0.6);
+      
+      let newWidth: number;
+      if (clientX < SNAP_THRESHOLD) {
+        newWidth = COMPACT_SIDEBAR_WIDTH;
+      } else {
+        newWidth = Math.max(MIN_EXPANDED_WIDTH, Math.min(clientX, maxAllowed));
+      }
+      setSidebarWidth(newWidth);
+    };
+
+    const handlePointerUp = () => {
+      setIsResizingSidebar(false);
+      localStorage.setItem('tg_sidebar_width', sidebarWidth.toString());
+    };
+
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('touchmove', handlePointerMove);
+    window.addEventListener('touchend', handlePointerUp);
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('touchmove', handlePointerMove);
+      window.removeEventListener('touchend', handlePointerUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      localStorage.setItem('tg_sidebar_width', sidebarWidth.toString());
+    };
+  }, [isResizingSidebar, sidebarWidth]);
+
   const handleForwardToRoom = (targetRoomId: string) => {
     if (!forwardingMessage) return;
-    const origText = forwardingMessage.text;
-    const origFile = forwardingMessage.file;
-    const sender = USER_NAMES[forwardingMessage.sender] || forwardingMessage.sender;
 
-    setActiveRoomId(targetRoomId);
-    sendMessage(
-      origText ? `[Переслано от ${sender}]:\n${origText}` : `[Переслано от ${sender}]`,
-      undefined,
-      origFile || undefined
-    );
+    // 1. Forward message to target room with full forwardedFrom metadata
+    forwardMessage(targetRoomId, forwardingMessage);
+
+    // 2. Close modal and reset selection (stay in current chat smoothly)
     setForwardingMessage(null);
-    showToast(`Сообщение переслано`);
+    setIsSelectMode(false);
+    setSelectedMessageIds(new Set());
+
+    const targetRoom = rooms.find((r) => r.id === targetRoomId);
+    const roomName = targetRoom ? getRoomDisplayName(targetRoom) : 'чат';
+
+    // 3. Show smooth Telegram notification with "Перейти" action
+    showToast({
+      text: `Сообщение переслано в ${roomName}`,
+      actionLabel: 'Перейти',
+      onAction: () => {
+        setActiveRoomId(targetRoomId);
+        setMobileView('chat');
+      }
+    });
   };
+
+  const handleDeleteMessageAnimated = useCallback((messageId: string) => {
+    const element = document.getElementById(`msg-${messageId}`);
+    const bubble = (element?.querySelector('[data-bubble="true"]') || element) as HTMLElement | null;
+    if (bubble) {
+      triggerTelegramDisintegrate(bubble, () => {
+        deleteMessage(messageId);
+      });
+    } else {
+      deleteMessage(messageId);
+    }
+  }, [deleteMessage]);
+
+  const handleDeleteSelectedAnimated = useCallback(() => {
+    const ids = Array.from(selectedMessageIds);
+    if (ids.length === 0) return;
+
+    const bubbles: HTMLElement[] = [];
+    ids.forEach((id) => {
+      const element = document.getElementById(`msg-${id}`);
+      const bubble = (element?.querySelector('[data-bubble="true"]') || element) as HTMLElement | null;
+      if (bubble) {
+        bubbles.push(bubble);
+      }
+    });
+
+    if (bubbles.length > 0) {
+      triggerTelegramDisintegrate(bubbles, () => {
+        ids.forEach((id) => deleteMessage(id));
+      });
+    } else {
+      ids.forEach((id) => deleteMessage(id));
+    }
+
+    setIsSelectMode(false);
+    setSelectedMessageIds(new Set());
+    showToast(ids.length > 1 ? 'Сообщения удалены' : 'Сообщение удалено');
+  }, [selectedMessageIds, deleteMessage]);
 
   // Filter messages using our rich applyFilters system
   const filteredMessages = React.useMemo(() => {
@@ -288,20 +416,99 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   };
 
+  const pendingNavigateMessageIdRef = useRef<string | null>(null);
+
+  const jumpToMessage = useCallback((messageId: string, highlightDuration = 2600) => {
+    if (!messageId) return;
+
+    // 1. If the message index is beyond current visible slice, expand visibleCount
+    const targetIdx = activeMessages.findIndex((m) => String(m.id) === String(messageId));
+    if (targetIdx !== -1) {
+      const countNeeded = activeMessages.length - targetIdx + 20;
+      if (countNeeded > visibleCount) {
+        setVisibleCount(Math.max(countNeeded, activeMessages.length));
+      }
+    }
+
+    // 2. Multi-stage scroll to message directly on the feed container
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const performScroll = () => {
+      const el = document.getElementById(`msg-${messageId}`);
+      const container = messageFeedRef.current;
+
+      if (el && container && container.clientHeight > 0) {
+        const containerRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const currentScrollTop = container.scrollTop;
+        const relativeTop = elRect.top - containerRect.top + currentScrollTop;
+        const targetScrollTop = Math.max(0, relativeTop - (containerRect.height / 2) + (elRect.height / 2));
+
+        // Direct container scroll to target message
+        container.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth',
+        });
+
+        // Fallback smooth centering
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Highlight message row with clean, even Telegram strip
+        el.classList.add('tg-message-row-highlight');
+        setTimeout(() => {
+          el.classList.remove('tg-message-row-highlight');
+        }, highlightDuration);
+
+        // Calibration pass after layout stabilization (250ms)
+        setTimeout(() => {
+          const reCheckEl = document.getElementById(`msg-${messageId}`);
+          const reCheckContainer = messageFeedRef.current;
+          if (reCheckEl && reCheckContainer) {
+            const cRect = reCheckContainer.getBoundingClientRect();
+            const eRect = reCheckEl.getBoundingClientRect();
+            const reTop = eRect.top - cRect.top + reCheckContainer.scrollTop;
+            const reTarget = Math.max(0, reTop - (cRect.height / 2) + (eRect.height / 2));
+            if (Math.abs(reCheckContainer.scrollTop - reTarget) > 40) {
+              reCheckContainer.scrollTo({
+                top: reTarget,
+                behavior: 'smooth',
+              });
+            }
+          }
+          pendingNavigateMessageIdRef.current = null;
+        }, 250);
+
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        if (targetIdx !== -1) {
+          const countNeeded = activeMessages.length - targetIdx + 20;
+          if (countNeeded > visibleCount) {
+            setVisibleCount(Math.max(countNeeded, activeMessages.length));
+          }
+        }
+        setTimeout(performScroll, 60);
+      }
+    };
+
+    setTimeout(performScroll, 50);
+  }, [activeMessages, visibleCount]);
+
+  // Execute pending navigation after room switch, message update, or mobile view change
+  useEffect(() => {
+    if (pendingNavigateMessageIdRef.current) {
+      const msgId = pendingNavigateMessageIdRef.current;
+      jumpToMessage(msgId);
+    }
+  }, [activeMessages, activeRoomId, mobileView, jumpToMessage]);
+
   const scrollToMatch = (index: number) => {
     if (filteredMessages.length === 0) return;
     const bounded = (index + filteredMessages.length) % filteredMessages.length;
     setCurrentMatchIndex(bounded);
     const targetMsg = filteredMessages[bounded];
     if (targetMsg) {
-      const el = document.getElementById(`msg-${targetMsg.id}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-2', 'ring-cyan-400', 'bg-cyan-500/15', 'rounded-2xl');
-        setTimeout(() => {
-          el.classList.remove('ring-2', 'ring-cyan-400', 'bg-cyan-500/15', 'rounded-2xl');
-        }, 1800);
-      }
+      jumpToMessage(targetMsg.id);
     }
   };
 
@@ -370,7 +577,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     prevRoomIdRef.current = activeRoomId;
 
     if (isRoomChange) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      if (!pendingNavigateMessageIdRef.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      }
       return;
     }
 
@@ -488,17 +697,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   };
 
-  const adjustTextareaHeight = () => {
+  const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      const maxHeight = 120;
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, maxHeight)}px`;
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const maxHeight = 160; // Max height limit (~6-7 lines)
+      const minHeight = 24; // 1 single line
+      
+      const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+      textareaRef.current.style.height = `${newHeight}px`;
+      textareaRef.current.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [inputText, adjustTextareaHeight]);
 
   const handleInputChange = (text: string) => {
     setInputText(text);
-    setTimeout(adjustTextareaHeight, 0);
 
     if (!isTyping) {
       setIsTyping(true);
@@ -797,15 +1014,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   const getLastMessagePreview = (msg: Message | null) => {
     if (!msg) return '';
-    const prefix = msg.sender === currentUser ? 'Вы: ' : `${getUserDisplayName(msg.sender) || USER_NAMES[msg.sender] || msg.sender}: `;
+    const isSelf = msg.sender === currentUser;
+    const senderName = getUserDisplayName(msg.sender) || USER_NAMES[msg.sender] || msg.sender;
+    const prefix = isSelf ? 'Вы: ' : `${senderName}: `;
 
     if (msg.file) {
       if (msg.file.type === 'image') return `${prefix}🖼 Фото`;
       if (msg.file.type === 'audio') return `${prefix}🎤 Голосовое сообщение`;
-      if (msg.file.type === 'video') return `${prefix}📹 Видео-кружок`;
+      if (msg.file.type === 'video' || msg.file.type === 'video_note') return `${prefix}📹 Видео`;
       return `${prefix}📁 ${msg.file.name}`;
     }
-    return `${prefix}${msg.text}`;
+
+    // Clean internal metadata tags and legacy forward prefixes
+    const cleanText = (msg.text || '')
+      .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
+      .replace(/^\[Переслано от [^\]]+\]:\s*/, '')
+      .trim();
+
+    return `${prefix}${cleanText}`;
   };
 
   const getLastMessageTime = (msg: Message | null) => {
@@ -842,17 +1068,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
       {/* 1. Left Sidebar: Telegram Chat List & Contacts */}
       <aside
-        className={`w-full md:w-[360px] lg:w-[400px] tg-sidebar flex flex-col shrink-0 transition-transform duration-150 z-20 ${mobileView === 'list'
+        style={{
+          '--sidebar-width': `${sidebarWidth}px`,
+        } as React.CSSProperties}
+        className={`w-full md:w-[var(--sidebar-width)] tg-sidebar flex flex-col shrink-0 ${
+          showMenuDropdown ? 'z-50' : 'z-20'
+        } ${
+          isResizingSidebar ? 'select-none transition-none' : 'transition-transform duration-150'
+        } ${mobileView === 'list'
           ? 'translate-x-0 flex'
           : '-translate-x-full md:translate-x-0 absolute md:relative z-20 h-full left-0 top-0 hidden md:flex'
           }`}
       >
         {/* Top Bar: Hamburger + Search Input */}
-        <div className="p-2.5 flex items-center gap-2 relative">
+        <div className={`p-2.5 flex items-center gap-2 relative ${isCompactSidebar ? 'justify-center p-2' : ''}`}>
           <button
             type="button"
             onClick={() => setShowMenuDropdown(!showMenuDropdown)}
-            className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+            className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors shrink-0"
             title="Меню"
           >
             <IconMenu2 size={20} />
@@ -860,129 +1093,157 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
           {/* Menu Dropdown */}
           {showMenuDropdown && (
-            <div className="absolute top-12 left-3 z-50 w-64 tg-header rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 py-2 animate-pop-in select-none">
-              {/* User Profile Card Header */}
+            <>
               <div 
-                onClick={() => {
-                  setShowProfileModal(true);
-                  setShowMenuDropdown(false);
-                }}
-                className="px-3.5 py-2.5 mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3"
-              >
-                <div className="relative shrink-0">
-                  {currentUserProfile?.avatarUrl ? (
-                    <img 
-                      src={currentUserProfile.avatarUrl} 
-                      alt="Avatar" 
-                      className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-[#3390ec]/20" 
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-sm font-bold shadow-xs">
-                      {currentUserName?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  {currentUserProfile?.statusEmoji && (
-                    <span className="absolute -bottom-1 -right-1 text-xs">
-                      {currentUserProfile.statusEmoji}
-                    </span>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
-                      {currentUserName}
-                    </span>
-                    <IconEdit size={14} className="text-[#3390ec] shrink-0" />
-                  </div>
-                  <span className="text-[10.5px] text-slate-400 truncate block">
-                    {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите для настройки')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Menu Actions */}
-              <div className="pt-1.5 space-y-0.5 px-1">
-                <button
-                  type="button"
+                className="fixed inset-0 z-40"
+                onClick={() => setShowMenuDropdown(false)}
+              />
+              <div className={`absolute top-12 ${isCompactSidebar ? 'left-2' : 'left-3'} z-50 w-64 tg-header rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 py-2 animate-pop-in select-none`}>
+                {/* User Profile Card Header */}
+                <div 
                   onClick={() => {
                     setShowProfileModal(true);
                     setShowMenuDropdown(false);
                   }}
-                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                  className="px-3.5 py-2.5 mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3"
                 >
-                  <span className="flex items-center gap-2.5">
-                    <IconUser size={18} className="text-[#3390ec]" />
-                    <span>Мой профиль</span>
-                  </span>
-                </button>
+                  <div className="relative shrink-0">
+                    {currentUserProfile?.avatarUrl ? (
+                      <img 
+                        src={currentUserProfile.avatarUrl} 
+                        alt="Avatar" 
+                        className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-[#3390ec]/20" 
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-sm font-bold shadow-xs">
+                        {currentUserName?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {currentUserProfile?.statusEmoji && (
+                      <span className="absolute -bottom-1 -right-1 text-xs">
+                        {currentUserProfile.statusEmoji}
+                      </span>
+                    )}
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowQrModal(true);
-                    setShowMenuDropdown(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <IconDeviceMobile size={18} className="text-[#3390ec]" />
-                    <span>Открыть на телефоне</span>
-                  </span>
-                </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
+                        {currentUserName}
+                      </span>
+                      <IconEdit size={14} className="text-[#3390ec] shrink-0" />
+                    </div>
+                    <span className="text-[10.5px] text-slate-400 truncate block">
+                      {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите для настройки')}
+                    </span>
+                  </div>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    toggleDarkMode();
-                    setShowMenuDropdown(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <span className="flex items-center gap-2.5">
-                    {darkMode ? <IconSun size={18} className="text-amber-400" /> : <IconMoon size={18} className="text-indigo-500" />}
-                    <span>{darkMode ? 'Светлая тема' : 'Ночной режим'}</span>
-                  </span>
-                </button>
+                {/* Menu Actions */}
+                <div className="pt-1.5 space-y-0.5 px-1">
+                  {/* Search Action */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowGlobalSearchModal(true);
+                      setShowMenuDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <IconSearch size={18} className="text-[#3390ec]" />
+                      <span>Поиск по сообщениям</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">FTS</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    logout();
-                    setShowMenuDropdown(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs font-medium text-rose-500 hover:bg-rose-500/10 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <IconLogout size={18} />
-                    <span>Выйти</span>
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProfileModal(true);
+                      setShowMenuDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <IconUser size={18} className="text-[#3390ec]" />
+                      <span>Мой профиль</span>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowQrModal(true);
+                      setShowMenuDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <IconDeviceMobile size={18} className="text-[#3390ec]" />
+                      <span>Открыть на телефоне</span>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleDarkMode();
+                      setShowMenuDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      {darkMode ? <IconSun size={18} className="text-amber-400" /> : <IconMoon size={18} className="text-indigo-500" />}
+                      <span>{darkMode ? 'Светлая тема' : 'Ночной режим'}</span>
+                    </span>
+                    <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${darkMode ? 'bg-[#3390ec]' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                      <div className={`w-3 h-3 rounded-full bg-white transition-transform ${darkMode ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      setShowMenuDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-rose-500 hover:bg-rose-500/10 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <IconLogout size={18} />
+                      <span>Выйти</span>
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
+            </>
           )}
 
-          {/* Search bar */}
-          <div className="flex-1 relative flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <IconSearch size={16} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          {/* Search Input Bar (Shown in expanded mode) */}
+          {!isCompactSidebar && (
+            <div className="relative flex-1 min-w-0">
               <input
                 type="text"
                 value={roomFilterQuery}
                 onChange={(e) => setRoomFilterQuery(e.target.value)}
-                placeholder="Поиск чатов..."
-                className="w-full pl-9 pr-7 py-1.5 rounded-full bg-slate-100 dark:bg-[#242f3d] border-none text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3390ec]"
+                placeholder="Поиск..."
+                className="w-full pl-9 pr-8 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-white/5 border border-transparent focus:border-[#3390ec] outline-hidden text-slate-900 dark:text-white placeholder:text-slate-400 transition-colors"
               />
+              <IconSearch size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               {roomFilterQuery && (
                 <button
                   type="button"
                   onClick={() => setRoomFilterQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 rounded-full"
                 >
                   <IconX size={14} />
                 </button>
               )}
             </div>
+          )}
+
+          {!isCompactSidebar && (
             <button
               type="button"
               onClick={() => setShowGlobalSearchModal(true)}
@@ -991,65 +1252,69 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             >
               <IconWorld size={18} />
             </button>
+          )}
+        </div>
+
+        {/* Stories / Active Contacts Circular Row (Hidden in compact icon mode) */}
+        {!isCompactSidebar && (
+          <div className="px-3 py-1 flex items-center gap-3 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-white/5 pb-2">
+            {rooms.filter(r => r.type === 'direct').map((room) => {
+              const peerId = room.participants.find(p => p !== currentUser) as UserId | undefined;
+              const isOnline = peerId ? onlineStatus[peerId] : false;
+              const name = peerId ? (getUserDisplayName(peerId) || USER_NAMES[peerId] || room.name) : room.name;
+              const avatarUrl = peerId ? getUserAvatar(peerId) : undefined;
+              const isSelected = room.id === activeRoomId;
+
+              return (
+                <button
+                  key={room.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveRoomId(room.id);
+                    setMobileView('chat');
+                  }}
+                  className="flex flex-col items-center gap-1 shrink-0 cursor-pointer group"
+                  title={name}
+                >
+                  <div className={`relative p-0.5 rounded-full ${isSelected ? 'ring-2 ring-[#3390ec]' : ''}`}>
+                    {avatarUrl ? (
+                      <img 
+                        src={avatarUrl} 
+                        alt={name} 
+                        className="w-12 h-12 rounded-full object-cover shadow-xs" 
+                      />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
+                        {name.charAt(0)}
+                      </div>
+                    )}
+                    {isOnline && (
+                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
+                    )}
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate max-w-[56px] text-center">
+                    {name}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </div>
-
-        {/* Stories / Active Contacts Circular Row */}
-        <div className="px-3 py-1 flex items-center gap-3 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-white/5 pb-2">
-          {rooms.filter(r => r.type === 'direct').map((room) => {
-            const peerId = room.participants.find(p => p !== currentUser) as UserId | undefined;
-            const isOnline = peerId ? onlineStatus[peerId] : false;
-            const name = peerId ? (getUserDisplayName(peerId) || USER_NAMES[peerId] || room.name) : room.name;
-            const avatarUrl = peerId ? getUserAvatar(peerId) : undefined;
-            const isSelected = room.id === activeRoomId;
-
-            return (
-              <button
-                key={room.id}
-                type="button"
-                onClick={() => {
-                  setActiveRoomId(room.id);
-                  setMobileView('chat');
-                }}
-                className="flex flex-col items-center gap-1 shrink-0 cursor-pointer group"
-                title={name}
-              >
-                <div className={`relative p-0.5 rounded-full ${isSelected ? 'ring-2 ring-[#3390ec]' : ''}`}>
-                  {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt={name} 
-                      className="w-12 h-12 rounded-full object-cover shadow-xs" 
-                    />
-                  ) : (
-                    <div className={`w-12 h-12 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
-                      {name.charAt(0)}
-                    </div>
-                  )}
-                  {isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
-                  )}
-                </div>
-                <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate max-w-[56px] text-center">
-                  {name}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        )}
 
         {/* Folder Tabs (All chats) */}
-        <div className="px-3 pt-2 pb-1 flex items-center gap-2 text-xs font-semibold select-none">
-          <div className="px-3 py-1 rounded-full bg-[#3390ec] text-white flex items-center gap-1.5 shadow-xs">
-            <span>Все</span>
-            <span className="text-[10px] bg-white/20 px-1 rounded-full">{rooms.length}</span>
+        {!isCompactSidebar && (
+          <div className="px-3 pt-2 pb-1 flex items-center gap-2 text-xs font-semibold select-none">
+            <div className="px-3 py-1 rounded-full bg-[#3390ec] text-white flex items-center gap-1.5 shadow-xs">
+              <span>Все</span>
+              <span className="text-[10px] bg-white/20 px-1 rounded-full">{rooms.length}</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Chat List Items */}
-        <div className="flex-1 overflow-y-auto px-1.5 py-1 space-y-0.5">
+        <div className={`flex-1 overflow-y-auto ${isCompactSidebar ? 'px-1 py-1 space-y-1' : 'px-1.5 py-1 space-y-0.5'}`}>
           {/* Prompt to search messages across all chats */}
-          {roomFilterQuery.trim() && (
+          {!isCompactSidebar && roomFilterQuery.trim() && (
             <button
               type="button"
               onClick={() => setShowGlobalSearchModal(true)}
@@ -1093,24 +1358,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                   setIsSearching(false);
                   setSelectedFile(null);
                 }}
-                className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-colors cursor-pointer text-left select-none ${isActive
-                  ? 'bg-[#3390ec] text-white shadow-xs'
+                title={getRoomDisplayName(room)}
+                className={`w-full flex items-center transition-colors cursor-pointer select-none ${
+                  isCompactSidebar 
+                    ? 'justify-center p-1.5 rounded-2xl relative' 
+                    : 'gap-3 p-2.5 rounded-xl text-left'
+                } ${isActive
+                  ? (isCompactSidebar ? 'bg-[#3390ec]/15 dark:bg-[#3390ec]/25 text-[#3390ec]' : 'bg-[#3390ec] text-white shadow-xs')
                   : 'hover:bg-black/5 dark:hover:bg-white/5 text-slate-800 dark:text-slate-200'
-                  }`}
+                }`}
               >
                 {/* Avatar */}
-                <div className="relative shrink-0">
+                <div className={`relative shrink-0 ${isCompactSidebar && isActive ? 'ring-2 ring-[#3390ec] rounded-full' : ''}`}>
                   {avatarUrl ? (
                     <img 
                       src={avatarUrl} 
                       alt={getRoomDisplayName(room)} 
-                      className="w-12 h-12 rounded-full object-cover shadow-xs" 
+                      className={`${isCompactSidebar ? 'w-11 h-11' : 'w-12 h-12'} rounded-full object-cover shadow-xs`} 
                     />
                   ) : (
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold ${isActive ? 'bg-white/20 text-white' : `${getRoomColor(room)} text-white`
-                      }`}>
+                    <div className={`${isCompactSidebar ? 'w-11 h-11' : 'w-12 h-12'} rounded-full flex items-center justify-center text-sm font-bold ${
+                      isActive && !isCompactSidebar ? 'bg-white/20 text-white' : `${getRoomColor(room)} text-white`
+                    }`}>
                       {room.type === 'group' ? (
-                        <IconUsers size={20} />
+                        <IconUsers size={isCompactSidebar ? 18 : 20} />
                       ) : (
                         getRoomDisplayName(room).charAt(0).toUpperCase()
                       )}
@@ -1120,46 +1391,94 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                   {room.type === 'direct' && isOnline && (
                     <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
                   )}
-                </div>
 
-                {/* Details */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[14px] truncate block ${isActive ? 'font-bold text-white' : 'font-semibold text-slate-900 dark:text-white'}`}>
-                      {getRoomDisplayName(room)}
+                  {/* Compact mode unread badge on top-right of avatar */}
+                  {isCompactSidebar && count > 0 && (
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-[#3390ec] text-white shadow-xs border-2 border-white dark:border-[#17212b]">
+                      {count}
                     </span>
-                    {lastMsg && (
-                      <span className={`text-[11.5px] font-mono ml-1 shrink-0 ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
-                        {getLastMessageTime(lastMsg)}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between mt-0.5 gap-2">
-                    {isTypingInRoom ? (
-                      <span className={`text-xs font-semibold flex items-center gap-1 truncate ${isActive ? 'text-white' : 'text-[#3390ec]'}`}>
-                        <span>печатает...</span>
-                      </span>
-                    ) : (
-                      <span className={`text-[13px] truncate block flex-1 ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
-                        }`}>
-                        {lastMsg ? getLastMessagePreview(lastMsg) : (room.type === 'group' ? 'Группа семьи' : isOnline ? 'В сети' : 'Не в сети')}
-                      </span>
-                    )}
-
-                    {count > 0 && (
-                      <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold ${isActive ? 'bg-white text-[#3390ec]' : 'bg-[#3390ec] text-white'
-                        }`}>
-                        {count}
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
+
+                {/* Details (Hidden in compact icon mode) */}
+                {!isCompactSidebar && (
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[14px] truncate block ${isActive ? 'font-bold text-white' : 'font-semibold text-slate-900 dark:text-white'}`}>
+                        {getRoomDisplayName(room)}
+                      </span>
+                      {lastMsg && (
+                        <span className={`text-[11.5px] font-mono ml-1 shrink-0 ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
+                          {getLastMessageTime(lastMsg)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between mt-0.5 gap-2">
+                      {isTypingInRoom ? (
+                        <span className={`text-xs font-semibold flex items-center gap-1 truncate ${isActive ? 'text-white' : 'text-[#3390ec]'}`}>
+                          <span>печатает...</span>
+                        </span>
+                      ) : (
+                        <span className={`text-[13px] truncate block flex-1 ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
+                          }`}>
+                          {lastMsg ? getLastMessagePreview(lastMsg) : (room.type === 'group' ? 'Группа семьи' : isOnline ? 'В сети' : 'Не в сети')}
+                        </span>
+                      )}
+
+                      {count > 0 && (
+                        <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold ${isActive ? 'bg-white text-[#3390ec]' : 'bg-[#3390ec] text-white'
+                          }`}>
+                          {count}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </button>
             );
           })}
         </div>
       </aside>
+
+      {/* Draggable Divider Handle between Sidebar and Chat (Telegram Desktop behavior) */}
+      <div
+        onMouseDown={startResizingSidebar}
+        onTouchStart={startResizingSidebar}
+        className={`hidden md:flex relative w-1 hover:w-2 active:w-2 group cursor-col-resize z-10 transition-all items-center justify-center shrink-0 -ml-0.5 select-none ${
+          isResizingSidebar ? 'w-2' : ''
+        }`}
+        title="Потяните, чтобы изменить ширину списка чатов"
+      >
+        <div
+          className={`w-[1px] h-full transition-colors pointer-events-none ${
+            isResizingSidebar
+              ? 'bg-[#3390ec] w-[2px]'
+              : 'bg-slate-200/80 dark:bg-white/10 group-hover:bg-[#3390ec] group-hover:w-[2px]'
+          }`}
+        />
+      </div>
+
+      {/* Global Drag Overlay to prevent iframe/mouse trapping while resizing */}
+      {isResizingSidebar && (
+        <div
+          className="fixed inset-0 z-[99999] cursor-col-resize select-none pointer-events-auto"
+          onMouseMove={(e) => {
+            const maxAllowed = Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * 0.6);
+            let newWidth: number;
+            if (e.clientX < SNAP_THRESHOLD) {
+              newWidth = COMPACT_SIDEBAR_WIDTH;
+            } else {
+              newWidth = Math.max(MIN_EXPANDED_WIDTH, Math.min(e.clientX, maxAllowed));
+            }
+            setSidebarWidth(newWidth);
+          }}
+          onMouseUp={() => {
+            setIsResizingSidebar(false);
+            localStorage.setItem('tg_sidebar_width', sidebarWidth.toString());
+          }}
+        />
+      )}
 
       {/* 2. Main Center Chat Panel: Telegram Wallpaper & Bubbles */}
       <main
@@ -1250,12 +1569,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                 {/* Delete */}
                 <button
                   type="button"
-                  onClick={() => {
-                    selectedMessageIds.forEach(id => deleteMessage(id));
-                    setIsSelectMode(false);
-                    setSelectedMessageIds(new Set());
-                    showToast('Сообщения удалены');
-                  }}
+                  onClick={handleDeleteSelectedAnimated}
                   disabled={selectedMessageIds.size === 0}
                   className="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 disabled:opacity-30 cursor-pointer transition-colors"
                   title="Удалить"
@@ -1531,8 +1845,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         {currentPinnedMessage && (
           <div
             onClick={() => {
-              const el = document.getElementById(`msg-${currentPinnedMessage.id}`);
-              el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              jumpToMessage(currentPinnedMessage.id);
             }}
             className="px-4 py-1.5 bg-white/95 dark:bg-[#17212b]/95 border-b border-slate-200 dark:border-white/10 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors z-20 backdrop-blur-md animate-pop-in select-none shadow-xs w-full min-w-0"
           >
@@ -1622,6 +1935,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                           return next;
                         });
                       }}
+                      onJumpToMessage={jumpToMessage}
                     />
                   </div>
                 </React.Fragment>
@@ -1710,7 +2024,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                   Ответ для: {replyingToMessage.sender === currentUser ? 'Вы' : (USER_NAMES[replyingToMessage.sender] || replyingToMessage.sender)}
                 </span>
                 <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5">
-                  {replyingToMessage.text || (replyingToMessage.file ? '📎 Вложение' : '')}
+                  {replyingToMessage.text 
+                    ? replyingToMessage.text.replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '').replace(/^\[Переслано от [^\]]+\]:\s*/, '')
+                    : (replyingToMessage.file ? '📎 Вложение' : '')}
                 </span>
               </div>
               <button
@@ -1724,22 +2040,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           </div>
         )}
 
-        {/* Emoji Quick Picker */}
-        {showEmojiPicker && (
-          <div className="max-w-2xl mx-auto w-full px-4 mb-2 flex justify-end">
-            <TelegramEmojiPickerModal
-              onSelectEmoji={(emoji) => insertEmoji(emoji)}
-              onClose={() => setShowEmojiPicker(false)}
-            />
-          </div>
-        )}
-
         {/* Telegram Bottom Input Bar */}
         <footer className="p-2 sm:p-3 relative z-10 w-full min-w-0 max-w-full">
-          <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex items-end gap-2">
+          <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex items-end gap-2 relative">
+
+            {/* Emoji Popup Anchored Right Above Input Bar */}
+            {showEmojiPicker && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowEmojiPicker(false)} 
+                />
+                <div 
+                  className="absolute bottom-full right-0 sm:right-12 mb-2.5 z-50 animate-pop-in max-w-[calc(100vw-24px)]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <TelegramEmojiPickerModal
+                    onSelectEmoji={(emoji) => insertEmoji(emoji)}
+                    onClose={() => setShowEmojiPicker(false)}
+                  />
+                </div>
+              </>
+            )}
 
             {/* Input Capsule */}
-            <form onSubmit={handleSend} className="flex-1 min-w-0 flex items-center min-h-[44px] sm:min-h-[46px] px-2.5 py-1 rounded-[23px] tg-input-capsule">
+            <form onSubmit={handleSend} className="flex-1 min-w-0 flex items-center min-h-[44px] sm:min-h-[46px] px-1.5 py-1 rounded-[22px] tg-input-capsule">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1751,7 +2076,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors flex items-center justify-center"
+                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Прикрепить"
               >
                 <IconPaperclip size={20} />
@@ -1759,7 +2084,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
               {/* Input */}
               {isRecording ? (
-                <div className="flex-1 flex items-center justify-between py-1 px-2 text-rose-500 font-semibold text-xs font-mono">
+                <div className="flex-1 flex items-center justify-between py-1.5 px-2 text-rose-500 font-semibold text-xs font-mono">
                   <span>Запись {formatRecordTime(recordTime)}</span>
                   <button
                     type="button"
@@ -1776,8 +2101,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                   value={inputText}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Message"
-                  className="flex-1 py-1.5 px-1 bg-transparent border-none text-slate-900 dark:text-white text-[15px] focus:outline-none focus:ring-0 placeholder-slate-400 resize-none max-h-[120px] leading-snug"
+                  placeholder="Сообщение..."
+                  className="flex-1 py-0.5 px-2 bg-transparent border-none text-slate-900 dark:text-white text-[15px] focus:outline-none focus:ring-0 placeholder-slate-400 resize-none max-h-[160px] leading-[22px] tg-scrollbar self-center"
+                  style={{ minHeight: '22px', height: '22px' }}
                 />
               )}
 
@@ -1785,7 +2111,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="p-1.5 text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors flex items-center justify-center"
+                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Эмодзи"
               >
                 <IconMoodSmile size={20} />
@@ -1795,7 +2121,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               <button
                 type="button"
                 onClick={startVideoRecording}
-                className="p-1.5 text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors flex items-center justify-center"
+                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Видео-кружок"
               >
                 <IconCamera size={20} />
@@ -2264,7 +2590,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             setContextMenuTarget(null);
           }}
           onDelete={(msg) => {
-            deleteMessage(msg.id);
+            handleDeleteMessageAnimated(msg.id);
             showToast('Сообщение удалено');
             setContextMenuTarget(null);
           }}
@@ -2341,10 +2667,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         </div>
       )}
 
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#17212b]/95 dark:bg-[#242f3d]/95 text-white px-4 py-2 rounded-full shadow-2xl text-xs font-medium backdrop-blur-md border border-white/10 animate-pop-in select-none">
-          {toastMessage}
+      {/* Floating Toast Notification (Telegram Style with Action Button) */}
+      {toast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#17212b]/95 dark:bg-[#242f3d]/95 text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-medium backdrop-blur-md border border-white/10 animate-pop-in select-none flex items-center gap-3">
+          <span>{toast.text}</span>
+          {toast.actionLabel && toast.onAction && (
+            <button
+              type="button"
+              onClick={() => {
+                toast.onAction?.();
+                setToast(null);
+              }}
+              className="text-[#3390ec] dark:text-[#70b1ff] font-bold hover:underline cursor-pointer pl-1 shrink-0"
+            >
+              {toast.actionLabel}
+            </button>
+          )}
         </div>
       )}
 
@@ -2354,12 +2692,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           {/* Left: Red Trash */}
           <button
             type="button"
-            onClick={() => {
-              selectedMessageIds.forEach(id => deleteMessage(id));
-              setIsSelectMode(false);
-              setSelectedMessageIds(new Set());
-              showToast('Сообщения удалены');
-            }}
+            onClick={handleDeleteSelectedAnimated}
             disabled={selectedMessageIds.size === 0}
             className="p-1.5 rounded-xl text-rose-500 hover:bg-rose-500/10 disabled:opacity-30 cursor-pointer transition-colors"
             title="Удалить"
@@ -2441,20 +2774,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               userProfiles={userProfiles}
               onNavigateToMessage={(item) => {
                 const targetRoomId = item.room_id || item.roomId;
-                if (targetRoomId && targetRoomId !== activeRoomId) {
-                  setActiveRoomId(targetRoomId);
-                }
+                const targetMessageId = item.id;
                 setShowGlobalSearchModal(false);
-                setTimeout(() => {
-                  const el = document.getElementById(`msg-${item.id}`);
-                  if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.classList.add('ring-2', 'ring-[#3390ec]', 'bg-[#3390ec]/20', 'rounded-2xl');
-                    setTimeout(() => {
-                      el.classList.remove('ring-2', 'ring-[#3390ec]', 'bg-[#3390ec]/20', 'rounded-2xl');
-                    }, 2500);
-                  }
-                }, 300);
+                setMobileView('chat');
+
+                // Clear in-chat search & filter state so the conversation context is unobstructed
+                setIsSearching(false);
+                setSearchQuery('');
+                setChatFilters({});
+
+                if (targetRoomId && targetRoomId !== activeRoomId) {
+                  pendingNavigateMessageIdRef.current = targetMessageId;
+                  setActiveRoomId(targetRoomId);
+                } else {
+                  jumpToMessage(targetMessageId);
+                }
               }}
               onClose={() => setShowGlobalSearchModal(false)}
             />

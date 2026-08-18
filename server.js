@@ -434,16 +434,34 @@ async function loadMessagesFromSupabase() {
         msgReactions[r.emoji].push(r.user_id);
       });
 
+      let fileType = 'file';
+      if (att) {
+        const mime = (att.file_type || '').toLowerCase();
+        const fName = (att.file_name || '').toLowerCase();
+        if (mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|heic)$/i.test(fName)) {
+          fileType = 'image';
+        } else if (mime.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac|opus)$/i.test(fName) || fName.startsWith('голосовое сообщение')) {
+          fileType = 'audio';
+        } else if (mime.startsWith('video/') || mime === 'video_note' || /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(fName) || fName.includes('кружок')) {
+          fileType = fName.includes('кружок') || mime === 'video_note' ? 'video_note' : 'video';
+        }
+      }
+
+      let messageText = m.content || '';
+      if (att && (messageText === `📎 ${att.file_name}` || messageText === `📎  ${att.file_name}` || messageText === att.file_name)) {
+        messageText = '';
+      }
+
       return {
         id: m.id,
         roomId,
         sender: senderName,
-        text: m.content || '',
+        text: messageText,
         timestamp: new Date(m.created_at).getTime(),
         replyToId: m.reply_to_id || undefined,
         file: att ? {
           name: att.file_name,
-          type: att.file_type?.startsWith('image/') ? 'image' : (att.file_type?.startsWith('audio/') ? 'audio' : 'file'),
+          type: fileType,
           data: att.file_url,
           size: att.file_size || 0
         } : undefined,
@@ -577,6 +595,7 @@ io.on('connection', async (socket) => {
       text: data.text || '',
       timestamp: data.timestamp || Date.now(),
       replyToId: data.replyToId || undefined,
+      forwardedFrom: data.forwardedFrom || undefined,
       file: finalFile || undefined,
       readBy: []
     };
@@ -601,7 +620,7 @@ io.on('connection', async (socket) => {
             .insert({
               room_id: roomUuid,
               sender_id: senderUuid,
-              content: data.text || (finalFile ? `📎 ${finalFile.name}` : ''),
+              content: data.text || '',
             })
             .select()
             .single();
@@ -611,7 +630,7 @@ io.on('connection', async (socket) => {
               message_id: insertedMsg.id,
               file_url: finalFile.data,
               file_name: finalFile.name || 'file',
-              file_type: finalFile.type || 'application/octet-stream',
+              file_type: finalFile.type || 'file',
               file_size: finalFile.size || 0,
             });
           }
@@ -641,7 +660,9 @@ io.on('connection', async (socket) => {
       supabase.from('messages').update({
         content: newText,
         edited_at: new Date().toISOString()
-      }).eq('id', messageId).catch((e) => console.warn('[Supabase Edit Warning]', e));
+      }).eq('id', messageId).then(({ error }) => {
+        if (error) console.warn('[Supabase Edit Warning]', error.message);
+      }).catch((e) => console.warn('[Supabase Edit Warning]', e));
     }
   });
 
@@ -657,7 +678,9 @@ io.on('connection', async (socket) => {
     if (isUuid(messageId)) {
       supabase.from('messages').update({
         deleted_at: new Date().toISOString()
-      }).eq('id', messageId).catch((e) => console.warn('[Supabase Delete Warning]', e));
+      }).eq('id', messageId).then(({ error }) => {
+        if (error) console.warn('[Supabase Delete Warning]', error.message);
+      }).catch((e) => console.warn('[Supabase Delete Warning]', e));
     }
   });
 

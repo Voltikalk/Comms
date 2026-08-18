@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useSocket } from '../context/SocketContext';
-import { USER_NAMES } from '../constants';
+import { USER_NAMES, DEFAULT_USER_PROFILES } from '../constants';
 import type { Message, UserId } from '../types';
 import { 
   IconDownload, 
@@ -13,9 +13,11 @@ import {
   IconChecks,
   IconVolume,
   IconVolumeOff,
-  IconTrash
+  IconTrash,
+  IconShare3
 } from '@tabler/icons-react';
 import { VideoPlayer } from './VideoPlayer';
+import { triggerTelegramDisintegrate } from './effects/disintegrate';
 
 const CircularProgress: React.FC<{ progress: number }> = ({ progress }) => {
   const radius = 20;
@@ -78,6 +80,7 @@ interface MessageBubbleProps {
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (messageId: string) => void;
+  onJumpToMessage?: (messageId: string) => void;
 }
 
 const renderHighlightedText = (text: string, query?: string) => {
@@ -113,7 +116,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   searchQuery,
   isSelectMode = false,
   isSelected = false,
-  onToggleSelect
+  onToggleSelect,
+  onJumpToMessage
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -150,7 +154,63 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   const touchTimerRef = useRef<any>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  const { playingAudioId, setPlayingAudioId } = useSocket();
+  const { playingAudioId, setPlayingAudioId, getUserDisplayName } = useSocket();
+
+  // Dedicated Forwarded Sender extraction & display text cleaning
+  const forwardedSenderName = useMemo(() => {
+    // 1. Check explicit forwardedFrom object
+    if (message.forwardedFrom) {
+      if (message.forwardedFrom.senderName && message.forwardedFrom.senderName !== message.forwardedFrom.sender) {
+        return message.forwardedFrom.senderName;
+      }
+      if (message.forwardedFrom.sender) {
+        const s = message.forwardedFrom.sender;
+        const resolved = getUserDisplayName(s);
+        if (resolved && resolved !== s) return resolved;
+        if (USER_NAMES[s]) return USER_NAMES[s];
+        if (DEFAULT_USER_PROFILES[s]?.firstName) return DEFAULT_USER_PROFILES[s].firstName;
+        return message.forwardedFrom.senderName || s;
+      }
+      if (message.forwardedFrom.senderName) {
+        return message.forwardedFrom.senderName;
+      }
+    }
+
+    // 2. Check embedded zero-width metadata tag
+    if (message.text) {
+      const zeroWidthMatch = message.text.match(/^\u200B\u200B\[fwd:([^\]]+)\]\u200B\u200B/);
+      if (zeroWidthMatch) {
+        try {
+          const parsed = JSON.parse(zeroWidthMatch[1]);
+          if (parsed.n) return parsed.n;
+          if (parsed.s) {
+            const resolved = getUserDisplayName(parsed.s);
+            if (resolved && resolved !== parsed.s) return resolved;
+            return USER_NAMES[parsed.s] || DEFAULT_USER_PROFILES[parsed.s]?.firstName || parsed.s;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 3. Check legacy textual prefix
+      const match = message.text.match(/^\[Переслано от ([^\]]+)\]:\s*/);
+      if (match) {
+        return match[1];
+      }
+    }
+
+    return null;
+  }, [message.forwardedFrom, message.text, getUserDisplayName]);
+
+  const displayMessageText = useMemo(() => {
+    if (!message.text) return '';
+    // Strip zero-width metadata & legacy prefix so the indicator is strictly a separate element
+    return message.text
+      .replace(/^\u200B\u200B\[fwd:[^\]]+\]\u200B\u200B/, '')
+      .replace(/^\[Переслано от [^\]]+\]:\s*/, '');
+  }, [message.text]);
+
   const isAudioPlaying = playingAudioId === message.id;
 
   // Audio Playback states
@@ -261,7 +321,6 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   };
 
   const hasFile = !!message.file;
-  const hasText = !!message.text;
   const isAudioFile = hasFile && (
     message.file?.type === 'audio' ||
     (message.file?.name && (
@@ -275,10 +334,26 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   );
   const isRegularVideo = hasFile && !isAudioFile && !isVideoNote && (
     message.file?.type === 'video' ||
-    (message.file?.name && /\.(mp4|mov|mkv|avi|m4v)$/i.test(message.file.name))
+    (message.file?.name && /\.(mp4|mov|mkv|avi|m4v|webm)$/i.test(message.file.name))
   );
-  const isPureImage = hasFile && message.file?.type === 'image' && !hasText && !parentMessage;
+  const isImageFile = hasFile && !isAudioFile && !isVideoNote && !isRegularVideo && (
+    message.file?.type === 'image' ||
+    (message.file?.name && /\.(jpg|jpeg|png|gif|webp|svg|heic)$/i.test(message.file.name))
+  );
+  const isDocumentFile = hasFile && !isAudioFile && !isVideoNote && !isRegularVideo && !isImageFile;
+
+  const rawCleanText = displayMessageText.trim();
+  const isAutoFileNameCaption = hasFile && message.file?.name && (
+    rawCleanText === message.file.name ||
+    rawCleanText === `📎 ${message.file.name}` ||
+    rawCleanText === `📎  ${message.file.name}` ||
+    rawCleanText === '📎'
+  );
+  const hasText = !!rawCleanText && !isAutoFileNameCaption;
+
+  const isPureImage = hasFile && isImageFile && !hasText && !parentMessage;
   const isPureAudio = hasFile && isAudioFile && !hasText;
+  const isPureVideo = hasFile && isRegularVideo && !hasText;
   const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
   const isPending = !!message.pending;
 
@@ -324,10 +399,13 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
     if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
     touchTimerRef.current = setTimeout(() => {
-      if (touchStartPosRef.current) {
+      if (touchStartPosRef.current && !isSwipeLockedRef.current) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(40);
+        } catch {}
         onOpenContextMenu(message, touchStartPosRef.current);
       }
-    }, 450);
+    }, 360);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -336,7 +414,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
     if (touchStartPosRef.current) {
       const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
       const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
-      if (dx > 10 || dy > 10) {
+      if (dx > 16 || dy > 16) {
         if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
       }
     }
@@ -348,12 +426,13 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
       const diffY = Math.abs(touch.clientY - swipeStartYRef.current);
 
       if (!isSwipeLockedRef.current) {
-        if (diffY > 8 && diffY > Math.abs(diffX)) {
+        if (diffY > 10 && diffY > Math.abs(diffX)) {
           isScrollLockedRef.current = true;
           return;
         }
-        if (diffX > 15) {
+        if (diffX > 18) {
           isSwipeLockedRef.current = true;
+          if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
         }
       }
 
@@ -394,13 +473,13 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           onToggleSelect(message.id);
         }
       }}
-      className={`w-full py-0.5 relative group animate-message-appear transition-colors duration-150 ${
+      className={`w-full py-1 px-1.5 sm:px-2 relative group animate-message-appear transition-colors duration-150 rounded-xl ${
         isSelectMode ? 'cursor-pointer' : ''
       } ${
         isSelected 
-          ? 'bg-[#3390ec]/15 dark:bg-[#3390ec]/20 rounded-xl' 
+          ? 'tg-message-row-selected' 
           : isSelectMode 
-            ? 'hover:bg-black/5 dark:hover:bg-white/5 rounded-xl' 
+            ? 'hover:bg-black/5 dark:hover:bg-white/5' 
             : ''
       }`}
     >
@@ -457,15 +536,26 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           
           {/* Main Bubble / Video Note Container */}
           <div 
+            data-bubble="true"
             onContextMenu={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onOpenContextMenu(message, { x: e.clientX, y: e.clientY });
             }} 
-            className={`${bubbleClass} relative select-none`}
+            className={`${bubbleClass} relative select-none transition-shadow duration-300`}
           >
+            {/* Separate Forwarded Badge (Telegram Style) */}
+            {forwardedSenderName && !isVideoNote && (
+              <div className="px-3 pt-1.5 pb-0.5 text-[11.5px] font-medium text-[#3390ec] dark:text-[#70b1ff] flex items-center gap-1.5 cursor-default select-none border-b border-black/5 dark:border-white/5 mb-0.5">
+                <IconShare3 size={13} className="shrink-0 scale-x-[-1] text-[#3390ec] dark:text-[#70b1ff]" />
+                <span className="opacity-95">
+                  Переслано от <strong className="font-semibold">{forwardedSenderName}</strong>
+                </span>
+              </div>
+            )}
+
             {/* Sender Label in Groups */}
-            {!isSelf && showSenderLabel && !isVideoNote && (
+            {!isSelf && showSenderLabel && !isVideoNote && !forwardedSenderName && (
               <div className="px-3 pt-1 text-[12px] font-bold text-[#3390ec]">
                 {senderName}
               </div>
@@ -476,8 +566,12 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               <div 
                 onClick={(e) => {
                   e.stopPropagation();
-                  const element = document.getElementById(`msg-${parentMessage.id}`);
-                  element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  if (onJumpToMessage) {
+                    onJumpToMessage(parentMessage.id);
+                  } else {
+                    const element = document.getElementById(`msg-${parentMessage.id}`);
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
                 }}
                 className={`mx-2.5 mt-1.5 mb-1 px-2 py-1 rounded-md border-l-[3px] border-[#3390ec] text-xs cursor-pointer ${
                   isSelf 
@@ -488,7 +582,11 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 <span className="font-semibold block text-[11px] text-[#3390ec]">
                   {parentMessage.sender === currentUser ? 'Вы' : (USER_NAMES[parentMessage.sender] || parentMessage.sender)}
                 </span>
-                <span className="truncate block text-[11px] opacity-80">{parentMessage.text || (parentMessage.file ? '📎 Вложение' : '')}</span>
+                <span className="truncate block text-[11px] opacity-80">
+                  {parentMessage.text 
+                    ? parentMessage.text.replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '').replace(/^\[Переслано от [^\]]+\]:\s*/, '')
+                    : (parentMessage.file ? '📎 Вложение' : '')}
+                </span>
               </div>
             )}
 
@@ -563,10 +661,10 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               <div 
                 className={`relative p-1 w-full transition-all duration-300 ${
                   videoOrientation === 'vertical'
-                    ? 'min-w-[180px] max-w-[220px] xs:max-w-[250px] sm:max-w-[270px]'
+                    ? 'min-w-[200px] max-w-[240px] xs:max-w-[260px] sm:max-w-[290px]'
                     : videoOrientation === 'square'
-                      ? 'min-w-[190px] max-w-[250px] xs:max-w-[280px] sm:max-w-[300px]'
-                      : 'min-w-[200px] max-w-[280px] xs:max-w-[320px] sm:max-w-[360px]'
+                      ? 'min-w-[220px] max-w-[280px] xs:max-w-[320px] sm:max-w-[360px]'
+                      : 'min-w-[260px] max-w-[350px] xs:max-w-[420px] sm:max-w-[480px] md:max-w-[540px]'
                 }`} 
                 onClick={(e) => e.stopPropagation()}
               >
@@ -576,7 +674,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   }`}
                   style={videoAspectRatio ? { 
                     aspectRatio: `${videoAspectRatio}`,
-                    maxHeight: videoOrientation === 'vertical' ? '420px' : '300px'
+                    maxHeight: videoOrientation === 'vertical' ? '460px' : '380px'
                   } : undefined}
                 >
                   <VideoPlayer
@@ -595,20 +693,22 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                     </div>
                   )}
                 </div>
-                <div className="flex items-center justify-end px-1 pt-1 text-[10px] text-slate-500 dark:text-slate-400 select-none">
-                  {message.isEdited && <span className="opacity-75 text-[8px] mr-1">изм.</span>}
-                  <span className="font-mono">{formatTime(message.timestamp)}</span>
-                  {isSelf && !isPending && (
-                    <span className="ml-1 text-[#4fae4e] dark:text-[#82b1ff]">
-                      {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
-                    </span>
-                  )}
-                </div>
+                {!hasText && (
+                  <div className="flex items-center justify-end px-1 pt-1 text-[10px] text-slate-500 dark:text-slate-400 select-none">
+                    {message.isEdited && <span className="opacity-75 text-[8px] mr-1">изм.</span>}
+                    <span className="font-mono">{formatTime(message.timestamp)}</span>
+                    {isSelf && !isPending && (
+                      <span className="ml-1 text-[#4fae4e] dark:text-[#82b1ff]">
+                        {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
             {/* 3. Image Media */}
-            {message.file?.type === 'image' && (
+            {isImageFile && message.file && (
               <div className="relative p-1 min-w-[140px] min-h-[100px] flex items-center justify-center">
                 <img
                   src={message.file.data}
@@ -643,7 +743,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             )}
 
             {/* Lightbox Modal for Photos */}
-            {isImagePreviewOpen && message.file?.type === 'image' && createPortal(
+            {isImagePreviewOpen && isImageFile && message.file && createPortal(
               <div
                 className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 select-none animate-backdrop"
                 onClick={(e) => {
@@ -687,7 +787,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             )}
 
             {/* 4. Telegram-Style Audio Voice Player (Pixel-Perfect Alignment) */}
-            {message.file?.type === 'audio' && (
+            {isAudioFile && message.file && (
               message.file.isUploading && (message.file.uploadProgress === undefined || message.file.uploadProgress < 100) ? (
                 <div className="flex items-center gap-3 py-2 px-3 min-w-[220px]" onClick={(e) => e.stopPropagation()}>
                   <div className="shrink-0 scale-75">
@@ -803,7 +903,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             )}
 
             {/* 5. Document File Card */}
-            {message.file?.type === 'file' && (
+            {isDocumentFile && message.file && (
               <div className="p-2">
                 <div className="flex items-center gap-3 p-2.5 bg-black/5 dark:bg-white/5 rounded-xl min-w-[220px]" onClick={(e) => e.stopPropagation()}>
                   <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center shrink-0">
@@ -877,18 +977,20 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   </div>
                 ) : (
                   <>
-                    <span className="whitespace-pre-wrap break-words">{renderHighlightedText(message.text, searchQuery)}</span>
+                    {displayMessageText && (
+                      <span className="whitespace-pre-wrap break-words">{renderHighlightedText(displayMessageText, searchQuery)}</span>
+                    )}
                     
-                    {/* Telegram Inline Timestamp & Double Checkmarks */}
-                    <span className={`inline-flex items-center gap-0.5 float-right select-none ml-2 text-[11px] leading-none translate-y-1.5 ${
+                    {/* Telegram Inline Timestamp & Double Checkmarks (Baseline-Aligned) */}
+                    <span className={`inline-flex items-center gap-0.5 select-none ml-2 text-[11px] leading-none align-baseline whitespace-nowrap ${
                       isSelf 
                         ? 'text-[#4fae4e] dark:text-[#82b1ff]' 
                         : 'text-[#8b9ba8] dark:text-[#708499]'
                     }`}>
                       {message.isEdited && <span className="text-[9px] opacity-75 mr-0.5 font-sans">изм.</span>}
-                      <span className="font-sans">{formatTime(message.timestamp)}</span>
+                      <span className="font-sans tabular-nums">{formatTime(message.timestamp)}</span>
                       {isSelf && !isPending && (
-                        <span className="ml-0.5">
+                        <span className="ml-0.5 inline-flex items-center">
                           {deliveryStatus === 'read' ? (
                             <IconChecks size={13} stroke={2} />
                           ) : (
@@ -959,8 +1061,16 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               <button
                 type="button"
                 onClick={() => {
-                  deleteMessage(message.id);
                   setIsDeleteModalOpen(false);
+                  const element = document.getElementById(`msg-${message.id}`);
+                  const bubble = (element?.querySelector('[data-bubble="true"]') || element) as HTMLElement | null;
+                  if (bubble) {
+                    triggerTelegramDisintegrate(bubble, () => {
+                      deleteMessage(message.id);
+                    });
+                  } else {
+                    deleteMessage(message.id);
+                  }
                 }}
                 className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold cursor-pointer"
               >

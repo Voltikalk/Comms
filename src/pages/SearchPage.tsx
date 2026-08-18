@@ -78,19 +78,22 @@ export const SearchPage: React.FC<SearchPageProps> = ({
 
   const createHighlightedSnippet = (text: string, q: string) => {
     if (!text) return '';
-    if (!q) return text;
-    const lowerText = text.toLowerCase();
+    const cleanText = text
+      .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
+      .replace(/^\[Переслано от [^\]]+\]:\s*/, '');
+    if (!q) return cleanText;
+    const lowerText = cleanText.toLowerCase();
     const lowerQ = q.toLowerCase();
     const index = lowerText.indexOf(lowerQ);
-    if (index === -1) return text.length > 90 ? text.slice(0, 90) + '...' : text;
+    if (index === -1) return cleanText.length > 90 ? cleanText.slice(0, 90) + '...' : cleanText;
 
     const start = Math.max(0, index - 30);
-    const end = Math.min(text.length, index + q.length + 50);
+    const end = Math.min(cleanText.length, index + q.length + 50);
     const prefix = start > 0 ? '...' : '';
-    const suffix = end < text.length ? '...' : '';
-    const matchSegment = text.slice(index, index + q.length);
+    const suffix = end < cleanText.length ? '...' : '';
+    const matchSegment = cleanText.slice(index, index + q.length);
 
-    return `${prefix}${text.slice(start, index)}<span class="text-[#3390ec] font-bold">${matchSegment}</span>${text.slice(index + q.length, end)}${suffix}`;
+    return `${prefix}${cleanText.slice(start, index)}<span class="text-[#3390ec] font-bold">${matchSegment}</span>${cleanText.slice(index + q.length, end)}${suffix}`;
   };
 
   // In-memory instant search across all loaded messages
@@ -108,7 +111,10 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     // 2. Query matching (text, file name, sender)
     if (cleanQ) {
       filtered = filtered.filter((m) => {
-        const textMatch = m.text && m.text.toLowerCase().includes(cleanQ);
+        const cleanMsgText = (m.text || '')
+          .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
+          .replace(/^\[Переслано от [^\]]+\]:\s*/, '');
+        const textMatch = cleanMsgText.toLowerCase().includes(cleanQ);
         const fileNameMatch = m.file && m.file.name.toLowerCase().includes(cleanQ);
         const senderName = USER_NAMES[m.sender] || m.sender;
         const senderMatch = senderName.toLowerCase().includes(cleanQ);
@@ -135,7 +141,10 @@ export const SearchPage: React.FC<SearchPageProps> = ({
 
     return filtered.map((m) => {
       const rName = getRoomName(m.roomId);
-      const headline = createHighlightedSnippet(m.text || (m.file ? m.file.name : ''), cleanQ);
+      const cleanMsgText = (m.text || '')
+        .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
+        .replace(/^\[Переслано от [^\]]+\]:\s*/, '');
+      const headline = createHighlightedSnippet(cleanMsgText || (m.file ? m.file.name : ''), cleanQ);
       const senderProfile = userProfiles[m.sender];
       return {
         id: m.id,
@@ -148,8 +157,8 @@ export const SearchPage: React.FC<SearchPageProps> = ({
           display_name: senderProfile?.firstName || USER_NAMES[m.sender] || m.sender,
           avatar_url: senderProfile?.avatarUrl,
         },
-        content: m.text,
-        text: m.text,
+        content: cleanMsgText,
+        text: cleanMsgText,
         timestamp: m.timestamp,
         created_at: new Date(m.timestamp).toISOString(),
         headline,

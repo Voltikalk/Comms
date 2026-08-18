@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { ANIMATED_EMOJIS } from '../constants';
-import { 
-  IconSearch, 
-  IconClock, 
-  IconHeart, 
-  IconThumbUp, 
-  IconConfetti, 
+import {
+  IconSearch,
+  IconClock,
+  IconHeart,
+  IconThumbUp,
+  IconConfetti,
   IconMoodSmile,
-  IconX 
+  IconX
 } from '@tabler/icons-react';
 
 export const HoverAnimatedEmoji: React.FC<{
@@ -84,7 +84,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
   });
 
   return (
-    <div 
+    <div
       className="w-76 sm:w-84 bg-[#17212b]/98 dark:bg-[#17212b]/98 bg-white/98 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 p-3 flex flex-col gap-2.5 animate-pop-in select-none z-50 text-slate-900 dark:text-white"
       onClick={(e) => e.stopPropagation()}
     >
@@ -94,9 +94,8 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
           <button
             type="button"
             onClick={() => { setActiveTab('recent'); setActiveCategory('all'); }}
-            className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-              activeTab === 'recent' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${activeTab === 'recent' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
+              }`}
             title="Недавние"
           >
             <IconClock size={18} />
@@ -104,9 +103,8 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
           <button
             type="button"
             onClick={() => { setActiveTab('all'); setActiveCategory('all'); }}
-            className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-              activeTab === 'all' && activeCategory === 'all' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${activeTab === 'all' && activeCategory === 'all' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
+              }`}
             title="Все эмодзи"
           >
             <IconMoodSmile size={18} />
@@ -114,9 +112,8 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
           <button
             type="button"
             onClick={() => { setActiveTab('favorites'); setActiveCategory('all'); }}
-            className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-              activeTab === 'favorites' ? 'text-pink-500 bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${activeTab === 'favorites' ? 'text-pink-500 bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
+              }`}
             title="Избранные"
           >
             <IconHeart size={18} />
@@ -143,7 +140,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
           className="bg-transparent border-none text-xs text-slate-900 dark:text-white focus:outline-none w-full placeholder-slate-400"
           autoFocus
         />
-        
+
         {/* Category Filters */}
         <div className="flex items-center gap-0.5 shrink-0 text-slate-400">
           <button
@@ -152,9 +149,8 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
               setActiveCategory(activeCategory === 'hearts' ? 'all' : 'hearts');
               setActiveTab('all');
             }}
-            className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-              activeCategory === 'hearts' ? 'text-pink-500 bg-black/5 dark:bg-white/10' : ''
-            }`}
+            className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${activeCategory === 'hearts' ? 'text-pink-500 bg-black/5 dark:bg-white/10' : ''
+              }`}
             title="Сердца"
           >
             <IconHeart size={14} />
@@ -165,9 +161,8 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
               setActiveCategory(activeCategory === 'thumbs' ? 'all' : 'thumbs');
               setActiveTab('all');
             }}
-            className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-              activeCategory === 'thumbs' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : ''
-            }`}
+            className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${activeCategory === 'thumbs' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : ''
+              }`}
             title="Жесты"
           >
             <IconThumbUp size={14} />
@@ -178,9 +173,8 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
               setActiveCategory(activeCategory === 'party' ? 'all' : 'party');
               setActiveTab('all');
             }}
-            className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-              activeCategory === 'party' ? 'text-amber-500 bg-black/5 dark:bg-white/10' : ''
-            }`}
+            className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${activeCategory === 'party' ? 'text-amber-500 bg-black/5 dark:bg-white/10' : ''
+              }`}
             title="Праздник"
           >
             <IconConfetti size={14} />
