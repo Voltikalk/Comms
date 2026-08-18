@@ -237,6 +237,16 @@ npm run storybook
 
 ---
 
+### [v2.76.0] — 18 августа 2026 г.
+* **Комплексное улучшение документации, онбординга, CI/CD и стандартов GitHub (Onboarding & Engineering Excellence Suite)**:
+  * **Репозиторные Permalinks**: все локальные файловые ссылки (`file:///...`) в `handoff.md` заменены на валидные GitHub Permalinks (`https://github.com/Voltikalk/Comms/blob/main/...`).
+  * **Раздел Getting Started**: в начало `handoff.md` интегрирован пошаговый гайд по быстрому старту с системными требованиями (Node.js >= 20.x), командами запуска бэкенда, фронтенда, миграций и Storybook.
+  * **Конфигурационный шаблон `.env.example`**: добавлен исчерпывающий шаблон переменных окружения для портов, Supabase URL/Keys, JWT секретов, MongoDB и WebRTC.
+  * **CI Pipeline (`.github/workflows/ci.yml`)**: настроен GitHub Actions пайплайн для автоматической проверки линтинга (`oxlint`) и сборки бандла (`tsc -b && vite build`) на pull requests и push в `main`.
+  * **Политика безопасности (`SECURITY.md`)**: сформирован регламент ответственного раскрытия уязвимостей, контакты и матрица поддерживаемых версий.
+  * **Операционный ранбук (`docs/RUNBOOK.md`)**: добавлено руководство по эксплуатации, диагностике типичных проблем с WebSocket/Supabase и деплою.
+  * **Шаблоны GitHub (`PULL_REQUEST_TEMPLATE.md` и `ISSUE_TEMPLATE/bug_report.md`)**: стандартизированы процессы ревью кода и репортинга багов.
+
 ### [v2.75.0] — 18 августа 2026 г.
 * **Аутентичный заголовок компактного режима 1:1 Telegram Desktop (Clean Centered Top Bar & Menu Search)**:
   * **Устранение переполнения и наложения иконок**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) верхняя панель компактного режима (72px) переведена на каноничный дизайн Telegram Desktop — аккуратная одиночная центрированная кнопка гамбургер-меню, исключающая любое горизонтальное вылезание иконок за пределы боковой панели.
