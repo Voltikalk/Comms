@@ -300,7 +300,7 @@ app.post('/api/auth/login', async (req, res) => {
 // POST /api/auth/register
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, username, password, firstName, lastName } = req.body || {};
+    const { email, username, password, firstName, lastName, avatarUrl } = req.body || {};
     if (!email || !username || !password) {
       return res.status(400).json({ error: 'Заполните все обязательные поля.' });
     }
@@ -325,6 +325,7 @@ app.post('/api/auth/register', async (req, res) => {
       isActive: true,
       firstName: firstName || cleanUsername,
       lastName: lastName || '',
+      avatarUrl: avatarUrl || '',
       bio: '',
       statusEmoji: '✨',
       createdAt: new Date(),

@@ -237,6 +237,16 @@ npm run storybook
 
 ---
 
+### [v2.77.0] — 18 августа 2026 г.
+* **Многошаговый визард регистрации в стиле Telegram Web (Telegram Multi-Step Registration Wizard)**:
+  * **Компонент [`TelegramRegistrationWizard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/TelegramRegistrationWizard.tsx)**: разработан полнофункциональный 4-шаговый мастер регистрации без перезагрузки страниц в фирменной эстетике Telegram (акцентный цвет `#3390ec`, типографика, скругления `rounded-2xl`, центрирование до 400px).
+  * **Плавные Slide-анимации шагов (250–300ms)**: плавный переход между экранами с помощью `framer-motion` (`AnimatePresence`) со скольжением вперед (справа налево с fade-in/fade-out) и назад (слева направо).
+  * **Шаг 1 (Ввод Email)**: валидация формата email в реальном времени, крупное поле ввода с мягким кольцом фокуса, активация кнопки «Далее» только при валидном email.
+  * **Шаг 2 (6-значный код подтверждения)**: 6 отдельных ячеек с крупным моноширинным шрифтом, автопереход фокуса на следующую ячейку, поддержка навигации стрелками и Backspace, автопаста всего кода из буфера обмена, таймер повторной отправки (30 сек) с обратным отсчетом и ссылкой «Отправить код повторно».
+  * **Шаг 3 (Имя пользователя и живой аватар)**: поля «Имя» (обязательное) и «Фамилия» (опционально) с генерацией и живым превью круглой аватарки с инициалами на фирменном градиентном фоне Telegram.
+  * **Шаг 4 (Загрузка и встроенный Circular Crop аватара)**: загрузка фото drag&drop/picker, встроенный интерактивный инструмент круглой обрезки фото (масштабирование 1x–3x слайдером, перетаскивание позиции drag & drop, экспорт Canvas Data URL), кнопки «Пропустить» и «Готово».
+  * **Интеграция с экраном входа и бэкендом**: компонент интегрирован в [`src/components/LoginScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/LoginScreen.tsx), [`src/pages/RegisterPage.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/pages/RegisterPage.tsx), [`src/types/auth.types.ts`](https://github.com/Voltikalk/Comms/blob/main/src/types/auth.types.ts) и [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js).
+
 ### [v2.76.0] — 18 августа 2026 г.
 * **Комплексное улучшение документации, онбординга, CI/CD и стандартов GitHub (Onboarding & Engineering Excellence Suite)**:
   * **Репозиторные Permalinks**: все локальные файловые ссылки (`file:///...`) в `handoff.md` заменены на валидные GitHub Permalinks (`https://github.com/Voltikalk/Comms/blob/main/...`).

@@ -103,6 +103,7 @@ export interface RegisterRequest {
   lastName?: string;
   bio?: string;
   phoneNumber?: string;
+  avatarUrl?: string;
 }
 
 /**
