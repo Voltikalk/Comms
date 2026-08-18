@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import type { Message, UserId, Room, ConnectionStatus, CallSession, UserProfile } from '../types';
@@ -31,7 +31,7 @@ interface SocketContextType {
   sendMessage: (
     text: string, 
     replyToId?: string,
-    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; data: string; size: number; rawBlob?: Blob | File },
+    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker'; data: string; size: number; rawBlob?: Blob | File; width?: number; height?: number; orientation?: 'vertical' | 'horizontal' | 'square'; stickerData?: any },
     targetRoomId?: string,
     forwardedFrom?: { sender: UserId; senderName: string; originalMessageId?: string }
   ) => void;
@@ -140,8 +140,26 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const targetSocketIdRef = useRef<string>('');
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
-  // Filter rooms based on participants (including general/family for all registered users)
-  const rooms = ALL_ROOMS.filter(r => currentUser && (r.participants.includes(currentUser) || r.id === 'family'));
+  // Filter rooms based on participants (including general/family and direct chats for all registered users)
+  const rooms = useMemo(() => {
+    if (!currentUser) return ALL_ROOMS;
+    const baseRooms = ALL_ROOMS.filter(r => r.participants.includes(currentUser) || r.id === 'family');
+    
+    // For custom registered users, generate direct 1-on-1 channels with default contacts
+    const isCustomUser = !['vlad', 'anya', 'mom', 'dad', 'sister'].includes(currentUser);
+    if (isCustomUser) {
+      const defaultPeers: UserId[] = ['vlad', 'anya', 'mom', 'dad', 'sister'];
+      const customDms: Room[] = defaultPeers.map((peer) => ({
+        id: `dm-${currentUser}-${peer}`,
+        name: USER_NAMES[peer] || peer,
+        type: 'direct' as const,
+        participants: [currentUser, peer]
+      }));
+      return [...baseRooms, ...customDms];
+    }
+    return baseRooms;
+  }, [currentUser]);
+
   const activeRoom = rooms.find(r => r.id === activeRoomId) || rooms[0] || null;
 
   // Sync activeRoomId if it becomes invalid or empty
@@ -691,19 +709,27 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCurrentUser(uid);
       setAuthKey(token);
 
-      setUserProfiles((prev) => ({
-        ...prev,
-        [uid]: {
-          userId: uid,
-          firstName: registeredUser.firstName || registeredUser.username,
-          lastName: registeredUser.lastName || '',
-          bio: registeredUser.bio || '',
-          username: registeredUser.username,
-          phoneNumber: registeredUser.phoneNumber || '',
-          avatarUrl: registeredUser.avatarUrl || '',
-          statusEmoji: registeredUser.statusEmoji || ''
+      setUserProfiles((prev) => {
+        const next = {
+          ...prev,
+          [uid]: {
+            userId: uid,
+            firstName: registeredUser.firstName || registeredUser.username,
+            lastName: registeredUser.lastName || '',
+            bio: registeredUser.bio || '',
+            username: registeredUser.username,
+            phoneNumber: registeredUser.phoneNumber || '',
+            avatarUrl: registeredUser.avatarUrl || '',
+            statusEmoji: registeredUser.statusEmoji || '✨'
+          }
+        };
+        try {
+          localStorage.setItem('chat_user_profiles_v2', JSON.stringify(next));
+        } catch {
+          // ignore
         }
-      }));
+        return next;
+      });
 
       localStorage.setItem('chat_user_v2', uid);
       localStorage.setItem('chat_auth_key_v2', token);
@@ -733,7 +759,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const sendMessage = async (
     text: string, 
     replyToId?: string,
-    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; data: string; size: number; rawBlob?: Blob | File },
+    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker'; data: string; size: number; rawBlob?: Blob | File; stickerData?: any },
     targetRoomId?: string,
     forwardedFrom?: { sender: UserId; senderName: string; originalMessageId?: string }
   ) => {
@@ -762,6 +788,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     if (filePayload) {
+      const isInstantMedia = !filePayload.rawBlob && (
+        filePayload.type === 'sticker' || 
+        (filePayload.data.startsWith('http') && !filePayload.data.startsWith('blob:')) || 
+        filePayload.data.startsWith('data:image/svg')
+      );
+
       const tempMessage: Message = {
         id: messageId,
         roomId: effectiveRoomId,
@@ -772,109 +804,116 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         forwardedFrom: forwardedFrom || undefined,
         file: {
           ...filePayload,
-          isUploading: true,
-          uploadProgress: 0
+          isUploading: !isInstantMedia,
+          uploadProgress: isInstantMedia ? undefined : 0
         }
       };
 
       setMessages((prev) => [...prev, tempMessage]);
 
-      try {
-        const uploadedUrl = await new Promise<string>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', `${SERVER_URL}/api/upload`);
+      if (!isInstantMedia) {
+        try {
+          const uploadedUrl = await new Promise<string>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${SERVER_URL}/api/upload`);
 
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const percent = Math.round((e.loaded / e.total) * 100);
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === messageId
-                    ? {
-                        ...msg,
-                        file: msg.file
-                          ? { ...msg.file, uploadProgress: percent }
-                          : undefined
-                      }
-                    : msg
-                )
-              );
-            }
-          };
-
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const res = JSON.parse(xhr.responseText);
-                resolve(res.url);
-              } catch {
-                reject(new Error('Invalid upload response'));
+            xhr.upload.onprogress = (e) => {
+              if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === messageId
+                      ? {
+                          ...msg,
+                          file: msg.file
+                            ? { ...msg.file, uploadProgress: percent }
+                            : undefined
+                        }
+                      : msg
+                  )
+                );
               }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  const res = JSON.parse(xhr.responseText);
+                  resolve(res.url);
+                } catch {
+                  reject(new Error('Invalid upload response'));
+                }
+              } else {
+                reject(new Error(`Upload failed: ${xhr.status}`));
+              }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error during upload'));
+            
+            if (filePayload.rawBlob) {
+              const formData = new FormData();
+              formData.append('file', filePayload.rawBlob, filePayload.name);
+              xhr.send(formData);
             } else {
-              reject(new Error(`Upload failed: ${xhr.status}`));
+              xhr.setRequestHeader('Content-Type', 'application/json');
+              xhr.send(JSON.stringify({
+                name: filePayload.name,
+                type: filePayload.type,
+                data: filePayload.data
+              }));
             }
-          };
+          });
 
-          xhr.onerror = () => reject(new Error('Network error during upload'));
-          
-          if (filePayload.rawBlob) {
-            const formData = new FormData();
-            formData.append('file', filePayload.rawBlob, filePayload.name);
-            xhr.send(formData);
-          } else {
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.send(JSON.stringify({
-              name: filePayload.name,
-              type: filePayload.type,
-              data: filePayload.data
-            }));
+          if (finalFilePayload) {
+            finalFilePayload.data = uploadedUrl;
+            delete (finalFilePayload as any).rawBlob;
+            delete (finalFilePayload as any).isUploading;
+            delete (finalFilePayload as any).uploadProgress;
           }
-        });
 
-        if (finalFilePayload) {
-          finalFilePayload.data = uploadedUrl;
-          delete (finalFilePayload as any).rawBlob;
-          delete (finalFilePayload as any).isUploading;
-          delete (finalFilePayload as any).uploadProgress;
+          // Immediately update local message state to clear uploading spinner
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId
+                ? {
+                    ...msg,
+                    file: msg.file
+                      ? {
+                          ...msg.file,
+                          data: uploadedUrl,
+                          isUploading: false,
+                          uploadProgress: undefined
+                        }
+                      : undefined
+                  }
+                : msg
+            )
+          );
+        } catch (err) {
+          console.warn('File upload via HTTP failed, falling back to Socket.io directly:', err);
+          if (finalFilePayload) {
+            delete (finalFilePayload as any).rawBlob;
+            delete (finalFilePayload as any).isUploading;
+            delete (finalFilePayload as any).uploadProgress;
+          }
+          // Clear isUploading in state so spinner is not stuck on error
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId
+                ? {
+                    ...msg,
+                    file: msg.file
+                      ? {
+                          ...msg.file,
+                          isUploading: false,
+                          uploadProgress: undefined
+                        }
+                      : undefined
+                  }
+                : msg
+            )
+          );
         }
-
-        // Immediately update local message state to clear uploading spinner
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === messageId
-              ? {
-                  ...msg,
-                  file: msg.file
-                    ? {
-                        ...msg.file,
-                        data: uploadedUrl,
-                        isUploading: false,
-                        uploadProgress: undefined
-                      }
-                    : undefined
-                }
-              : msg
-          )
-        );
-      } catch (err) {
-        console.warn('File upload via HTTP failed, falling back to Socket.io directly:', err);
-        // Clear isUploading in state so spinner is not stuck on error
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === messageId
-              ? {
-                  ...msg,
-                  file: msg.file
-                    ? {
-                        ...msg.file,
-                        isUploading: false,
-                        uploadProgress: undefined
-                      }
-                    : undefined
-                }
-              : msg
-          )
-        );
       }
     }
 
@@ -1177,8 +1216,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteMessage = (messageId: string) => {
-    if (socketRef.current && isConnected && activeRoomId) {
-      socketRef.current.emit('delete_message', { messageId, roomId: activeRoomId });
+    if (activeRoomId) {
+      setMessages((prev) => prev.filter((msg) => !(msg.id === messageId && msg.roomId === activeRoomId)));
+      if (socketRef.current && isConnected) {
+        socketRef.current.emit('delete_message', { messageId, roomId: activeRoomId });
+      }
     }
   };
 

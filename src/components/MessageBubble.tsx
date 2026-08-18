@@ -14,10 +14,36 @@ import {
   IconVolume,
   IconVolumeOff,
   IconTrash,
-  IconShare3
+  IconShare3,
+  IconPhoto,
+  IconVideo,
+  IconMicrophone,
+  IconMoodSmile,
+  IconCamera
 } from '@tabler/icons-react';
 import { VideoPlayer } from './VideoPlayer';
 import { triggerTelegramDisintegrate } from './effects/disintegrate';
+import { TgsStickerPlayer } from './Stickers/TgsStickerPlayer';
+
+// Telegram author color palette
+const PEER_COLORS: Record<string, string> = {
+  vlad: '#3390ec',
+  anya: '#e91e63',
+  mom: '#f39c12',
+  dad: '#2980b9',
+  sister: '#27ae60',
+};
+
+const getAuthorColor = (userId?: string): string => {
+  if (!userId) return '#3390ec';
+  if (PEER_COLORS[userId]) return PEER_COLORS[userId];
+  const palette = ['#3390ec', '#2ecc71', '#f39c12', '#9b59b6', '#e74c3c', '#1abc9c', '#e91e63', '#3498db'];
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return palette[Math.abs(hash) % palette.length];
+};
 
 const CircularProgress: React.FC<{ progress: number }> = ({ progress }) => {
   const radius = 20;
@@ -321,26 +347,32 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   };
 
   const hasFile = !!message.file;
-  const isAudioFile = hasFile && (
+  const isSticker = (hasFile && (
+    message.file?.type === 'sticker' ||
+    message.file?.name?.startsWith('sticker_') ||
+    !!message.file?.stickerData
+  )) || !!message.sticker;
+
+  const isAudioFile = hasFile && !isSticker && (
     message.file?.type === 'audio' ||
     (message.file?.name && (
       message.file.name.toLowerCase().startsWith('голосовое сообщение') ||
       /\.(mp3|wav|ogg|m4a|aac|opus)$/i.test(message.file.name)
     ))
   );
-  const isVideoNote = hasFile && !isAudioFile && (
+  const isVideoNote = hasFile && !isSticker && !isAudioFile && (
     message.file?.type === 'video_note' ||
     (message.file?.type === 'video' && message.file.name.includes('кружок'))
   );
-  const isRegularVideo = hasFile && !isAudioFile && !isVideoNote && (
+  const isRegularVideo = hasFile && !isSticker && !isAudioFile && !isVideoNote && (
     message.file?.type === 'video' ||
     (message.file?.name && /\.(mp4|mov|mkv|avi|m4v|webm)$/i.test(message.file.name))
   );
-  const isImageFile = hasFile && !isAudioFile && !isVideoNote && !isRegularVideo && (
+  const isImageFile = hasFile && !isSticker && !isAudioFile && !isVideoNote && !isRegularVideo && (
     message.file?.type === 'image' ||
     (message.file?.name && /\.(jpg|jpeg|png|gif|webp|svg|heic)$/i.test(message.file.name))
   );
-  const isDocumentFile = hasFile && !isAudioFile && !isVideoNote && !isRegularVideo && !isImageFile;
+  const isDocumentFile = hasFile && !isSticker && !isAudioFile && !isVideoNote && !isRegularVideo && !isImageFile;
 
   const rawCleanText = displayMessageText.trim();
   const isAutoFileNameCaption = hasFile && message.file?.name && (
@@ -349,7 +381,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
     rawCleanText === `📎  ${message.file.name}` ||
     rawCleanText === '📎'
   );
-  const hasText = !!rawCleanText && !isAutoFileNameCaption;
+  const hasText = !!rawCleanText && !isAutoFileNameCaption && !isSticker;
 
   const isPureImage = hasFile && isImageFile && !hasText && !parentMessage;
   const isPureAudio = hasFile && isAudioFile && !hasText;
@@ -363,8 +395,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
       ? 'read'
       : 'sent';
 
-  // Video notes have NO rectangular bubble background
-  const bubbleClass = isVideoNote 
+  // Video notes and stickers have NO rectangular bubble background
+  const bubbleClass = (isVideoNote || isSticker) 
     ? 'bg-transparent shadow-none border-none' 
     : isSelf 
       ? 'tg-bubble-self' 
@@ -544,7 +576,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             className={`${bubbleClass} relative select-none transition-shadow duration-300`}
           >
             {/* Separate Forwarded Badge (Telegram Style) */}
-            {forwardedSenderName && !isVideoNote && (
+            {forwardedSenderName && !isVideoNote && !isSticker && (
               <div className="px-3 pt-1.5 pb-0.5 text-[11.5px] font-medium text-[#3390ec] dark:text-[#70b1ff] flex items-center gap-1.5 cursor-default select-none border-b border-black/5 dark:border-white/5 mb-0.5">
                 <IconShare3 size={13} className="shrink-0 scale-x-[-1] text-[#3390ec] dark:text-[#70b1ff]" />
                 <span className="opacity-95">
@@ -554,38 +586,170 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             )}
 
             {/* Sender Label in Groups */}
-            {!isSelf && showSenderLabel && !isVideoNote && !forwardedSenderName && (
+            {!isSelf && showSenderLabel && !isVideoNote && !isSticker && !forwardedSenderName && (
               <div className="px-3 pt-1 text-[12px] font-bold text-[#3390ec]">
                 {senderName}
               </div>
             )}
 
-            {/* Quote Preview */}
-            {parentMessage && !isVideoNote && (
-              <div 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onJumpToMessage) {
-                    onJumpToMessage(parentMessage.id);
-                  } else {
-                    const element = document.getElementById(`msg-${parentMessage.id}`);
-                    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                }}
-                className={`mx-2.5 mt-1.5 mb-1 px-2 py-1 rounded-md border-l-[3px] border-[#3390ec] text-xs cursor-pointer ${
-                  isSelf 
-                    ? 'bg-black/5 dark:bg-white/10' 
-                    : 'bg-black/5 dark:bg-white/5'
-                }`}
-              >
-                <span className="font-semibold block text-[11px] text-[#3390ec]">
-                  {parentMessage.sender === currentUser ? 'Вы' : (USER_NAMES[parentMessage.sender] || parentMessage.sender)}
-                </span>
-                <span className="truncate block text-[11px] opacity-80">
-                  {parentMessage.text 
-                    ? parentMessage.text.replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '').replace(/^\[Переслано от [^\]]+\]:\s*/, '')
-                    : (parentMessage.file ? '📎 Вложение' : '')}
-                </span>
+            {/* Quote Preview with Author Color, Tabler Icons, Live Media Thumbnail & Flash Highlight Jump */}
+            {parentMessage && !isVideoNote && !isSticker && (() => {
+              const authorColor = getAuthorColor(parentMessage.sender);
+              const authorName = parentMessage.sender === currentUser 
+                ? 'Вы' 
+                : (USER_NAMES[parentMessage.sender] || parentMessage.sender);
+
+              const cleanText = (parentMessage.text || '')
+                .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
+                .replace(/^\[Переслано от [^\]]+\]:\s*/, '')
+                .trim();
+
+              const hasImageThumbnail = parentMessage.file?.type === 'image' && parentMessage.file.data;
+              const hasVideoThumbnail = parentMessage.file?.type === 'video' && parentMessage.file.data;
+              const hasStickerThumbnail = (parentMessage.file?.type === 'sticker' && parentMessage.file.data) || parentMessage.sticker?.url;
+
+              return (
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onJumpToMessage) {
+                      onJumpToMessage(parentMessage.id);
+                    } else {
+                      const element = document.getElementById(`msg-${parentMessage.id}`);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        element.classList.add('tg-message-row-highlight');
+                        setTimeout(() => element.classList.remove('tg-message-row-highlight'), 2600);
+                      }
+                    }
+                  }}
+                  className={`mx-2.5 mt-1.5 mb-1 px-2.5 py-1 rounded-lg border-l-[3px] text-xs cursor-pointer flex items-center justify-between gap-2 transition-all duration-150 active:scale-[0.99] select-none ${
+                    isSelf 
+                      ? 'bg-black/10 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15' 
+                      : 'bg-black/5 hover:bg-black/8 dark:bg-white/5 dark:hover:bg-white/10'
+                  }`}
+                  style={{
+                    borderLeftColor: isSelf ? 'currentColor' : authorColor
+                  }}
+                  title="Перейти к сообщению"
+                >
+                  <div className="min-w-0 flex-1 py-0.5">
+                    <span 
+                      className="font-semibold block text-[11px] leading-tight truncate"
+                      style={{
+                        color: isSelf ? 'inherit' : authorColor
+                      }}
+                    >
+                      {authorName}
+                    </span>
+                    <div className="text-[11px] leading-snug opacity-85 truncate mt-0.5 flex items-center gap-1">
+                      {cleanText ? (
+                        <span className="truncate">{cleanText}</span>
+                      ) : parentMessage.file ? (
+                        parentMessage.file.type === 'sticker' || (parentMessage.file.name && parentMessage.file.name.includes('sticker')) ? (
+                          <span className="flex items-center gap-1">
+                            <IconMoodSmile size={13} className="shrink-0 text-amber-500" />
+                            <span>Стикер</span>
+                          </span>
+                        ) : parentMessage.file.type === 'image' ? (
+                          <span className="flex items-center gap-1">
+                            <IconPhoto size={13} className="shrink-0 text-[#3390ec]" />
+                            <span>Фотография</span>
+                          </span>
+                        ) : parentMessage.file.type === 'video_note' ? (
+                          <span className="flex items-center gap-1">
+                            <IconCamera size={13} className="shrink-0 text-[#3390ec]" />
+                            <span>Видеосообщение</span>
+                          </span>
+                        ) : parentMessage.file.type === 'video' ? (
+                          <span className="flex items-center gap-1">
+                            <IconVideo size={13} className="shrink-0 text-[#3390ec]" />
+                            <span>Видео</span>
+                          </span>
+                        ) : parentMessage.file.type === 'audio' ? (
+                          <span className="flex items-center gap-1">
+                            <IconMicrophone size={13} className="shrink-0 text-emerald-500" />
+                            <span>Голосовое сообщение</span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 truncate">
+                            <IconFileText size={13} className="shrink-0 text-[#3390ec]" />
+                            <span className="truncate">{parentMessage.file.name || 'Вложение'}</span>
+                          </span>
+                        )
+                      ) : parentMessage.sticker ? (
+                        <span className="flex items-center gap-1">
+                          <IconMoodSmile size={13} className="shrink-0 text-amber-500" />
+                          <span>Стикер</span>
+                        </span>
+                      ) : (
+                        <span>Сообщение</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Live Media Thumbnail (Photo / Video / Sticker) */}
+                  {hasImageThumbnail ? (
+                    <div className="w-8.5 h-8.5 rounded-md overflow-hidden bg-black/15 shrink-0 border border-black/10 dark:border-white/10 ml-1 shadow-2xs">
+                      <img src={parentMessage.file!.data} className="w-full h-full object-cover" alt="quote-preview" />
+                    </div>
+                  ) : hasVideoThumbnail ? (
+                    <div className="w-8.5 h-8.5 rounded-md overflow-hidden bg-black shrink-0 border border-black/10 dark:border-white/10 ml-1 relative flex items-center justify-center shadow-2xs">
+                      <video src={parentMessage.file!.data} className="w-full h-full object-cover" muted playsInline />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <IconPlayerPlayFilled size={10} className="text-white" />
+                      </div>
+                    </div>
+                  ) : hasStickerThumbnail ? (
+                    <div className="w-8 h-8 shrink-0 ml-1 flex items-center justify-center">
+                      <TgsStickerPlayer 
+                        src={parentMessage.file?.data || parentMessage.sticker?.url || ''} 
+                        alt="quote-sticker" 
+                        className="w-full h-full" 
+                        loop={false} 
+                        autoplay={false} 
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()}
+
+            {/* 0. TELEGRAM STICKER - Pure Transparent Sticker with Floating Timestamp */}
+            {isSticker && (
+              <div className={`relative flex flex-col items-center py-1 select-none ${
+                isSelf ? 'animate-sticker-send' : 'animate-sticker-send-peer'
+              }`}>
+                <div 
+                  className="relative w-36 h-36 xs:w-44 xs:h-44 sm:w-48 sm:h-48 md:w-52 md:h-52 flex items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+                  title={message.file?.name || message.sticker?.title || 'Стикер'}
+                >
+                  <TgsStickerPlayer
+                    src={message.file?.data || message.sticker?.url || ''}
+                    alt={message.file?.name || message.sticker?.title || 'Стикер'}
+                    className="w-full h-full"
+                    loop={true}
+                    autoplay={true}
+                  />
+                  {message.file?.isUploading && (message.file.uploadProgress === undefined || message.file.uploadProgress < 100) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl z-20 pointer-events-none">
+                      <CircularProgress progress={message.file.uploadProgress || 0} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Floating Timestamp pill for Sticker */}
+                <div className={`mt-0.5 px-2.5 py-0.5 rounded-full bg-black/45 text-white backdrop-blur-xs text-[10px] font-mono flex items-center gap-1 select-none shadow-xs ${
+                  isSelf ? 'self-end' : 'self-start'
+                }`}>
+                  {message.isEdited && <span className="opacity-75 text-[8px]">изм.</span>}
+                  <span>{formatTime(message.timestamp)}</span>
+                  {isSelf && !isPending && (
+                    <span className="text-[#4fae4e] dark:text-[#82b1ff]">
+                      {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 
@@ -658,7 +822,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             {/* 2. REGULAR VIDEO PLAYER (Кастомный многофункциональный видеоплеер с авто-определением ориентации) */}
             {isRegularVideo && message.file && (
               <div 
-                className={`relative p-1 w-full transition-all duration-300 ${
+                className={`relative p-1 w-full ${
                   videoOrientation === 'vertical'
                     ? 'min-w-[200px] max-w-[240px] xs:max-w-[260px] sm:max-w-[290px]'
                     : videoOrientation === 'square'
@@ -668,7 +832,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 onClick={(e) => e.stopPropagation()}
               >
                 <div 
-                  className={`relative rounded-2xl overflow-hidden bg-black flex items-center justify-center shadow-md transition-all duration-300 ${
+                  className={`relative rounded-2xl overflow-hidden bg-black flex items-center justify-center shadow-md ${
                     !videoAspectRatio ? 'aspect-video' : ''
                   }`}
                   style={videoAspectRatio ? { 

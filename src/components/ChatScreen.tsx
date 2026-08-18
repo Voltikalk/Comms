@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { USER_NAMES } from '../constants';
 import { MessageBubble } from './MessageBubble';
@@ -28,6 +28,8 @@ import {
   IconQrcode,
   IconCopy,
   IconCheck,
+  IconChecks,
+  IconPhoto,
   IconEdit,
   IconShare3,
   IconTrash,
@@ -36,15 +38,22 @@ import {
   IconFileText,
   IconChevronUp,
   IconChevronDown,
-  IconWorld
+  IconWorld,
+  IconPalette
 } from '@tabler/icons-react';
 import { TelegramEmojiPickerModal } from './TelegramEmojiPickerModal';
 import { TelegramContextMenuModal } from './TelegramContextMenuModal';
 import { ProfileEditModal } from './ProfileEditModal';
 import { SearchPage } from '../pages/SearchPage';
 import { AdvancedSearchModal } from './Search/AdvancedSearchModal';
+import { ThemeSettingsModal } from './Theme/ThemeSettingsModal';
+import { DEFAULT_THEME_CONFIG, getWallpaperById, getAccentColorById } from '../constants/wallpapers';
+import type { ChatThemeConfig } from '../types/theme.types';
 import { applyFilters, type FilterOptions } from '../lib/filter-utils';
 import { triggerTelegramDisintegrate } from './effects/disintegrate';
+import { findStickersByEmoji } from '../constants/stickers';
+import type { Sticker } from '../types/sticker.types';
+import { TgsStickerPlayer } from './Stickers/TgsStickerPlayer';
 
 interface ChatScreenProps {
   darkMode: boolean;
@@ -123,6 +132,74 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [showQrModal, setShowQrModal] = useState(false);
   const [isUrlCopied, setIsUrlCopied] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [showThemeModal, setShowThemeModal] = useState(false);
+  const [themeConfig, setThemeConfig] = useState<ChatThemeConfig>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tg_chat_theme_config');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+    }
+    return DEFAULT_THEME_CONFIG;
+  });
+
+  // Apply accent colors dynamically to CSS root variables
+  useEffect(() => {
+    try {
+      const accent = getAccentColorById(themeConfig.accentColorId);
+      document.documentElement.style.setProperty('--tg-theme-accent', accent.hex);
+      document.documentElement.style.setProperty('--tg-theme-accent-hover', accent.hoverHex);
+      document.documentElement.style.setProperty('--tg-theme-accent-subtle', accent.subtleHex);
+      document.documentElement.style.setProperty('--tg-theme-accent-border', accent.borderHex);
+      localStorage.setItem('tg_chat_theme_config', JSON.stringify(themeConfig));
+    } catch (e) {
+      console.warn('Failed to persist chat theme config:', e);
+    }
+  }, [themeConfig]);
+
+  const getChatBackgroundStyle = (): React.CSSProperties => {
+    if (themeConfig.wallpaperId === 'custom' && themeConfig.customWallpaper?.imageUrl) {
+      const blur = themeConfig.customWallpaper.blur || 0;
+      return {
+        backgroundImage: `url("${themeConfig.customWallpaper.imageUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        filter: blur > 0 ? `blur(${blur}px)` : undefined,
+        transform: blur > 0 ? 'scale(1.08)' : undefined
+      };
+    }
+
+    const wp = getWallpaperById(themeConfig.wallpaperId);
+    if (wp.imageUrl) {
+      const blur = wp.blur || 0;
+      return {
+        backgroundImage: `url("${wp.imageUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        filter: blur > 0 ? `blur(${blur}px)` : undefined,
+        transform: blur > 0 ? 'scale(1.08)' : undefined
+      };
+    }
+
+    const bgCss = darkMode ? wp.backgroundCssDark : wp.backgroundCssLight;
+
+    if (wp.patternSvg) {
+      return {
+        backgroundImage: `${wp.patternSvg}, ${bgCss}`,
+        backgroundSize: '160px 160px, 100% 100%',
+        backgroundRepeat: 'repeat, no-repeat'
+      };
+    }
+
+    return {
+      backgroundImage: bgCss,
+      backgroundSize: '100% 100%'
+    };
+  };
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messageFeedRef = useRef<HTMLElement | null>(null);
@@ -172,13 +249,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   // File & Voice Attachment states
   const [selectedFile, setSelectedFile] = useState<{ 
     name: string; 
-    type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; 
+    type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker'; 
     data: string; 
     size: number; 
     rawBlob?: Blob | File;
     width?: number;
     height?: number;
     orientation?: 'vertical' | 'horizontal' | 'square';
+    stickerData?: Sticker;
   } | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -559,38 +637,106 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     return name.toLowerCase().includes(roomFilterQuery.toLowerCase());
   });
 
+  const isInitialRoomLoadRef = useRef(true);
+
   const handleScroll = () => {
     if (!messageFeedRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = messageFeedRef.current;
-    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
+    const nearBottom = scrollHeight - scrollTop - clientHeight < 150;
+    isNearBottomRef.current = nearBottom;
+
+    // If user scrolled up intentionally during initial load, release lock so we don't fight user
+    if (!nearBottom) {
+      isInitialRoomLoadRef.current = false;
+    }
   };
 
   const prevMessagesCountRef = useRef(activeMessages.length);
-  const prevRoomIdRef = useRef(activeRoomId);
 
-  // Smart auto-scroll on NEW messages or room change ONLY (never on reactions or edits)
-  useEffect(() => {
-    const isRoomChange = activeRoomId !== prevRoomIdRef.current;
-    const isNewMessage = activeMessages.length > prevMessagesCountRef.current;
-
-    prevMessagesCountRef.current = activeMessages.length;
-    prevRoomIdRef.current = activeRoomId;
-
-    if (isRoomChange) {
-      if (!pendingNavigateMessageIdRef.current) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  // Helper to scroll message feed directly inside container without window jumps
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    if (messageFeedRef.current) {
+      if (behavior === 'auto') {
+        messageFeedRef.current.scrollTop = messageFeedRef.current.scrollHeight;
+      } else {
+        messageFeedRef.current.scrollTo({
+          top: messageFeedRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
       }
-      return;
     }
+  }, []);
+
+  // 1. Guaranteed Instant Scroll to Bottom when opening/switching chats (Pre-paint)
+  useLayoutEffect(() => {
+    if (!pendingNavigateMessageIdRef.current && messageFeedRef.current) {
+      messageFeedRef.current.scrollTop = messageFeedRef.current.scrollHeight;
+    }
+  }, [activeRoomId, visibleCount]);
+
+  // 2. Continuous ResizeObserver bottom-locking (Guarantees bottom anchor whenever media/video covers expand)
+  useEffect(() => {
+    if (pendingNavigateMessageIdRef.current) return;
+
+    isInitialRoomLoadRef.current = true;
+    const feed = messageFeedRef.current;
+    if (!feed) return;
+
+    // Immediate lock
+    feed.scrollTop = feed.scrollHeight;
+
+    // Observe inner container size changes as images/stickers/avatars/video covers mount
+    const innerContainer = feed.firstElementChild;
+    let observer: ResizeObserver | null = null;
+
+    if (innerContainer && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => {
+        if (feed && !pendingNavigateMessageIdRef.current) {
+          // If in initial room load phase OR user is currently near the bottom: keep pinned to bottom
+          if (isInitialRoomLoadRef.current || isNearBottomRef.current) {
+            feed.scrollTop = feed.scrollHeight;
+          }
+        }
+      });
+      observer.observe(innerContainer);
+    }
+
+    // Release initial strict lock after 2500ms (keeps bottom lock if user remains at bottom)
+    const timeout = setTimeout(() => {
+      isInitialRoomLoadRef.current = false;
+      if (feed && !pendingNavigateMessageIdRef.current && isNearBottomRef.current) {
+        feed.scrollTop = feed.scrollHeight;
+      }
+    }, 2500);
+
+    return () => {
+      observer?.disconnect();
+      clearTimeout(timeout);
+    };
+  }, [activeRoomId]);
+
+  // 3. Smart auto-scroll on NEW messages
+  useEffect(() => {
+    const isNewMessage = activeMessages.length > prevMessagesCountRef.current;
+    prevMessagesCountRef.current = activeMessages.length;
 
     if (isNewMessage) {
       const lastMessage = activeMessages[activeMessages.length - 1];
       const isSelf = lastMessage?.sender === currentUser;
-      if (isSelf || isNearBottomRef.current) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+      // When sending own sticker/message: instant lock to bottom (1:1 Telegram behavior)
+      // When receiving peer message while near bottom: smooth scroll
+      if (isSelf) {
+        requestAnimationFrame(() => {
+          if (messageFeedRef.current) {
+            messageFeedRef.current.scrollTop = messageFeedRef.current.scrollHeight;
+          }
+        });
+      } else if (isNearBottomRef.current) {
+        scrollToBottom('smooth');
       }
     }
-  }, [activeMessages, activeRoomId, currentUser]);
+  }, [activeMessages, currentUser, scrollToBottom]);
 
   // Escape key handler for exiting selection mode
   useEffect(() => {
@@ -777,56 +923,80 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     textareaRef.current?.focus();
   };
 
+  const handleSendSticker = (sticker: Sticker) => {
+    sendMessage('', replyingToMessage?.id, {
+      name: sticker.title || `sticker_${sticker.id}`,
+      type: 'sticker',
+      data: sticker.url,
+      size: 2048,
+      stickerData: sticker
+    });
+    setReplyingToMessage(null);
+    setShowEmojiPicker(false);
+    showToast('Стикер отправлен');
+  };
+
+  const quickStickerSuggestions = React.useMemo(() => {
+    const trimmed = inputText.trim();
+    if (!trimmed || trimmed.length > 8) return [];
+    return findStickersByEmoji(trimmed);
+  }, [inputText]);
+
   // File selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      let type: 'image' | 'audio' | 'video' | 'file' = 'file';
-      const name = file.name.toLowerCase();
-      if (file.type.startsWith('image/') || name.match(/\.(jpg|jpeg|png|gif|webp|heic)$/)) type = 'image';
-      else if (file.type.startsWith('audio/') || name.match(/\.(mp3|wav|ogg|m4a|aac)$/)) type = 'audio';
-      else if (file.type.startsWith('video/') || name.match(/\.(mp4|webm|mov)$/)) type = 'video';
+    let type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker' = 'file';
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.tgs') || file.type === 'application/x-tgsticker' || (file.type === 'application/gzip' && name.includes('sticker'))) {
+      type = 'sticker';
+    } else if (file.type.startsWith('image/') || name.match(/\.(jpg|jpeg|png|gif|webp|heic)$/)) {
+      type = 'image';
+    } else if (file.type.startsWith('audio/') || name.match(/\.(mp3|wav|ogg|m4a|aac)$/)) {
+      type = 'audio';
+    } else if (file.type.startsWith('video/') || name.match(/\.(mp4|webm|mov|m4v|mkv|avi)$/)) {
+      type = 'video';
+    }
 
-      if (type === 'video') {
-        const tempVideo = document.createElement('video');
-        tempVideo.preload = 'metadata';
-        tempVideo.src = reader.result as string;
-        tempVideo.onloadedmetadata = () => {
-          const ratio = tempVideo.videoWidth / (tempVideo.videoHeight || 1);
-          setSelectedFile({
-            name: file.name,
-            type,
-            data: reader.result as string,
-            size: file.size,
-            rawBlob: file,
-            width: tempVideo.videoWidth,
-            height: tempVideo.videoHeight,
-            orientation: ratio < 0.85 ? 'vertical' : ratio > 1.15 ? 'horizontal' : 'square'
-          });
-        };
-        tempVideo.onerror = () => {
-          setSelectedFile({
-            name: file.name,
-            type,
-            data: reader.result as string,
-            size: file.size,
-            rawBlob: file
-          });
-        };
-      } else {
+    const previewUrl = URL.createObjectURL(file);
+
+    if (type === 'video') {
+      const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      tempVideo.src = previewUrl;
+      tempVideo.onloadedmetadata = () => {
+        const ratio = tempVideo.videoWidth / (tempVideo.videoHeight || 1);
         setSelectedFile({
           name: file.name,
           type,
-          data: reader.result as string,
+          data: previewUrl,
+          size: file.size,
+          rawBlob: file,
+          width: tempVideo.videoWidth,
+          height: tempVideo.videoHeight,
+          orientation: ratio < 0.85 ? 'vertical' : ratio > 1.15 ? 'horizontal' : 'square'
+        });
+      };
+      tempVideo.onerror = () => {
+        setSelectedFile({
+          name: file.name,
+          type,
+          data: previewUrl,
           size: file.size,
           rawBlob: file
         });
-      }
-    };
-    reader.readAsDataURL(file);
+      };
+    } else {
+      setSelectedFile({
+        name: file.name,
+        type,
+        data: previewUrl,
+        size: file.size,
+        rawBlob: file
+      });
+    }
+
     e.target.value = '';
   };
 
@@ -1012,26 +1182,48 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     return ROOM_AVATAR_COLORS[peerId] || 'bg-[#3390ec]';
   };
 
-  const getLastMessagePreview = (msg: Message | null) => {
+  const getCleanMessageText = (msg: Message | null, showSender = false): string => {
     if (!msg) return '';
-    const isSelf = msg.sender === currentUser;
-    const senderName = getUserDisplayName(msg.sender) || USER_NAMES[msg.sender] || msg.sender;
-    const prefix = isSelf ? 'Вы: ' : `${senderName}: `;
 
-    if (msg.file) {
-      if (msg.file.type === 'image') return `${prefix}🖼 Фото`;
-      if (msg.file.type === 'audio') return `${prefix}🎤 Голосовое сообщение`;
-      if (msg.file.type === 'video' || msg.file.type === 'video_note') return `${prefix}📹 Видео`;
-      return `${prefix}📁 ${msg.file.name}`;
-    }
-
-    // Clean internal metadata tags and legacy forward prefixes
-    const cleanText = (msg.text || '')
+    // 1. Remove zero-width spaces, fwd metadata tags, and legacy forward headers
+    const rawText = msg.text || '';
+    const cleanText = rawText
       .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
       .replace(/^\[Переслано от [^\]]+\]:\s*/, '')
       .trim();
 
-    return `${prefix}${cleanText}`;
+    let content = cleanText;
+
+    // 2. If text was purely metadata (e.g. forwarded image/video/sticker without text)
+    if (!content) {
+      if (msg.file) {
+        if (msg.file.type === 'sticker' || (msg.file.name && msg.file.name.includes('sticker'))) {
+          content = '🎭 Стикер';
+        } else if (msg.file.type === 'image') {
+          content = '🖼 Фотография';
+        } else if (msg.file.type === 'video_note') {
+          content = '⭕ Видеосообщение';
+        } else if (msg.file.type === 'video') {
+          content = '📹 Видео';
+        } else if (msg.file.type === 'audio') {
+          content = '🎤 Голосовое сообщение';
+        } else {
+          content = `📁 ${msg.file.name || 'Вложение'}`;
+        }
+      } else if (msg.sticker) {
+        content = `🎭 Стикер${msg.sticker.title ? `: ${msg.sticker.title}` : ''}`;
+      } else {
+        content = 'Сообщение';
+      }
+    }
+
+    if (showSender) {
+      const isSelf = msg.sender === currentUser;
+      const senderName = isSelf ? 'Вы' : (getUserDisplayName(msg.sender) || USER_NAMES[msg.sender] || msg.sender);
+      return `${senderName}: ${content}`;
+    }
+
+    return content;
   };
 
   const getLastMessageTime = (msg: Message | null) => {
@@ -1200,6 +1392,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                     <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${darkMode ? 'bg-[#3390ec]' : 'bg-slate-300 dark:bg-slate-600'}`}>
                       <div className={`w-3 h-3 rounded-full bg-white transition-transform ${darkMode ? 'translate-x-4' : 'translate-x-0'}`} />
                     </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowThemeModal(true);
+                      setShowMenuDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <IconPalette size={18} className="text-[#3390ec]" />
+                      <span>Оформление и обои</span>
+                    </span>
                   </button>
 
                   <button
@@ -1416,14 +1622,108 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
                     <div className="flex items-center justify-between mt-0.5 gap-2">
                       {isTypingInRoom ? (
-                        <span className={`text-xs font-semibold flex items-center gap-1 truncate ${isActive ? 'text-white' : 'text-[#3390ec]'}`}>
+                        <span className={`text-xs font-semibold flex items-center gap-1.5 truncate ${isActive ? 'text-white' : 'text-[#3390ec]'}`}>
+                          <span className="inline-flex gap-0.5 items-center">
+                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0.2s]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0.4s]" />
+                          </span>
                           <span>печатает...</span>
                         </span>
                       ) : (
-                        <span className={`text-[13px] truncate block flex-1 ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
-                          }`}>
-                          {lastMsg ? getLastMessagePreview(lastMsg) : (room.type === 'group' ? 'Группа семьи' : isOnline ? 'В сети' : 'Не в сети')}
-                        </span>
+                        <div className="flex-1 min-w-0">
+                          {(() => {
+                            if (!lastMsg) {
+                              if (room.type === 'group') {
+                                return <span className={`text-[13px] truncate block ${isActive ? 'text-white/80' : 'text-slate-400'}`}>Группа семьи</span>;
+                              }
+                              return (
+                                <span className={`text-[13px] truncate block ${isActive ? 'text-white/80' : isOnline ? 'text-emerald-500 font-medium' : 'text-slate-400'}`}>
+                                  {isOnline ? 'в сети' : 'был(а) недавно'}
+                                </span>
+                              );
+                            }
+
+                            const isSelf = lastMsg.sender === currentUser;
+                            const isRead = (lastMsg.readBy || []).some((u) => u !== currentUser);
+
+                            const cleanText = (lastMsg.text || '')
+                              .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
+                              .replace(/^\[Переслано от [^\]]+\]:\s*/, '')
+                              .trim();
+
+                            const senderPrefix = isSelf 
+                              ? 'Вы: ' 
+                              : (room.type === 'group' ? `${getUserDisplayName(lastMsg.sender) || USER_NAMES[lastMsg.sender] || lastMsg.sender}: ` : '');
+
+                            return (
+                              <div className="flex items-center gap-1 min-w-0 text-[13px] truncate">
+                                {isSelf && (
+                                  <span className="shrink-0 inline-flex items-center mr-0.5">
+                                    {isRead ? (
+                                      <IconChecks size={14} className={isActive ? 'text-white' : 'text-[#3390ec] dark:text-[#70b1ff]'} />
+                                    ) : (
+                                      <IconCheck size={14} className={isActive ? 'text-white/70' : 'text-slate-400'} />
+                                    )}
+                                  </span>
+                                )}
+
+                                {senderPrefix && (
+                                  <span className={`shrink-0 font-medium ${isActive ? 'text-white' : isSelf ? 'text-slate-800 dark:text-slate-200' : 'text-[#3390ec] dark:text-[#70b1ff]'}`}>
+                                    {senderPrefix}
+                                  </span>
+                                )}
+
+                                {cleanText ? (
+                                  <span className={`truncate ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {cleanText}
+                                  </span>
+                                ) : lastMsg.file ? (
+                                  lastMsg.file.type === 'image' ? (
+                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-[#3390ec] dark:text-[#70b1ff]'}`}>
+                                      <IconPhoto size={14} className="shrink-0" />
+                                      <span>Фотография</span>
+                                    </span>
+                                  ) : lastMsg.file.type === 'video' ? (
+                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-[#3390ec] dark:text-[#70b1ff]'}`}>
+                                      <IconVideo size={14} className="shrink-0" />
+                                      <span>Видео</span>
+                                    </span>
+                                  ) : lastMsg.file.type === 'sticker' || (lastMsg.file.name && lastMsg.file.name.includes('sticker')) ? (
+                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-amber-500'}`}>
+                                      <IconMoodSmile size={14} className="shrink-0" />
+                                      <span>Стикер</span>
+                                    </span>
+                                  ) : lastMsg.file.type === 'video_note' ? (
+                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-[#3390ec] dark:text-[#70b1ff]'}`}>
+                                      <IconCamera size={14} className="shrink-0" />
+                                      <span>Видеосообщение</span>
+                                    </span>
+                                  ) : lastMsg.file.type === 'audio' ? (
+                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-emerald-500'}`}>
+                                      <IconMicrophone size={14} className="shrink-0" />
+                                      <span>Голосовое</span>
+                                    </span>
+                                  ) : (
+                                    <span className={`inline-flex items-center gap-1 truncate ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                                      <IconFileText size={14} className="shrink-0" />
+                                      <span className="truncate">{lastMsg.file.name || 'Вложение'}</span>
+                                    </span>
+                                  )
+                                ) : lastMsg.sticker ? (
+                                  <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-amber-500'}`}>
+                                    <IconMoodSmile size={14} className="shrink-0" />
+                                    <span>Стикер</span>
+                                  </span>
+                                ) : (
+                                  <span className={`truncate ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    Сообщение
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
                       )}
 
                       {count > 0 && (
@@ -1487,6 +1787,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           : '-translate-x-full md:translate-x-0 absolute md:relative z-10 w-full h-full hidden md:flex'
           }`}
       >
+        {/* Dynamic Wallpaper Background Layer */}
+        <div 
+          className="absolute inset-0 pointer-events-none transition-all duration-300 overflow-hidden"
+          style={getChatBackgroundStyle()}
+        />
+
+        {/* Dimming overlay for photo wallpapers and custom uploads */}
+        {((themeConfig.wallpaperId === 'custom' && themeConfig.customWallpaper) || Boolean(getWallpaperById(themeConfig.wallpaperId).imageUrl)) && (
+          <div 
+            className="absolute inset-0 bg-black pointer-events-none transition-opacity duration-200"
+            style={{
+              opacity: (
+                themeConfig.wallpaperId === 'custom'
+                  ? (themeConfig.customWallpaper?.dimming ?? 20)
+                  : (getWallpaperById(themeConfig.wallpaperId).dimming ?? 20)
+              ) / 100
+            }}
+          />
+        )}
+
         {/* Telegram Chat Header or Top Selection Action Bar */}
         <header className="px-3 sm:px-4 py-2 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[56px] w-full min-w-0 max-w-full">
           {isSelectMode ? (
@@ -1733,6 +2053,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
                 <button
                   type="button"
+                  onClick={() => setShowThemeModal(true)}
+                  className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+                  title="Обои и оформление чата"
+                >
+                  <IconPalette size={20} />
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setShowUserInfo(!showUserInfo)}
                   className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${showUserInfo ? 'text-[#3390ec]' : 'text-slate-500 dark:text-slate-400'
                     }`}
@@ -1853,7 +2182,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               <div className="min-w-0">
                 <span className="text-[11.5px] font-bold text-[#3390ec] block">Закреплённое сообщение</span>
                 <span className="text-[12px] text-slate-700 dark:text-slate-300 truncate block">
-                  {currentPinnedMessage.text || (currentPinnedMessage.file ? '📎 Вложение' : '')}
+                  {getCleanMessageText(currentPinnedMessage)}
                 </span>
               </div>
             </div>
@@ -1877,7 +2206,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           onScroll={handleScroll}
           className="flex-1 min-w-0 w-full max-w-full overflow-y-auto overflow-x-hidden px-2.5 sm:px-6 py-3"
         >
-          <div key={activeRoomId} className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col min-h-full justify-end animate-chat-switch">
+          <div key={activeRoomId} className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col min-h-full">
+            {/* Top flexible spacer to anchor small chats cleanly without flexbox justify-end scroll jumping */}
+            <div className="flex-1 min-h-0" />
             {slicedMessages.map((message, index) => {
               const isSelf = message.sender === currentUser;
               const senderName = isSelf ? 'Вы' : USER_NAMES[message.sender];
@@ -1899,7 +2230,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                       </span>
                     </div>
                   )}
-                  <div className={isSameSender ? 'mt-0.5' : 'mt-1.5'}>
+                  <div id={`msg-${message.id}`} className={isSameSender ? 'mt-0.5' : 'mt-1.5'}>
                     <MessageBubble
                       message={message}
                       isSelf={isSelf}
@@ -1945,104 +2276,140 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           </div>
         </section>
 
-        {/* Selected File Preview */}
-        {selectedFile && (
-          <div className="max-w-2xl mx-auto w-full px-4 mb-2">
-            <div className="p-2.5 tg-header rounded-2xl flex items-center justify-between shadow-md border border-slate-200 dark:border-white/10">
-              <div className="flex items-center gap-2.5 min-w-0">
-                {selectedFile.type === 'image' ? (
-                  <img src={selectedFile.data} className="w-10 h-10 rounded-lg object-cover" alt="thumbnail" />
-                ) : selectedFile.type === 'video' ? (
-                  <div className="w-10 h-10 rounded-lg bg-black relative overflow-hidden flex items-center justify-center shrink-0">
-                    <video src={selectedFile.data} className="w-full h-full object-cover" muted />
-                    <span className="absolute bottom-0.5 right-0.5 text-[8px] bg-black/70 text-white px-1 rounded-xs font-mono">
-                      {selectedFile.orientation === 'vertical' ? '9:16' : '16:9'}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-[#3390ec] flex items-center justify-center text-white text-xs font-bold">
-                    📄
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-semibold text-slate-900 dark:text-white truncate block">{selectedFile.name}</span>
-                    {selectedFile.type === 'video' && selectedFile.orientation === 'vertical' && (
-                      <span className="text-[9px] bg-[#3390ec]/20 text-[#3390ec] font-medium px-1 rounded-xs shrink-0">📱 Вертикальное</span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono">{(selectedFile.size / 1024).toFixed(1)} КБ</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedFile(null)}
-                className="p-1 rounded-full text-slate-400 hover:text-rose-500 cursor-pointer"
-              >
-                <IconX size={16} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Editing Message Bar */}
-        {editingMessage && (
-          <div className="max-w-2xl mx-auto w-full px-4 mb-2">
-            <div className="p-2 tg-header rounded-xl flex items-center justify-between shadow-md border-l-[3px] border-amber-500 border-slate-200 dark:border-white/10 animate-pop-in">
-              <div className="min-w-0 pl-1 flex items-center gap-2">
-                <IconEdit size={16} className="text-amber-500 shrink-0" />
-                <div className="min-w-0">
-                  <span className="text-[11px] font-bold text-amber-500 block">
-                    Редактирование
-                  </span>
-                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5">
-                    {editingMessage.text}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingMessage(null);
-                  setInputText('');
-                }}
-                className="p-1 rounded-full text-slate-400 hover:text-rose-500 cursor-pointer"
-                title="Отменить"
-              >
-                <IconX size={16} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Reply Quote Bar */}
-        {replyingToMessage && (
-          <div className="max-w-2xl mx-auto w-full px-4 mb-2">
-            <div className="p-2 tg-header rounded-xl flex items-center justify-between shadow-md border-l-[3px] border-[#3390ec] border-slate-200 dark:border-white/10">
-              <div className="min-w-0 pl-1">
-                <span className="text-[11px] font-bold text-[#3390ec] block">
-                  Ответ для: {replyingToMessage.sender === currentUser ? 'Вы' : (USER_NAMES[replyingToMessage.sender] || replyingToMessage.sender)}
-                </span>
-                <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5">
-                  {replyingToMessage.text 
-                    ? replyingToMessage.text.replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '').replace(/^\[Переслано от [^\]]+\]:\s*/, '')
-                    : (replyingToMessage.file ? '📎 Вложение' : '')}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setReplyingToMessage(null)}
-                className="p-1 rounded-full text-slate-400 hover:text-rose-500 cursor-pointer"
-              >
-                <IconX size={16} />
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Telegram Bottom Input Bar */}
         <footer className="p-2 sm:p-3 relative z-10 w-full min-w-0 max-w-full">
-          <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex items-end gap-2 relative">
+          <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col gap-1.5 relative">
+
+            {/* 1. Selected File Preview Bar (Telegram Style Floating Glassmorphic Pill) */}
+            {selectedFile && (
+              <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border border-slate-200/80 dark:border-white/10 animate-pop-in">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                  {selectedFile.type === 'image' ? (
+                    <img src={selectedFile.data} className="w-11 h-11 rounded-xl object-cover shadow-xs border border-slate-200/50 dark:border-white/10 shrink-0" alt="preview" />
+                  ) : selectedFile.type === 'video' ? (
+                    <div className="w-11 h-11 rounded-xl bg-black relative overflow-hidden flex items-center justify-center shrink-0 shadow-xs border border-slate-200/50 dark:border-white/10">
+                      <video src={selectedFile.data} className="w-full h-full object-cover" muted playsInline />
+                      <span className="absolute bottom-0.5 right-0.5 text-[8px] bg-black/80 text-white px-1 rounded-xs font-mono font-bold">
+                        {selectedFile.orientation === 'vertical' ? '9:16' : '16:9'}
+                      </span>
+                    </div>
+                  ) : selectedFile.type === 'audio' ? (
+                    <div className="w-11 h-11 rounded-xl bg-[#3390ec] flex items-center justify-center text-white text-lg shadow-xs shrink-0">
+                      🎤
+                    </div>
+                  ) : (
+                    <div className="w-11 h-11 rounded-xl bg-slate-200 dark:bg-white/10 text-[#3390ec] flex items-center justify-center text-lg shadow-xs shrink-0">
+                      📄
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-white truncate block">{selectedFile.name}</span>
+                      {selectedFile.type === 'video' && selectedFile.orientation === 'vertical' && (
+                        <span className="text-[9px] bg-[#3390ec]/20 text-[#3390ec] font-medium px-1 rounded-xs shrink-0">📱 Вертикальное</span>
+                      )}
+                    </div>
+                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-mono block">
+                      {selectedFile.size > 1024 * 1024 
+                        ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} МБ` 
+                        : `${(selectedFile.size / 1024).toFixed(1)} КБ`}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFile(null)}
+                  className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
+                  title="Удалить прикрепленный файл"
+                >
+                  <IconX size={18} />
+                </button>
+              </div>
+            )}
+
+            {/* 2. Editing Message Bar */}
+            {editingMessage && (
+              <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[4px] border-amber-500 border-slate-200/80 dark:border-white/10 animate-pop-in">
+                <div className="min-w-0 pl-1 flex items-center gap-2">
+                  <IconEdit size={16} className="text-amber-500 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-bold text-amber-500 block">
+                      Редактирование
+                    </span>
+                    <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5">
+                      {editingMessage.text}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingMessage(null);
+                    setInputText('');
+                  }}
+                  className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                  title="Отменить"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* 3. Reply Quote Bar */}
+            {replyingToMessage && (
+              <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[4px] border-[#3390ec] border-slate-200/80 dark:border-white/10 animate-pop-in">
+                <div className="min-w-0 pl-1">
+                  <span className="text-[11px] font-bold text-[#3390ec] block">
+                    Ответ для: {replyingToMessage.sender === currentUser ? 'Вы' : (USER_NAMES[replyingToMessage.sender] || replyingToMessage.sender)}
+                  </span>
+                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5">
+                    {getCleanMessageText(replyingToMessage)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyingToMessage(null)}
+                  className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                  title="Отменить ответ"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-end gap-2 relative w-full">
+
+            {/* Quick Emoji-to-Sticker Floating Bar (Telegram Style) */}
+            {quickStickerSuggestions.length > 0 && !showEmojiPicker && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 z-30 animate-pop-in">
+                <div className="p-2 bg-white/95 dark:bg-[#17212b]/95 rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 flex items-center gap-2 overflow-x-auto tg-scrollbar select-none backdrop-blur-md">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1.5 shrink-0 flex items-center gap-1">
+                    <span>✨</span>
+                    <span>Стикеры:</span>
+                  </span>
+                  {quickStickerSuggestions.slice(0, 12).map((sticker) => (
+                    <button
+                      key={`quick-${sticker.id}`}
+                      type="button"
+                      onClick={() => {
+                        handleSendSticker(sticker);
+                        setInputText('');
+                      }}
+                      className="w-11 h-11 p-1 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 shrink-0 cursor-pointer transition-transform hover:scale-115 active:scale-95 flex items-center justify-center"
+                      title={`${sticker.title} (${sticker.emoji})`}
+                    >
+                      <TgsStickerPlayer
+                        src={sticker.url}
+                        alt={sticker.title}
+                        className="w-full h-full"
+                        loop={true}
+                        autoplay={true}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Emoji Popup Anchored Right Above Input Bar */}
             {showEmojiPicker && (
@@ -2057,6 +2424,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                 >
                   <TelegramEmojiPickerModal
                     onSelectEmoji={(emoji) => insertEmoji(emoji)}
+                    onSelectSticker={(sticker) => handleSendSticker(sticker)}
                     onClose={() => setShowEmojiPicker(false)}
                   />
                 </div>
@@ -2158,6 +2526,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               </button>
             )}
 
+            </div>
           </div>
         </footer>
       </main>
@@ -2817,6 +3186,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               hasAttachments: applied.hasAttachments || undefined,
             }));
           }}
+        />
+      )}
+
+      {/* Theme & Wallpaper Settings Modal */}
+      {showThemeModal && (
+        <ThemeSettingsModal
+          currentConfig={themeConfig}
+          isDark={darkMode}
+          onSave={(newConfig) => {
+            setThemeConfig(newConfig);
+            showToast('Тема и обои успешно обновлены');
+          }}
+          onClose={() => setShowThemeModal(false)}
         />
       )}
 

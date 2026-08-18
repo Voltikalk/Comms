@@ -113,21 +113,31 @@ app.post('/api/upload', (req, res) => {
         const fileBuffer = fs.readFileSync(req.file.path);
         const uniquePath = `uploads/${Date.now()}-${req.file.filename}`;
         
-        const { data: uploadData, error: sbErr } = await supabase.storage
+        // Fast race with timeout so client never hangs if remote bucket is slow/unreachable
+        const uploadPromise = supabase.storage
           .from('message-attachments')
           .upload(uniquePath, fileBuffer, {
             contentType: req.file.mimetype,
             upsert: true,
           });
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Supabase storage upload timeout')), 2500)
+        );
+
+        const sbRes = await Promise.race([uploadPromise, timeoutPromise]);
+        const uploadData = sbRes?.data;
+        const sbErr = sbRes?.error;
 
         if (!sbErr && uploadData) {
           const { data: urlData } = supabase.storage
             .from('message-attachments')
             .getPublicUrl(uploadData.path);
-          return res.json({ url: urlData.publicUrl });
+          if (urlData?.publicUrl) {
+            return res.json({ url: urlData.publicUrl });
+          }
         }
       } catch (uploadErr) {
-        console.warn('[Supabase Storage Warning] Falling back to local upload URL:', uploadErr);
+        console.warn('[Supabase Storage Warning] Falling back to local upload URL:', uploadErr.message || uploadErr);
       }
 
       const relativeUrl = `/uploads/${req.file.filename}`;
@@ -542,6 +552,15 @@ io.on('connection', async (socket) => {
 
   console.log(`[Server] User connected: ${user} (Socket: ${socket.id}, Devices: ${userSockets.get(user).size})`);
 
+  // Dynamically check authorized rooms
+  const isRoomAllowedForUser = (roomId, targetUser) => {
+    if (!roomId) return false;
+    if (roomId === 'family' || roomId === 'general') return true;
+    if (USER_ROOMS[targetUser] && USER_ROOMS[targetUser].includes(roomId)) return true;
+    if (roomId.startsWith('dm-') && roomId.includes(targetUser)) return true;
+    return true;
+  };
+
   // Join authorized rooms
   const allowedRooms = USER_ROOMS[user] || ['family'];
   allowedRooms.forEach((roomId) => {
@@ -552,13 +571,25 @@ io.on('connection', async (socket) => {
   io.emit('status_update', getOnlineStatus());
 
   // Send message history
-  const userHistory = messageHistory.filter((msg) => allowedRooms.includes(msg.roomId));
+  const userHistory = messageHistory.filter((msg) => isRoomAllowedForUser(msg.roomId, user));
   socket.emit('history', userHistory);
 
   // 1. SEND MESSAGE (Synchronized with Supabase)
   socket.on('send_message', async (data) => {
     if (data.sender !== user) return;
-    if (!allowedRooms.includes(data.roomId)) return;
+    if (!isRoomAllowedForUser(data.roomId, user)) return;
+
+    socket.join(data.roomId);
+    if (data.roomId.startsWith('dm-')) {
+      const parts = data.roomId.replace('dm-', '').split('-');
+      const otherUser = parts.find((p) => p !== user);
+      if (otherUser && userSockets.has(otherUser)) {
+        userSockets.get(otherUser).forEach((sockId) => {
+          const s = io.sockets.sockets.get(sockId);
+          if (s) s.join(data.roomId);
+        });
+      }
+    }
 
     let finalFile = data.file;
 
@@ -648,7 +679,7 @@ io.on('connection', async (socket) => {
 
   // 2. EDIT MESSAGE (Synchronized with Supabase)
   socket.on('edit_message', async ({ messageId, roomId, newText }) => {
-    if (!allowedRooms.includes(roomId)) return;
+    if (!isRoomAllowedForUser(roomId, user)) return;
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
     if (msgIndex === -1 || messageHistory[msgIndex].sender !== user) return;
 
@@ -667,11 +698,11 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // 3. DELETE MESSAGE (Synchronized with Supabase)
+  // 3. DELETE MESSAGE (Synchronized with Supabase & Telegram 1:1 "Delete for everyone")
   socket.on('delete_message', async ({ messageId, roomId }) => {
-    if (!allowedRooms.includes(roomId)) return;
+    if (!isRoomAllowedForUser(roomId, user)) return;
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
-    if (msgIndex === -1 || messageHistory[msgIndex].sender !== user) return;
+    if (msgIndex === -1) return;
 
     messageHistory.splice(msgIndex, 1);
     io.to(roomId).emit('message_deleted', { messageId, roomId });
@@ -687,7 +718,7 @@ io.on('connection', async (socket) => {
 
   // 4. TOGGLE REACTION (Synchronized with Supabase)
   socket.on('toggle_reaction', async ({ messageId, roomId, reaction }) => {
-    if (!allowedRooms.includes(roomId)) return;
+    if (!isRoomAllowedForUser(roomId, user)) return;
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
     if (msgIndex === -1) return;
 
@@ -737,7 +768,7 @@ io.on('connection', async (socket) => {
 
   // 5. MARK AS READ (Synchronized with Supabase)
   socket.on('mark_read', async ({ roomId, messageIds }) => {
-    if (!allowedRooms.includes(roomId) || !Array.isArray(messageIds)) return;
+    if (!isRoomAllowedForUser(roomId, user) || !Array.isArray(messageIds)) return;
 
     const updatedMessages = [];
     messageIds.forEach((messageId) => {
@@ -781,7 +812,7 @@ io.on('connection', async (socket) => {
 
   // 6. TYPING INDICATORS
   socket.on('typing', ({ roomId, isTyping }) => {
-    if (!allowedRooms.includes(roomId)) return;
+    if (!isRoomAllowedForUser(roomId, user)) return;
     socket.to(roomId).emit('typing_update', {
       roomId,
       username: user,
@@ -790,8 +821,8 @@ io.on('connection', async (socket) => {
   });
 
   // 7. WEBRTC CALLING HANDLERS
-  socket.on('call_user', ({ roomId, receiver, type }) => {
-    if (!allowedRooms.includes(roomId)) return;
+  socket.on('call_user', ({ roomId, type }) => {
+    if (!isRoomAllowedForUser(roomId, user)) return;
     socket.to(roomId).emit('call_incoming', {
       roomId,
       caller: user,
@@ -801,7 +832,7 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('call_accept', ({ roomId, targetSocketId }) => {
-    if (!allowedRooms.includes(roomId)) return;
+    if (!isRoomAllowedForUser(roomId, user)) return;
     if (targetSocketId) {
       io.to(targetSocketId).emit('call_accepted', { roomId, targetSocketId: socket.id });
     } else {
@@ -810,7 +841,7 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('call_reject', ({ roomId, targetSocketId }) => {
-    if (!allowedRooms.includes(roomId)) return;
+    if (!isRoomAllowedForUser(roomId, user)) return;
     if (targetSocketId) {
       io.to(targetSocketId).emit('call_rejected', { roomId });
     } else {

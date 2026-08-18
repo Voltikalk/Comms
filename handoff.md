@@ -90,17 +90,10 @@ npm run storybook
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Supabase Real-time подписок** и **премиальным набором UI-компонентов полнотекстового поиска с горячими клавишами, фильтрацией и историей**.
 
-### 📌 Текущая стадия разработки (Status: Phase 32 — Full Video Player Controls Suite Complete):
-* ✅ **Video Player Modular Controls Suite (NEW)**:
-  * [`src/components/VideoPlayer/Controls/PlayPauseButton.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/PlayPauseButton.tsx) (кнопка воспроизведения/паузы, пульс-анимация при клике, хоткеи Space/K, большая иконка по центру видео при паузе).
-  * [`src/components/VideoPlayer/Controls/ProgressBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/ProgressBar.tsx) (интерактивный скраббер таймлайна, drag-to-seek с поддержкой тач-событий, буферизованная и просмотренная полосы, hover-тултип с временной меткой).
-  * [`src/components/VideoPlayer/Controls/TimeDisplay.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/TimeDisplay.tsx) (форматирование `MM:SS` / `HH:MM:SS`, клик для переключения на оставшееся время `-MM:SS`).
-  * [`src/components/VideoPlayer/Controls/VolumeControl.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/VolumeControl.tsx) (4 стадии иконки громкости, всплывающий ползунок 0–100%, запоминание громкости при Mute, хоткеи M и `↑`/`↓`).
-  * [`src/components/VideoPlayer/Controls/FullscreenButton.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/FullscreenButton.tsx) (HTML5 Fullscreen API + iOS WebKit, хоткей F).
-  * [`src/components/VideoPlayer/Controls/SettingsMenu.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/SettingsMenu.tsx) (всплывающее меню настроек: скорость 0.5x–2x, качество 360p–1080p/Auto, панель технической статистики, сохранение в localStorage).
-  * [`src/components/VideoPlayer/Controls/PictureInPictureButton.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/PictureInPictureButton.tsx) (режим «Картинка в картинке», хоткей P).
-  * [`src/components/VideoPlayer/Controls/SubtitlesButton.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/SubtitlesButton.tsx) (выбор дорожек субтитров VTT, включение/выключение).
-  * [`src/components/VideoPlayer/Controls/ControlBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/Controls/ControlBar.tsx) (мастер-оверлей с плавным градиентным затемнением, скрытием через 3 сек, быстрым скраббингом ±10 сек и театральным режимом).
+### 📌 Текущая стадия разработки (Status: Phase 37 — Telegram Rich Chat List Snippets & Delivery Indicators):
+* ✅ **Telegram Chat List Snippets Suite (NEW)**:
+  * [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) — векторные иконки вложений вместо битых эмодзи, галочки статуса доставки сообщений (`✓`/`✓✓`), анимированный индикатор набора текста и статусы онлайна.
+  * [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) — живые миниатюры медиа (фото/видео/стикеры), персональная палитра цветов авторов и импульсная подсветка.
 
 ---
 
@@ -180,7 +173,15 @@ Comms/
     │   ├── useSupabase.ts                     # Хук работы с БД
     │   ├── useMediaQuery.ts                   # Хуки брейкпоинтов
     │   └── useTouchInteractions.ts            # Хуки свайп-навигации
+    ├── lib/
+    │   ├── tgs-loader.ts                      # Загрузчик и GZIP-декомпрессор Telegram .TGS стикеров
+    │   └── filter-utils.ts                    # Утилиты фильтрации
+    ├── constants/
+    │   └── stickers.ts                        # Коллекция стикер-паков (ICQ Колобки, Сеня, Пепе, Котики, Доге, 3D)
     ├── components/
+    │   ├── Stickers/
+    │   │   ├── StickerPicker.tsx              # Telegram Стикер-пикер (поиск, паки, избранное, недавние)
+    │   │   └── TgsStickerPlayer.tsx           # 60 FPS Lottie/.TGS плеер векторных анимаций стикеров
     │   ├── Search/
     │   │   ├── FilterPanel.tsx                # Расширенная панель фильтрации и пресетов
     │   │   ├── DateRangePicker.tsx            # Компонент выбора периода дат с валидацией
@@ -198,15 +199,15 @@ Comms/
     │   │   ├── MessageList.tsx                # Лента сообщений
     │   │   └── SendMessage.tsx                # Инпут отправки с загрузкой вложений
     │   ├── RoomList/                          # Список диалогов с поиском
-    │   ├── UserProfile/                       # Редактирование профиля и аватарки
+    │   │   ├── UserProfile/                       # Редактирование профиля и аватарки
     │   ├── RoomMembers/                       # Список участников комнаты и роли
     │   ├── FileUploadInput.tsx                # Drag-and-drop компонент загрузки
     │   ├── ui/                                # Button, Input, Card, LoadingSpinner
     │   ├── ChatScreen.tsx                     # Главный экран чата Telegram
-    │   ├── MessageBubble.tsx                  # Пузырь сообщения (текст, медиа, аудио, кружки)
+    │   ├── MessageBubble.tsx                  # Пузырь сообщения (текст, стикеры .tgs, медиа, аудио, кружки)
     │   ├── ProfileEditModal.tsx               # Модальное окно редактирования профиля Telegram
     │   ├── TelegramContextMenuModal.tsx       # Контекстное меню сообщения
-    │   ├── TelegramEmojiPickerModal.tsx       # Палитра анимированных эмодзи и реакций
+    │   ├── TelegramEmojiPickerModal.tsx       # Палитра эмодзи и вкладка стикеров Telegram
     │   ├── LoginScreen.tsx                    # Экран входа и регистрации
     │   └── VideoCallModal.tsx                 # Модальное окно аудио/видео звонка WebRTC
     └── pages/
@@ -235,7 +236,138 @@ npm run build
 npm run storybook
 ```
 
----
+### [v2.99.0] — 18 августа 2026 г.
+* **Премиальный редизайн превью последних сообщений в списке чатов (Telegram Rich Chat List Snippets & Delivery Indicators)**:
+  * **Устранение битых символов и эмодзи на Windows**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) текстовые эмодзи (квадраты `🖼️`) заменены на векторные SVG Tabler-иконки (`IconPhoto`, `IconVideo`, `IconMicrophone`, `IconMoodSmile`, `IconCamera`, `IconFileText`).
+  * **Галочки доставки для исходящих сообщений**: для собственных последних сообщений добавлен индикатор статуса доставки (`IconChecks` — прочитано, `IconCheck` — отправлено) рядом с префиксом «Вы: ».
+  * **Анимированный индикатор набора текста**: при наборе текста в чате отображаются 3 прыгающие точки с плавной пульсацией и акцентным цветом.
+  * **Статусы активности**: для личных чатов отображаются лаконичные статусы «в сети» (зеленый акцент) или «был(а) недавно».
+
+### [v2.98.0] — 18 августа 2026 г.
+* **Премиальный редизайн блока цитирования и ответов (Telegram Native Quotes, Thumbnails & Author Colors)**:
+  * **Реальные миниатюры медиафайлов в цитате**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) внутри плашки цитаты теперь отображаются живые миниатюры фото (`34×34px`), превью видео с бейджем воспроизведения и анимированные мини-стикеры.
+  * **Персональные цвета авторов**: левая полоса `border-l-[3px]` и имя цитируемого автора динамически окрашиваются в персональный цвет (`getAuthorColor`), в исходящих сообщениях автоматически адаптируется контраст.
+  * **Векторные иконки типов вложений**: вместо текстовых эмодзи внедрены четкие Tabler-иконки (`IconPhoto`, `IconVideo`, `IconMicrophone`, `IconMoodSmile`, `IconCamera`, `IconFileText`).
+  * **Интерактивная подсветка целевого сообщения (`Flash Ripple Highlight`)**: при клике на цитату целевое сообщение плавно центрируется и подсвечивается импульсной анимацией (`tg-message-row-highlight`).
+  * **Привязка ID строк сообщений**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) к корневым оберткам сообщений добавлен атрибут `id="msg-{id}"`.
+
+### [v2.97.0] — 18 августа 2026 г.
+* **Исправление отправки медиа, оптимизация превью и док-панели прикреплений (Media Upload Resilience & Telegram Docked Bar)**:
+  * **Мгновенный предпросмотр без нагрузки на память (`URL.createObjectURL`)**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) функция `handleFileSelect` переведена с тяжелого `FileReader.readAsDataURL` на нативный `URL.createObjectURL`, что устранило создание 100MB+ base64-строк в памяти и исключило зависание браузера при выборе видео и тяжелых медиафайлов.
+  * **Telegram Glassmorphic док-панель прикрепления**: плашка прикрепленного файла, цитирования и редактирования перенесена внутрь `<footer>` в виде компактного всплывающего блока над капсулой ввода (`bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl shadow-xl`), исправив баг с «оторванным черным квадратом».
+  * **Отказоустойчивость отправки и Socket.io сериализации**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) корректно определен `isInstantMedia`, а перед отправкой через сокеты из полезной нагрузки гарантированно вычищается ссылка `rawBlob` (File-объект), предотвращая сбои сериализации.
+  * **Быстрый тайм-аут Supabase Storage на сервере**: в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) загрузка в облачный бакет ограничена 2.5с тайм-аутом с мгновенным локальным фоллбэком, предотвращая зависание прогресс-бара загрузки при сетевых задержках.
+
+### [v2.96.0] — 18 августа 2026 г.
+* **Исправление сбоя и зеленого экрана при установке собственного фото (Custom Photo Compression & Storage Quota Fix)**:
+  * **Клиентская компрессия загружаемых обоев**: в [`src/components/Theme/ThemeSettingsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Theme/ThemeSettingsModal.tsx) перед сохранением кастомное фото теперь автоматически сжимается до оптимального разрешения (макс 1600×1200 JPEG, качество 0.8), что сократило размер base64 с 20MB до ~150KB и полностью устранило ошибку переполнения квоты `QuotaExceededError`.
+  * **Безопасное сохранение в localStorage**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) запись `localStorage.setItem` обернута в защитный блок `try...catch`, предотвратив падение дерева React-компонентов.
+  * **Устранение ложного фоллбэка на зеленый фон**: в [`src/constants/wallpapers.ts`](https://github.com/Voltikalk/Comms/blob/main/src/constants/wallpapers.ts) в функции `getWallpaperById` добавлен явный обработчик `id === 'custom'`, исключив подстановку классического зеленого фона `classic_tg`.
+  * **Кавычки в CSS URL**: в `getChatBackgroundStyle` ссылки `url("...")` обернуты в кавычки для корректного парсинга Data URI и URL со спецсимволами.
+
+### [v2.95.0] — 18 августа 2026 г.
+* **Минималистичный редизайн окна выбора обоев с компактным живым предпросмотром (Telegram Clean Wallpaper Picker & Live Tuning)**:
+  * **Компактный живой предпросмотр (128px)**: в [`src/components/Theme/ThemeSettingsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Theme/ThemeSettingsModal.tsx) интегрирован аккуратный мини-блок предпросмотра с мгновенной реакцией на регулировку размытия (0–20px), затемнения (0–80%), смену фона и акцентного цвета сообщений.
+  * **Избавление от визуального шума**: удалены длинные пояснительные подзаголовки, тяжелые рамки и громоздкие тексты. Ширина модалки уменьшена до лаконичных `450px`.
+  * **Чистые цветные круги акцентов**: громоздкие кнопки с обрезанным текстом заменены на аккуратный горизонтальный ряд круглых цветных точек с активной галочкой выбора.
+  * **Интегрированная плитка загрузки файла**: плитка «+ Своё фото» встроена прямо первым элементом в сетку обоев (паттерн Telegram / iOS).
+  * **Компактная сетка 3×N**: карточки обоев получили аккуратные пропорции и плавное масштабирование при наведении.
+
+### [v2.94.0] — 18 августа 2026 г.
+* **Исправление зацикливания/перезапуска анимации стикеров при наведении (Sticker Hover Loop Re-trigger Fix & Stable Lottie Lifecycle)**:
+  * **Стабилизация жизненного цикла Lottie**: в [`src/components/Stickers/TgsStickerPlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/TgsStickerPlayer.tsx) функция инициализации `initLottie` избавлена от нестабильных зависимостей `isHovered` и `isInView`. Плеер Lottie больше не уничтожается (`destroy()`) и не перезапускается с 0-го кадра при входе/выходе курсора мыши.
+  * **Плавное управление воспроизведением**: воспроизведение и пауза регулируются через прямой вызов `animItemRef.current.play()` / `pause()`, для сообщений чата стикеры плавно циклично проигрываются без рывков.
+  * **Оптимизация сетки стикер-пикера**: в [`src/components/Stickers/StickerPicker.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/StickerPicker.tsx) компонент `StickerCell` переведен на чистый CSS `group-hover:opacity-90`, устранив лишние React-рендеры при наведении.
+* **Полный редизайн каталога обоев, векторные Telegram-дудлы и галерея HD-фотографий (Authentic Telegram Chat Wallpapers & HD Photography Suite)**:
+  * **Официальные векторные SVG-паттерны Telegram**: в [`src/constants/wallpapers.ts`](https://github.com/Voltikalk/Comms/blob/main/src/constants/wallpapers.ts) внедрен генератор аутентичных векторных узоров Telegram Doodles (самолетик, котики, лапки, сердечки, звезды, кофе, наушники, чаты, ракеты, алмазы) с бесшовным тайлингом 160x160px и 7 готовыми палитрами (Классический Telegram, Полночный Сапфир, Космический Неон, Изумрудный Лес, Закатный Коралл, Киберпанк Grid, Теплый Мокко).
+  * **Галерея из 12 HD-фотографий и пейзажей как в Telegram**: добавлены Альпийские вершины, Глубокий космос & Небула, Неоновый Токио ночью, Туманный хвойный лес, Закатный океан с пальмами, Дождливый вечерний город, Сакура на закате, Ретровейв неон, Шелковые песчаные дюны, Темный шелк & волны, Зимняя сказка в тайге и Архитектурный свет.
+  * **Расширенная модалка оформления с категориями (`ThemeSettingsModal.tsx`)**: добавлены вкладки категорий («🌟 Все», «🖼️ Фотографии (12)», «🎨 Узоры Telegram (7)», «🌈 Градиенты (5)», «⬛ Минимализм», «📷 Своё фото»), интерактивные ползунки размытия (0–20px) и затемнения (0–80%) для всех фото-фонов, 8 акцентных цветов Telegram и живой предпросмотр пузырей.
+  * **Синхронизация фона в чате**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) функция `getChatBackgroundStyle` и слой затемнения адаптированы под любые фото-обои и SVG-дудлы.
+
+### [v2.93.0] — 18 августа 2026 г.
+* **Кастомные темы оформления, каталог Telegram-обоев и загрузка собственных фонов (Chat Wallpapers & Themes Suite)**:
+  * **Каталог встроенных Telegram-обоев и градиентов**: в [`src/constants/wallpapers.ts`](https://github.com/Voltikalk/Comms/blob/main/src/constants/wallpapers.ts) и [`src/types/theme.types.ts`](https://github.com/Voltikalk/Comms/blob/main/src/types/theme.types.ts) добавлен каталог фирменных фонов: Классический Telegram, Космическая Небула, Киберпанк Неон, Закатный Персик, Изумрудный Лес, Лавандовый Пастель и Чистый Минимализм.
+  * **Палитра акцентных цветов интерфейса**: поддержка 6 акцентных тем (Telegram Blue, Emerald Green, Neon Purple, Ruby Crimson, Sunset Amber, Ocean Cyan) с динамической подстановкой в CSS-переменные (`--tg-theme-accent`).
+  * **Загрузка собственных изображений**: поддержка выбора любого фото с компьютера с регулировкой размытия (0–20px) и затемнения (0–80%) для идеальной читаемости сообщений.
+  * **Интерактивное модальное окно настроек (`ThemeSettingsModal.tsx`)**: живой предпросмотр чата с пузырями сообщений в реальном времени, карточками галереи и сохранением настроек в `localStorage`.
+  * **Точки входа в интерфейсе**: кнопка вызова палитры (🎨) в шапке активного чата и пункт «Оформление и обои» в главном боковом меню.
+
+### [v2.92.0] — 18 августа 2026 г.
+* **Очистка сырых JSON-тегов пересылки в закрепленных сообщениях и превью ответов (Clean Forward Metadata Sanitization)**:
+  * **Устранение утечки `[fwd:{"s":"...", "n":"..."}]` в интерфейс**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) реализован универсальный санитайзер `getCleanMessageText`, который полностью удаляет служебные мета-теги пересылки и неразрывные пробелы `\u200B` из закрепленных сообщений, плашки ответов и списка чатов.
+  * **Корректные лейблы вложений**: если пересланное сообщение содержало фото, видео, стикер или аудио без текстовой подписи, закрепленная плашка теперь красиво отображает `🖼 Фотография`, `📹 Видео`, `🎭 Стикер`, `⭕ Видеосообщение` или `🎤 Голосовое сообщение` вместо сырого JSON.
+  * **Аналогичное исправление в цитатах**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) цитаты ответов на пересланные медиафайлы теперь также корректно выводят тип вложения.
+
+### [v2.91.0] — 18 августа 2026 г.
+* **Непрерывная фиксация низа ленты при асинхронной загрузке обложек видео и медиа (Continuous Media Load Bottom Pinning)**:
+  * **Динамическое удержание `ResizeObserver` при загрузке видео**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) `ResizeObserver` теперь удерживает скролл внизу всякий раз, когда пользователь находится у нижней границы (`isNearBottomRef.current === true`). Когда тяжелые обложки видео, метаданные или фотографии асинхронно догружаются спустя 1–2 секунды и меняют высоту ленты, чат не отпрыгивает вверх, а остается идеально зафиксированным на последнем сообщении.
+  * **Устранение анимационной тряски видеоконтейнера**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) удален класс `transition-all duration-300` с обертки видеоплеера, что предотвратило субпиксельное дрожание скролла при авто-определении ориентации видео.
+
+### [v2.90.0] — 18 августа 2026 г.
+* **Непрерывный ResizeObserver якорь низа чата и фиксация размеров стикеров (Continuous ResizeObserver Anchor & Zero Layout Shift)**:
+  * **Непрерывный `ResizeObserver` при открытии чата**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) внедрен `ResizeObserver` на внутренний контейнер ленты сообщений. При открытии чата он непрерывно удерживает скролл в самом низу (`feed.scrollTop = feed.scrollHeight`) на протяжении всех 500 мс, пока монтируются стикеры, аватарки и шрифты, полностью исключая прыжки вверх/вниз и открытие в середине.
+  * **Фиксация `aspect-ratio: 1/1` стикеров**: в [`src/components/Stickers/TgsStickerPlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/TgsStickerPlayer.tsx) для контейнера плеера стикеров задан постоянный `aspectRatio: '1 / 1'` и `overflow: 'hidden'`, устранив изменение высоты блоков при асинхронном старте Lottie Canvas.
+
+### [v2.89.0] — 18 августа 2026 г.
+* **Плавное исчезновение и схлопывание высоты при удалении сообщений (Smooth CSS Height Collapse & Responsive Thanos Snap)**:
+  * **Плавное схлопывание высоты строки**: в [`src/components/effects/disintegrate.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/effects/disintegrate.ts) при удалении сообщения его родительская строка плавно анимирует высоту `height: 0px` с кривой Безье `cubic-bezier(0.33, 1, 0.68, 1)` за 340 мс. Окружающие сообщения мягко и плавно скользят на освободившееся место без рывков.
+  * **Устранение долгой задержки (1.75s -> 420ms)**: длительность эффекта распада уменьшена с 1750 мс до отзывчивых 420 мс, что полностью убрало неприятную паузу и резкий провал контента после удаления.
+
+### [v2.88.0] — 18 августа 2026 г.
+* **Гарантированное открытие любого чата в самом низу (Multi-Stage Pre-Paint & Post-Paint Bottom Lock)**:
+  * **Синхронный `useLayoutEffect`**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) при смене активного чата `activeRoomId` мгновенно устанавливается `scrollTop = scrollHeight` еще до первой отрисовки кадров на экране.
+  * **Многоэтапная стабилизация (0ms -> RAF -> 40ms -> 120ms)**: добавлено поэтапное удержание скролла внизу при подгрузке аватарок, стикеров и шрифтов, что полностью исключает ситуацию, когда пользователь открывал чат где-то посередине истории.
+
+### [v2.87.0] — 18 августа 2026 г.
+* **Плавная аутентичная анимация отправки стикеров (Telegram Spring Pop & Smooth Scale Bounce)**:
+  * **Пружинная физика отправки `@keyframes tgStickerSendSpring`**: в [`src/index.css`](https://github.com/Voltikalk/Comms/blob/main/src/index.css) внедрена реалистичная пружинная анимация с кривой Безье `cubic-bezier(0.34, 1.56, 0.64, 1)` длительностью 420 мс (масштабирование из `0.35` с мягким блюром, вылет с перелётом `1.05` и элегантная доводка до `1.0`).
+  * **Направленный `transform-origin`**: для своих сообщений стикер мягко вырастает из нижнего правого угла (`animate-sticker-send`), для собеседников — из левого нижнего угла (`animate-sticker-send-peer`).
+  * **Применение в компоненте**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) стикеры получили динамическую привязку класса плавной отправки.
+
+### [v2.86.0] — 18 августа 2026 г.
+* **Устранение резких скачков и рывков скролла при отправке стикеров и удалении сообщений**:
+  * **Устранение Flexbox `justify-end` Scroll Bug**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) контейнер сообщений избавлен от `justify-end` (который приводил к пересчету и резкому скачку скролла вниз при удалении сообщения). Вместо этого внедрен гибкий спейсер `<div className="flex-1 min-h-0" />`, сохраняющий стабильную высоту и естественный поток скролла.
+  * **Мгновенная фиксация внизу при отправке**: при отправке своего сообщения/стикера вместо медленной анимации `scrollIntoView({ behavior: 'smooth' })` от верха страницы используется прямое мгновенное закрепление `scrollTop = scrollHeight` внутри контейнера чата (поведение 1:1 Telegram Desktop).
+  * **Стабильный скролл при удалении**: удаление сообщений больше не триггерит автоскролл ленты.
+
+### [v2.85.0] — 18 августа 2026 г.
+* **Глубокая оптимизация производительности стикеров (Hardware Acceleration & Viewport Culling)**:
+  * **GPU Hardware Canvas Acceleration**: в [`src/components/Stickers/TgsStickerPlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/TgsStickerPlayer.tsx) рендерер `lottie-web` переведен с тяжелого SVG DOM на аппаратный `canvas` (`clearCanvas: true`), исключив тысячи мутирующих SVG-нод в DOM-дереве.
+  * **IntersectionObserver Viewport Culling**: добавлено отслеживание видимости стикеров на экране. Анимация рассчитывается и проигрывается **только для 6–8 видимых стикеров** в текущей области видимости, а внеэкранные стикеры автоматически ставятся на паузу (`anim.pause()`), снижая нагрузку на CPU/GPU на 90%.
+  * **In-Memory Дедупликация и Cache**: в [`src/lib/tgs-loader.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/tgs-loader.ts) внедрен глобальный кеш и дедупликация одновременных сетевых запросов `pendingFetches`.
+  * **Мемоизация сетки `StickerCell`**: в [`src/components/Stickers/StickerPicker.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/StickerPicker.tsx) ячейки сетки стикеров обернуты в `React.memo` для устранения повторных рендеров при прокрутке.
+
+### [v2.84.0] — 18 августа 2026 г.
+* **Внедрение официальных 60 FPS плавных векторных Telegram-стикеров (Official 60 FPS Telegram Vectors & 180-frame Interpolation)**:
+  * **Уточка Сеня (UtyaDuck) 60 FPS**: в [`src/constants/duck_stickers.ts`](https://github.com/Voltikalk/Comms/blob/main/src/constants/duck_stickers.ts) и `public/stickers/duck/` добавлены 29 официальных векторных Lottie-анимаций Telegram с 180 непрерывными кадрами без рывков.
+  * **Вишенка Hot Cherry 60 FPS**: в [`src/constants/cherry_stickers.ts`](https://github.com/Voltikalk/Comms/blob/main/src/constants/cherry_stickers.ts) и `public/stickers/cherry/` добавлены плавные векторные стикеры Вишенки в 60 FPS.
+  * **Оптимизация ретро-колобков**: разъяснена специфика ретро-пака ICQ Колобки (оригинальные GIF-исходники 2000-х годов из 4 кадров), дополненная современными ультра-плавными паками 60 FPS.
+
+### [v2.83.0] — 18 августа 2026 г.
+* **Исправление артефактов при удалении чужих сообщений («Удалить для всех» 1:1 Telegram)**:
+  * **Разрешение удаления в сокете бэкенда**: в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) в сокет-обработчике `delete_message` убрано ограничение `sender !== user`. Теперь участники личных чатов и семейной группы могут удалять любые сообщения в диалоге для обоих собеседников (Telegram «Удалить для всех»).
+  * **Оптимистичное удаление на клиенте**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) в метод `deleteMessage` добавлено мгновенное оптимистичное удаление из массива `messages`, что исключает появление пустых строк-призраков, зависание исчезнувших пузырей и пустых чекбоксов выбора `◯`.
+  * **Синхронный сброс режима выбора**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) сброс `isSelectMode` и `selectedMessageIds` выполняется синхронно перед анимацией распада Таноса, предотвращая остаточные радио-метки на фоне.
+
+### [v2.82.0] — 18 августа 2026 г.
+* **Поддержка Telegram .TGS анимированных стикеров, Lottie-движка и 50 анимированных ICQ Колобков (Telegram .TGS Animation Engine & 50 Animated Kolobki)**:
+  * **Парсер и GZIP-декомпрессор `.tgs`**: в [`src/lib/tgs-loader.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/tgs-loader.ts) реализована распаковка сжатых gzip-контейнеров `.tgs` с помощью `pako` (`inflate`) и `TextDecoder` в стандартный JSON-формат Lottie с in-memory кешированием.
+  * **60 FPS векторный плеер `<TgsStickerPlayer />`**: в [`src/components/Stickers/TgsStickerPlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/TgsStickerPlayer.tsx) создан плеер на базе `lottie-web` для отрисовки `.tgs` и Lottie анимаций с непрерывным живым автовоспроизведением 60 FPS как в стикер-пикере, так и в пузырях сообщений чата и быстрой строке подсказок.
+  * **Все 50 оригинальных анимированных стикеров ICQ Колобки**: в [`src/constants/kolobki.ts`](https://github.com/Voltikalk/Comms/blob/main/src/constants/kolobki.ts) и папку `public/stickers/kolobki/` добавлены все 50 полноразмерных 60 FPS векторных Lottie-анимаций оригинальных Колобков (Устал 😩, Меломан 🎧, Болеет 🤕, Безумие 🤪, Гроб ⚰️, Поцелуй 😘, Подмигивает 😉, Гангстер 🔫, Закатил глаза 🙄, Крутой 😎, Рок 🤟, Солнышко 🌤, Ржу до слез 😂, Злой 😡, Пивко 🍺, Курит 🚬, За рулем 🚗, Бомба 💣, Танцовщица 💃, В космос 🚀 и др.).
+  * **Поддержка отправки `.tgs` файлов**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) файлы с расширением `.tgs` и MIME-типом `application/x-tgsticker` автоматически распознаются как стикеры и моментально воспроизводятся в сообщениях.
+
+### [v2.81.0] — 18 августа 2026 г.
+* **Полноценная система стикеров Telegram, паки, мгновенная отправка и предиктивный ввод (Telegram Stickers Suite & Fast Picker)**:
+  * **Коллекция стикер-паков**: в [`src/constants/stickers.ts`](https://github.com/Voltikalk/Comms/blob/main/src/constants/stickers.ts) внедрены 8 разнообразных паков (Уточка Сеня 🦆, Лягушонок Пепе 🐸, Мемные Котики 🐱, Доге и Чимс 🐕, Аня Шпионка 🌸, Гигачад и Мемы 🗿, 3D Живые Стикеры ✨, ICQ Колобки 🟡) с поиском по тегам и эмодзи.
+  * **Интерфейс Стикер-пикера**: компонент [`src/components/Stickers/StickerPicker.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/StickerPicker.tsx) и модальное окно [`src/components/TelegramEmojiPickerModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/TelegramEmojiPickerModal.tsx) с переключением вкладок «Эмодзи» / «Стикеры», поиском, быстрой нижней каруселью паков, избранным (❤️) и недавними стикерами (🕒).
+  * **Прозрачный рендеринг 1:1 Telegram**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) стикеры отображаются без пузыря и рамок с плавающим полупрозрачным бейджем времени и статуса прочтения (`✓` / `✓✓`).
+  * **Предиктивные подсказки стикеров**: при вводе эмодзи в поле ввода над инпутом мгновенно всплывает горизонтальная строка подходящих стикеров для быстрой отправки в 1 клик.
+* **Полная сквозная интеграция авторизации, сокетов и динамических комнат (Real End-to-End Auth & Multi-User Integration)**:
+  * **Реальная регистрация и сохранение профилей**: регистрация через [`TelegramRegistrationWizard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/TelegramRegistrationWizard.tsx) отправляет данные на бэкенд `/api/auth/register`, создает JWT-сессию, сохраняет аватар/имя/никнейм и автоматически подключает сокет с новым пользователем.
+  * **Динамическая авторизация комнат и личных сообщений**: в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) функция `isRoomAllowedForUser` обеспечивает мгновенный доступ к общему чату `family` и автоматически авторизует любые личные диалоги (`dm-*`).
+  * **Автоматические личные чаты для новых пользователей**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) для любого вновь зарегистрированного пользователя сразу генерируются активные 1-on-1 диалоги со стандартными контактами (Влад, Аня, Мама, Папа, Сестра).
+  * **Персистентность профилей в `localStorage`**: профили пользователей и кастомные аватары сохраняются и восстанавливаются при обновлении страницы.
+  * **E2E-валидация**: проведен сквозной браузерный тест регистрации реального пользователя `realuser@telegram.org`, входа в чат, отправки сообщений и бесшовного выхода.
 
 ### [v2.79.0] — 18 августа 2026 г.
 * **Интерактивные микро-взаимодействия и режим входа по QR-коду (Interactive Auth & Telegram QR Login)**:

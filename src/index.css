@@ -161,15 +161,22 @@ html.dark, body.dark {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
-/* Telegram Blue Buttons */
+:root {
+  --tg-theme-accent: #3390ec;
+  --tg-theme-accent-hover: #2678ca;
+  --tg-theme-accent-subtle: rgba(51, 144, 236, 0.12);
+  --tg-theme-accent-border: rgba(51, 144, 236, 0.35);
+}
+
+/* Telegram Primary Accent Buttons */
 .tg-btn-primary {
-  background-color: #3390ec;
+  background-color: var(--tg-theme-accent, #3390ec);
   color: #ffffff;
   transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
 .tg-btn-primary:hover {
-  background-color: #2884e0;
+  background-color: var(--tg-theme-accent-hover, #2678ca);
 }
 
 .tg-btn-primary:active {
@@ -270,6 +277,40 @@ html.dark, body.dark {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+/* Telegram Authentic Smooth Spring Sticker Sending Animation */
+@keyframes tgStickerSendSpring {
+  0% {
+    opacity: 0;
+    transform: scale(0.35) translateY(24px);
+    filter: blur(3px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.05) translateY(-3px);
+    filter: blur(0px);
+  }
+  80% {
+    transform: scale(0.98) translateY(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0px);
+  }
+}
+
+.animate-sticker-send {
+  animation: tgStickerSendSpring 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform-origin: bottom right;
+  will-change: transform, opacity;
+}
+
+.animate-sticker-send-peer {
+  animation: tgStickerSendSpring 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform-origin: bottom left;
+  will-change: transform, opacity;
 }
 
 .animate-pop-in {

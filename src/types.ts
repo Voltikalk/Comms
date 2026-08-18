@@ -1,6 +1,9 @@
 export type UserId = 'vlad' | 'anya' | 'mom' | 'dad' | 'sister' | (string & {});
 
 
+export * from './types/sticker.types';
+import type { Sticker } from './types/sticker.types';
+
 export interface Message {
   id: string;
   roomId: string;
@@ -17,9 +20,10 @@ export interface Message {
   isEdited?: boolean;
   pending?: boolean; // Optimistic local message not yet confirmed by server
   readBy?: UserId[]; // Users who have read this message (excludes sender)
+  sticker?: Sticker;
   file?: {
     name: string;
-    type: 'image' | 'audio' | 'video' | 'video_note' | 'file';
+    type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker';
     data: string; // Base64 representation or URL
     size: number;
     uploadProgress?: number;
@@ -28,6 +32,7 @@ export interface Message {
     width?: number;
     height?: number;
     orientation?: 'vertical' | 'horizontal' | 'square';
+    stickerData?: Sticker;
   };
 }
 
