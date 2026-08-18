@@ -5,6 +5,7 @@ import type { Message, UserId, Room, ConnectionStatus, CallSession, UserProfile 
 import { USER_NAMES, KEY_TO_USER, ALL_ROOMS, SERVER_URL, DEFAULT_USER_PROFILES } from '../constants';
 import authService from '../services/auth.service';
 import type { RegisterRequest } from '../types/auth.types';
+import { supabase } from '../lib/supabase/client';
 
 
 interface SocketContextType {
@@ -62,12 +63,14 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 const sanitizeMessage = (msg: Message): Message => {
-  if (msg.file && msg.file.data && msg.file.data.startsWith('/uploads/')) {
+  if (msg.file) {
     return {
       ...msg,
       file: {
         ...msg.file,
-        data: `${SERVER_URL}${msg.file.data}`
+        isUploading: false,
+        uploadProgress: undefined,
+        data: msg.file.data && msg.file.data.startsWith('/uploads/') ? `${SERVER_URL}${msg.file.data}` : msg.file.data
       }
     };
   }
@@ -576,12 +579,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const normalizedInput = emailOrKey.trim();
 
     // 1. If password is provided, perform real API login via JWT & MongoDB
+    // 1. If password is provided, perform real API login via JWT & MongoDB + Supabase Auth
     if (password !== undefined && password !== '') {
       try {
         const authData = await authService.login({
           email: normalizedInput,
           password
         });
+
+        // Background Supabase Auth login
+        supabase.auth.signInWithPassword({
+          email: normalizedInput.includes('@') ? normalizedInput : `${normalizedInput}@telegram.org`,
+          password
+        }).catch((e) => console.warn('Supabase auth background login notice:', e));
 
         const loggedUser = authData.user;
         const uid = loggedUser.userId as UserId;
@@ -628,6 +638,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setAuthKey(normalizedInput);
       localStorage.setItem('chat_user_v2', mappedUser);
       localStorage.setItem('chat_auth_key_v2', normalizedInput);
+
+      // Background Supabase Auth login for preset
+      supabase.auth.signInWithPassword({
+        email: `${mappedUser}@telegram.org`,
+        password: normalizedInput
+      }).catch((e) => console.warn('Supabase preset auth notice:', e));
 
       const userRooms = ALL_ROOMS.filter(r => r.participants.includes(mappedUser) || r.id === 'family');
       if (userRooms.length > 0) {
@@ -790,9 +806,47 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (finalFilePayload) {
           finalFilePayload.data = uploadedUrl;
           delete (finalFilePayload as any).rawBlob;
+          delete (finalFilePayload as any).isUploading;
+          delete (finalFilePayload as any).uploadProgress;
         }
+
+        // Immediately update local message state to clear uploading spinner
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId
+              ? {
+                  ...msg,
+                  file: msg.file
+                    ? {
+                        ...msg.file,
+                        data: uploadedUrl,
+                        isUploading: false,
+                        uploadProgress: undefined
+                      }
+                    : undefined
+                }
+              : msg
+          )
+        );
       } catch (err) {
         console.warn('File upload via HTTP failed, falling back to Socket.io directly:', err);
+        // Clear isUploading in state so spinner is not stuck on error
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId
+              ? {
+                  ...msg,
+                  file: msg.file
+                    ? {
+                        ...msg.file,
+                        isUploading: false,
+                        uploadProgress: undefined
+                      }
+                    : undefined
+                }
+              : msg
+          )
+        );
       }
     }
 
@@ -807,6 +861,75 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     socketRef.current.emit('send_message', payload);
+
+    // Persist directly to Supabase messages table in cloud PostgreSQL
+    (async () => {
+      try {
+        const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+        // 1. Resolve Sender
+        let senderUser: { id: string } | null = null;
+        if (isUuid(currentUser)) {
+          const { data } = await supabase.from('users').select('id').eq('id', currentUser).maybeSingle();
+          senderUser = data;
+        }
+        if (!senderUser) {
+          const { data } = await supabase.from('users').select('id').eq('username', currentUser).maybeSingle();
+          senderUser = data;
+        }
+
+        // 2. Resolve Room
+        const roomName = activeRoom?.name || activeRoomId;
+        let targetRoom: { id: string } | null = null;
+        if (isUuid(activeRoomId)) {
+          const { data } = await supabase.from('rooms').select('id').eq('id', activeRoomId).maybeSingle();
+          targetRoom = data;
+        }
+        if (!targetRoom) {
+          const { data } = await supabase.from('rooms').select('id').eq('name', roomName).maybeSingle();
+          targetRoom = data;
+        }
+
+        // 3. Fallback: if room doesn't exist yet, auto-create it
+        if (!targetRoom && senderUser) {
+          const { data: newRoom } = await supabase.from('rooms').insert({
+            name: roomName,
+            type: activeRoom?.type || 'direct',
+            created_by: senderUser.id,
+            is_active: true
+          }).select('id').single();
+          targetRoom = newRoom;
+        }
+
+        if (senderUser && targetRoom) {
+          const { data: insertedMsg, error: insErr } = await supabase
+            .from('messages')
+            .insert({
+              room_id: targetRoom.id,
+              sender_id: senderUser.id,
+              content: text.trim() || (finalFilePayload ? `📎 ${finalFilePayload.name}` : ''),
+            })
+            .select()
+            .single();
+
+          if (insErr) {
+            console.error('[Supabase Insert Message Error]', insErr);
+          }
+
+          if (insertedMsg && finalFilePayload) {
+            await supabase.from('message_attachments').insert({
+              message_id: insertedMsg.id,
+              file_url: finalFilePayload.data,
+              file_name: finalFilePayload.name,
+              file_type: finalFilePayload.type,
+              file_size: finalFilePayload.size,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[Supabase Message Sync Error]', e);
+      }
+    })();
   };
 
   // WebRTC Signaling functions

@@ -24,11 +24,12 @@ import {
   AnimatedBorder, 
   AnimatedLockIcon, 
   AnimatedCheckmark, 
-  AnimatedErrorIcon, 
-  playUISound 
+  AnimatedErrorIcon 
 } from './effects';
 import { useFormValidation } from './interactions/useFormValidation';
 import { useToggleAnimation } from './interactions/useToggleAnimation';
+import { useSwipeGestures } from '../hooks/useTouchInteractions';
+import { useResponsive } from '../hooks/useMediaQuery';
 
 interface LoginScreenProps {
   darkMode: boolean;
@@ -68,18 +69,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
   const { globalError, setError, clearError, errorBannerVariants } = useFormValidation();
   const { eyeIconVariants } = useToggleAnimation();
   const { cardVariants, tabSlideVariants } = usePageTransition();
+  const { isMobile, prefersReducedMotion } = useResponsive();
+
+  // Mobile Swipe Gestures between Forms
+  const { onTouchStart, onTouchEnd } = useSwipeGestures({
+    onSwipeLeft: () => {
+      if (activeTab === 'login') {
+        handleTabChange('register');
+      }
+    },
+    onSwipeRight: () => {
+      if (activeTab === 'register') {
+        handleTabChange('login');
+      }
+    },
+    threshold: 45,
+  });
 
   // Sync server errors into validation auto-hide state
   useEffect(() => {
     if (serverError) {
       setError(serverError);
-      playUISound('error');
     }
   }, [serverError, setError]);
 
   const handleTabChange = (tab: 'login' | 'register') => {
     if (tab === activeTab) return;
-    playUISound('click');
     setDirection(tab === 'register' ? 1 : -1);
     setActiveTab(tab);
     clearError();
@@ -92,7 +107,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
 
     if (!loginIdentifier.trim()) {
       setError('Введите Email, Username или ключ доступа.');
-      playUISound('error');
       return;
     }
 
@@ -101,15 +115,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
       const success = await login(loginIdentifier.trim(), loginPassword);
       if (success) {
         setIsSuccess(true);
-        playUISound('success');
       } else {
-        playUISound('error');
         if (!serverError) {
           setError('Не удалось войти. Проверьте логин и пароль.');
         }
       }
     } catch {
-      playUISound('error');
+      // ignore
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +129,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
 
   // Handle Fast Preset Login
   const handleSelectPresetAccount = async (account: typeof PRESET_ACCOUNTS[0]) => {
-    playUISound('click');
     setSelectedAccountId(account.id);
     setLoginIdentifier(account.email);
     setLoginPassword(account.pass);
@@ -128,12 +139,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
       const success = await login(account.email, account.pass);
       if (success) {
         setIsSuccess(true);
-        playUISound('success');
-      } else {
-        playUISound('error');
       }
     } catch {
-      playUISound('error');
+      // ignore
     } finally {
       setIsLoading(false);
     }
@@ -146,22 +154,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
 
     if (!regFirstName.trim()) {
       setError('Пожалуйста, введите ваше имя.');
-      playUISound('error');
       return;
     }
     if (!regUsername.trim() || regUsername.trim().length < 3) {
       setError('Username должен содержать минимум 3 символа.');
-      playUISound('error');
       return;
     }
     if (!regEmail.trim() || !/^\S+@\S+\.\S+$/.test(regEmail.trim())) {
       setError('Введите корректный адрес электронной почты.');
-      playUISound('error');
       return;
     }
     if (regPassword.length < 6) {
       setError('Пароль должен содержать не менее 6 символов.');
-      playUISound('error');
       return;
     }
 
@@ -177,67 +181,66 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
 
       if (success) {
         setIsSuccess(true);
-        playUISound('success');
       } else {
-        playUISound('error');
         if (!serverError) {
           setError('Ошибка при создании аккаунта.');
         }
       }
     } catch {
-      playUISound('error');
+      // ignore
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <GradientBackground showParticles={true}>
+    <GradientBackground showParticles={!prefersReducedMotion}>
       
-      {/* Fixed Top-Right Theme Toggle Control */}
+      {/* Fixed Top-Right Theme Toggle Control with Touch Target */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.3 }}
-        className="fixed top-5 right-5 sm:top-6 sm:right-6 z-50 pointer-events-auto"
+        className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 pointer-events-auto"
       >
         <button
           type="button"
           onClick={() => {
-            playUISound('click');
             toggleDarkMode();
           }}
-          className="p-3 rounded-[14px] bg-white/25 dark:bg-black/45 backdrop-blur-md border border-white/35 text-white hover:bg-white/35 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-xl flex items-center justify-center"
+          className="min-h-[44px] min-w-[44px] p-2.5 sm:p-3 rounded-[14px] bg-white/25 dark:bg-black/45 backdrop-blur-md border border-white/35 text-white hover:bg-white/35 active:scale-95 transition-all cursor-pointer shadow-xl flex items-center justify-center touch-manipulation"
           aria-label="Переключить тему"
           title={darkMode ? 'Светлая тема' : 'Темная тема'}
         >
           {darkMode ? (
-            <Sun className="w-4 h-4 text-amber-300 animate-spin-slow" />
+            <Sun className="w-5 h-5 sm:w-4 sm:h-4 text-amber-300 animate-spin-slow" />
           ) : (
-            <Moon className="w-4 h-4 text-white" />
+            <Moon className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
           )}
         </button>
       </motion.div>
 
-      {/* Main Card with Animated Border */}
+      {/* Main Card with Animated Border and Swipe Listeners */}
       <motion.div
-        variants={cardVariants}
+        variants={prefersReducedMotion ? undefined : cardVariants}
         initial="hidden"
         animate="visible"
-        className="w-full max-w-[450px] z-10 select-none"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        className="w-full max-w-[450px] z-10 select-none safe-area-pb safe-area-pt px-1 sm:px-0"
       >
-        <AnimatedBorder glow={true} active={true}>
-          <Card maxWidth="full" className="shadow-2xl overflow-hidden backdrop-blur-[20px] hover:backdrop-blur-[28px]">
+        <AnimatedBorder glow={!isMobile} active={!prefersReducedMotion}>
+          <Card maxWidth="full" className="shadow-2xl overflow-hidden backdrop-blur-[20px]">
             
             {/* Header Branding */}
             <CardHeader>
               <motion.div
-                whileHover={{ scale: 1.06, rotate: 3 }}
+                whileHover={isMobile ? undefined : { scale: 1.06, rotate: 3 }}
                 whileTap={{ scale: 0.95 }}
-                className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-linear-to-tr from-[#0066FF] to-[#9933FF] text-white shadow-lg shadow-[#0066FF]/35 mb-3.5 relative cursor-pointer group"
+                className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-[18px] sm:rounded-[20px] bg-linear-to-tr from-[#0066FF] to-[#9933FF] text-white shadow-lg shadow-[#0066FF]/35 mb-2.5 sm:mb-3.5 relative cursor-pointer group touch-manipulation"
               >
-                <AnimatedLockIcon isSpinning={isLoading} />
-                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#00D084] border-2 border-white dark:border-[#17212b] flex items-center justify-center">
+                <AnimatedLockIcon isSpinning={isLoading} size={isMobile ? 24 : 28} />
+                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#00D084] border-2 border-white dark:border-[#17212b] flex items-center justify-center">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                 </div>
               </motion.div>
@@ -250,11 +253,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
             </CardHeader>
 
             {/* Smooth Tab Switcher with Animated layoutId Indicator */}
-            <div className="glass-tab-container flex p-1 mb-5 relative">
+            <div className="glass-tab-container flex p-1 mb-4 sm:mb-5 relative">
               <button
                 type="button"
                 onClick={() => handleTabChange('login')}
-                className={`flex-1 py-2.5 rounded-[10px] text-xs font-semibold flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer font-body relative z-10 ${
+                className={`min-h-[44px] flex-1 py-2.5 rounded-[10px] text-xs sm:text-xs font-semibold flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer font-body relative z-10 touch-manipulation ${
                   activeTab === 'login'
                     ? 'text-[#0066FF] dark:text-white font-bold'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -267,14 +270,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     className="absolute inset-0 bg-white dark:bg-[#242f3d] rounded-[10px] shadow-sm z-[-1]"
                   />
                 )}
-                <LogIn className="w-3.5 h-3.5" />
+                <LogIn className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 <span>Вход</span>
               </button>
               
               <button
                 type="button"
                 onClick={() => handleTabChange('register')}
-                className={`flex-1 py-2.5 rounded-[10px] text-xs font-semibold flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer font-body relative z-10 ${
+                className={`min-h-[44px] flex-1 py-2.5 rounded-[10px] text-xs sm:text-xs font-semibold flex items-center justify-center gap-2 transition-colors duration-200 cursor-pointer font-body relative z-10 touch-manipulation ${
                   activeTab === 'register'
                     ? 'text-[#0066FF] dark:text-white font-bold'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -287,13 +290,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     className="absolute inset-0 bg-white dark:bg-[#242f3d] rounded-[10px] shadow-sm z-[-1]"
                   />
                 )}
-                <UserPlus className="w-3.5 h-3.5" />
+                <UserPlus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 <span>Регистрация</span>
               </button>
             </div>
 
             {/* Sliding Form Container */}
-            <div className="relative min-h-[300px] overflow-hidden">
+            <div className="relative min-h-[290px] overflow-hidden">
               <AnimatePresence custom={direction} mode="wait">
                 
                 {/* TAB 1: LOGIN */}
@@ -305,35 +308,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     initial="enter"
                     animate="center"
                     exit="exit"
-                    className="space-y-4"
+                    className="space-y-3.5 sm:space-y-4"
                   >
                     {/* Quick Profile Select */}
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2 px-0.5 font-heading">
-                        Быстрый вход
-                      </label>
-                      <div className="grid grid-cols-5 gap-1.5">
+                      <div className="flex items-center justify-between mb-1.5 sm:mb-2 px-0.5">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-heading">
+                          Быстрый вход
+                        </label>
+                        {isMobile && (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                            свайп для смены формы ⇄
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
                         {PRESET_ACCOUNTS.map((acc) => {
                           const isSelected = selectedAccountId === acc.id || loginIdentifier === acc.email || loginIdentifier === acc.pass;
                           return (
                             <motion.button
                               key={acc.id}
                               type="button"
-                              whileHover={{ scale: 1.08, y: -2 }}
-                              whileTap={{ scale: 0.95 }}
+                              whileTap={{ scale: 0.92 }}
                               onClick={() => handleSelectPresetAccount(acc)}
                               disabled={isLoading}
-                              className={`flex flex-col items-center gap-1.5 p-2 rounded-[14px] transition-smooth cursor-pointer select-none ${
+                              className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-[12px] sm:rounded-[14px] transition-all cursor-pointer select-none touch-manipulation ${
                                 isSelected
                                   ? 'bg-[#0066FF]/15 ring-2 ring-[#0066FF] shadow-md'
-                                  : 'hover:bg-white/40 dark:hover:bg-white/5'
+                                  : 'hover:bg-white/40 dark:hover:bg-white/5 active:bg-white/30'
                               }`}
                               title={`Войти как ${acc.name}`}
                             >
-                              <div className={`w-9 h-9 rounded-[12px] bg-linear-to-tr ${acc.color} text-white flex items-center justify-center text-xs font-bold shadow-xs`}>
+                              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] sm:rounded-[12px] bg-linear-to-tr ${acc.color} text-white flex items-center justify-center text-xs font-bold shadow-xs`}>
                                 {acc.name.charAt(0)}
                               </div>
-                              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate w-full text-center font-body">
+                              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate w-full text-center font-body">
                                 {acc.name}
                               </span>
                             </motion.button>
@@ -343,7 +353,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     </div>
 
                     {/* Divider */}
-                    <div className="flex items-center gap-3 my-3">
+                    <div className="flex items-center gap-3 my-2 sm:my-3">
                       <div className="flex-1 h-px bg-slate-200/80 dark:bg-white/10" />
                       <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
                         Или аккаунт
@@ -352,7 +362,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={handleLoginSubmit} className="space-y-3.5">
+                    <form onSubmit={handleLoginSubmit} className="space-y-3 sm:space-y-3.5">
                       <Input
                         label="Логин или Email"
                         type="text"
@@ -391,7 +401,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                           </motion.div>
                         }
                         onRightIconClick={() => {
-                          playUISound('click');
                           setShowLoginPassword(!showLoginPassword);
                         }}
                       />
@@ -416,7 +425,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                       <Button
                         type="submit"
                         variant="primary"
-                        size="lg"
+                        size={isMobile ? 'md' : 'lg'}
                         fullWidth
                         isLoading={isLoading}
                         isSuccess={isSuccess}
@@ -440,7 +449,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     animate="center"
                     exit="exit"
                   >
-                    <form onSubmit={handleRegisterSubmit} className="space-y-3">
+                    <form onSubmit={handleRegisterSubmit} className="space-y-2.5 sm:space-y-3">
                       
                       {/* First & Last Name */}
                       <div className="grid grid-cols-2 gap-2">
@@ -531,7 +540,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                           </motion.div>
                         }
                         onRightIconClick={() => {
-                          playUISound('click');
                           setShowRegPassword(!showRegPassword);
                         }}
                         required
@@ -578,7 +586,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                       <Button
                         type="submit"
                         variant="primary"
-                        size="lg"
+                        size={isMobile ? 'md' : 'lg'}
                         fullWidth
                         isLoading={isLoading}
                         isSuccess={isSuccess}
@@ -596,8 +604,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
             </div>
 
             {/* Footer info */}
-            <div className="mt-5 pt-3 border-t border-slate-200/50 dark:border-white/10 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-              <span>Comms v2.5 · Micro-FX</span>
+            <div className="mt-4 sm:mt-5 pt-3 border-t border-slate-200/50 dark:border-white/10 flex items-center justify-between text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+              <span>Comms v2.6 · Mobile Ready</span>
               <span className="text-[#00D084] font-semibold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#00D084] inline-block animate-pulse" />
                 Сервер активен

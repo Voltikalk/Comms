@@ -15,6 +15,7 @@ import {
   IconVolumeOff,
   IconTrash
 } from '@tabler/icons-react';
+import { VideoPlayer } from './VideoPlayer';
 
 const CircularProgress: React.FC<{ progress: number }> = ({ progress }) => {
   const radius = 20;
@@ -126,6 +127,16 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   const [videoNoteDuration, setVideoNoteDuration] = useState(0);
   const [videoNoteCurrentTime, setVideoNoteCurrentTime] = useState(0);
   const videoNoteRef = useRef<HTMLVideoElement | null>(null);
+
+  // Regular Video states (auto-detecting orientation & ratio)
+  const initialOrientation = message.file?.orientation || (
+    message.file?.width && message.file?.height 
+      ? (message.file.width / message.file.height < 0.85 ? 'vertical' : message.file.width / message.file.height > 1.15 ? 'horizontal' : 'square')
+      : 'horizontal'
+  );
+  const initialRatio = message.file?.width && message.file?.height ? message.file.width / message.file.height : null;
+  const [videoOrientation, setVideoOrientation] = useState<'vertical' | 'horizontal' | 'square'>(initialOrientation);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(initialRatio);
 
   // Swipe-to-reply states
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -251,10 +262,23 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
 
   const hasFile = !!message.file;
   const hasText = !!message.text;
-  const isVideoNote = hasFile && (message.file?.type === 'video_note' || (message.file?.type === 'video' && message.file.name.includes('кружок')));
-  const isRegularVideo = hasFile && message.file?.type === 'video' && !isVideoNote;
+  const isAudioFile = hasFile && (
+    message.file?.type === 'audio' ||
+    (message.file?.name && (
+      message.file.name.toLowerCase().startsWith('голосовое сообщение') ||
+      /\.(mp3|wav|ogg|m4a|aac|opus)$/i.test(message.file.name)
+    ))
+  );
+  const isVideoNote = hasFile && !isAudioFile && (
+    message.file?.type === 'video_note' ||
+    (message.file?.type === 'video' && message.file.name.includes('кружок'))
+  );
+  const isRegularVideo = hasFile && !isAudioFile && !isVideoNote && (
+    message.file?.type === 'video' ||
+    (message.file?.name && /\.(mp4|mov|mkv|avi|m4v)$/i.test(message.file.name))
+  );
   const isPureImage = hasFile && message.file?.type === 'image' && !hasText && !parentMessage;
-  const isPureAudio = hasFile && message.file?.type === 'audio' && !hasText;
+  const isPureAudio = hasFile && isAudioFile && !hasText;
   const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
   const isPending = !!message.pending;
 
@@ -374,15 +398,15 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
         isSelectMode ? 'cursor-pointer' : ''
       } ${
         isSelected 
-          ? 'bg-[#3390ec]/15 dark:bg-[#3390ec]/20 -mx-4 sm:-mx-8 px-4 sm:px-8' 
+          ? 'bg-[#3390ec]/15 dark:bg-[#3390ec]/20 rounded-xl' 
           : isSelectMode 
-            ? 'hover:bg-black/5 dark:hover:bg-white/5 -mx-4 sm:-mx-8 px-4 sm:px-8' 
+            ? 'hover:bg-black/5 dark:hover:bg-white/5 rounded-xl' 
             : ''
       }`}
     >
       {/* Message Row */}
       <div 
-        className={`flex items-end gap-2 w-full ${isSelf ? 'justify-end' : 'justify-start'}`}
+        className={`flex items-end gap-2 w-full min-w-0 max-w-full ${isSelf ? 'justify-end' : 'justify-start'}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -429,7 +453,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           )
         )}
 
-        <div className="flex flex-col min-w-0 max-w-full relative">
+        <div className="flex flex-col min-w-0 max-w-[85%] sm:max-w-[75%] relative">
           
           {/* Main Bubble / Video Note Container */}
           <div 
@@ -497,8 +521,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   />
 
                   {/* Uploading progress ring */}
-                  {message.file.isUploading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full z-20">
+                  {message.file.isUploading && (message.file.uploadProgress === undefined || message.file.uploadProgress < 100) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full z-20 pointer-events-none">
                       <CircularProgress progress={message.file.uploadProgress || 0} />
                     </div>
                   )}
@@ -534,25 +558,51 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               </div>
             )}
 
-            {/* 2. REGULAR VIDEO PLAYER (Обычное прямоугольное видео) */}
+            {/* 2. REGULAR VIDEO PLAYER (Кастомный многофункциональный видеоплеер с авто-определением ориентации) */}
             {isRegularVideo && message.file && (
-              <div className="relative p-1 min-w-[200px] max-w-[320px] sm:max-w-[360px]" onClick={(e) => e.stopPropagation()}>
-                <div className="relative rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center">
-                  <video
+              <div 
+                className={`relative p-1 w-full transition-all duration-300 ${
+                  videoOrientation === 'vertical'
+                    ? 'min-w-[180px] max-w-[220px] xs:max-w-[250px] sm:max-w-[270px]'
+                    : videoOrientation === 'square'
+                      ? 'min-w-[190px] max-w-[250px] xs:max-w-[280px] sm:max-w-[300px]'
+                      : 'min-w-[200px] max-w-[280px] xs:max-w-[320px] sm:max-w-[360px]'
+                }`} 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div 
+                  className={`relative rounded-2xl overflow-hidden bg-black flex items-center justify-center shadow-md transition-all duration-300 ${
+                    !videoAspectRatio ? 'aspect-video' : ''
+                  }`}
+                  style={videoAspectRatio ? { 
+                    aspectRatio: `${videoAspectRatio}`,
+                    maxHeight: videoOrientation === 'vertical' ? '420px' : '300px'
+                  } : undefined}
+                >
+                  <VideoPlayer
                     src={message.file.data}
-                    playsInline
-                    controls
-                    className="w-full h-full object-cover rounded-xl"
+                    allowFullscreen={true}
+                    allowPictureInPicture={true}
+                    controls={true}
+                    onOrientationChange={(orientation, ratio) => {
+                      setVideoOrientation(orientation);
+                      setVideoAspectRatio(ratio);
+                    }}
                   />
-                  {message.file.isUploading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+                  {message.file.isUploading && (message.file.uploadProgress === undefined || message.file.uploadProgress < 100) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-30 pointer-events-none">
                       <CircularProgress progress={message.file.uploadProgress || 0} />
                     </div>
                   )}
                 </div>
-                <div className="flex items-center justify-between px-1 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span className="truncate">{message.file.name}</span>
+                <div className="flex items-center justify-end px-1 pt-1 text-[10px] text-slate-500 dark:text-slate-400 select-none">
+                  {message.isEdited && <span className="opacity-75 text-[8px] mr-1">изм.</span>}
                   <span className="font-mono">{formatTime(message.timestamp)}</span>
+                  {isSelf && !isPending && (
+                    <span className="ml-1 text-[#4fae4e] dark:text-[#82b1ff]">
+                      {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -573,8 +623,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                     isMediaLoading && !message.file.isUploading ? 'opacity-30' : 'opacity-100'
                   }`}
                 />
-                {message.file.isUploading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl z-10">
+                {message.file.isUploading && (message.file.uploadProgress === undefined || message.file.uploadProgress < 100) && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl z-10 pointer-events-none">
                     <CircularProgress progress={message.file.uploadProgress || 0} />
                   </div>
                 )}
@@ -638,7 +688,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
 
             {/* 4. Telegram-Style Audio Voice Player (Pixel-Perfect Alignment) */}
             {message.file?.type === 'audio' && (
-              message.file.isUploading ? (
+              message.file.isUploading && (message.file.uploadProgress === undefined || message.file.uploadProgress < 100) ? (
                 <div className="flex items-center gap-3 py-2 px-3 min-w-[220px]" onClick={(e) => e.stopPropagation()}>
                   <div className="shrink-0 scale-75">
                     <CircularProgress progress={message.file.uploadProgress || 0} />

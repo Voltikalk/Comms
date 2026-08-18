@@ -1,0 +1,26 @@
+{
+  "project_id": "mpjizafibhffabwybpgj",
+  "api": {
+    "port": 54321,
+    "schemas": ["public", "storage", "graphql_public"]
+  },
+  "db": {
+    "port": 54322,
+    "shadow_port": 54320,
+    "major_version": 15
+  },
+  "migrations": {
+    "directory": "supabase/migrations",
+    "table_name": "schema_version"
+  },
+  "storage": {
+    "enabled": true,
+    "file_size_limit": "50MiB",
+    "buckets": [
+      "message-attachments",
+      "avatars",
+      "room-images",
+      "temp-uploads"
+    ]
+  }
+}

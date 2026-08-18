@@ -8,15 +8,28 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "server": "node server.js"
+    "server": "node server.js",
+    "migrate:up": "node scripts/migrate.js up",
+    "migrate:down": "node scripts/migrate.js down",
+    "migrate:status": "node scripts/migrate.js status",
+    "migrate:create": "node scripts/migrate.js create"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@supabase/auth-helpers-react": "^0.15.0",
+    "@supabase/supabase-js": "^2.112.3",
     "@tabler/icons-react": "^3.46.0",
+    "@tailwindcss/forms": "^0.5.11",
+    "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.2",
+    "@types/aos": "^3.0.8",
+    "aos": "^2.3.4",
     "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
     "framer-motion": "^13.1.0",
+    "gsap": "^3.15.0",
     "jsonwebtoken": "^9.0.3",
+    "lottie-web": "^5.13.0",
     "lucide-react": "^1.23.0",
     "mongoose": "^9.9.2",
     "multer": "^2.2.0",
@@ -27,6 +40,7 @@
     "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
+    "@storybook/react": "^10.5.8",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.13.2",
@@ -35,6 +49,7 @@
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
+    "storybook": "^10.5.8",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
   }

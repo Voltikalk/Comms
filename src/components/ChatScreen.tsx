@@ -33,11 +33,17 @@ import {
   IconTrash,
   IconPin,
   IconUser,
-  IconFileText
+  IconFileText,
+  IconChevronUp,
+  IconChevronDown,
+  IconWorld
 } from '@tabler/icons-react';
 import { TelegramEmojiPickerModal } from './TelegramEmojiPickerModal';
 import { TelegramContextMenuModal } from './TelegramContextMenuModal';
 import { ProfileEditModal } from './ProfileEditModal';
+import { SearchPage } from '../pages/SearchPage';
+import { AdvancedSearchModal } from './Search/AdvancedSearchModal';
+import { applyFilters, type FilterOptions } from '../lib/filter-utils';
 
 interface ChatScreenProps {
   darkMode: boolean;
@@ -126,6 +132,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [chatFilters, setChatFilters] = useState<FilterOptions>({});
+  const [showGlobalSearchModal, setShowGlobalSearchModal] = useState(false);
+  const [showAdvancedSearchModal, setShowAdvancedSearchModal] = useState(false);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(40);
   const [contextMenuTarget, setContextMenuTarget] = useState<{
     message: Message;
@@ -148,7 +158,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   };
 
   // File & Voice Attachment states
-  const [selectedFile, setSelectedFile] = useState<{ name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; data: string; size: number; rawBlob?: Blob | File } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<{ 
+    name: string; 
+    type: 'image' | 'audio' | 'video' | 'video_note' | 'file'; 
+    data: string; 
+    size: number; 
+    rawBlob?: Blob | File;
+    width?: number;
+    height?: number;
+    orientation?: 'vertical' | 'horizontal' | 'square';
+  } | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
 
@@ -221,10 +240,90 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     showToast(`Сообщение переслано`);
   };
 
-  // Filter messages by search query
-  const filteredMessages = searchQuery.trim()
-    ? activeMessages.filter((m) => m.text.toLowerCase().includes(searchQuery.toLowerCase()))
-    : activeMessages;
+  // Filter messages using our rich applyFilters system
+  const filteredMessages = React.useMemo(() => {
+    if (!isSearching && Object.keys(chatFilters).length === 0) {
+      return activeMessages;
+    }
+    return applyFilters(activeMessages, {
+      ...chatFilters,
+      searchQuery: searchQuery.trim() || undefined,
+    });
+  }, [activeMessages, isSearching, chatFilters, searchQuery]);
+
+  const activeChatFiltersCount = Object.keys(chatFilters).filter((k) => {
+    const v = (chatFilters as any)[k];
+    if (v === undefined || v === null || v === false) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'object') return Object.values(v).some(Boolean);
+    return true;
+  }).length;
+
+  const handleDatePreset = (preset: 'today' | 'week' | 'month') => {
+    const now = new Date();
+    if (preset === 'today') {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+      const isAlready = chatFilters.dateRange?.startDate === start;
+      setChatFilters((prev) => ({
+        ...prev,
+        dateRange: isAlready ? undefined : { startDate: start, endDate: end },
+      }));
+    } else if (preset === 'week') {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+      const isAlready = chatFilters.dateRange?.startDate === start;
+      setChatFilters((prev) => ({
+        ...prev,
+        dateRange: isAlready ? undefined : { startDate: start, endDate: end },
+      }));
+    } else if (preset === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString();
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+      const isAlready = chatFilters.dateRange?.startDate === start;
+      setChatFilters((prev) => ({
+        ...prev,
+        dateRange: isAlready ? undefined : { startDate: start, endDate: end },
+      }));
+    }
+  };
+
+  const scrollToMatch = (index: number) => {
+    if (filteredMessages.length === 0) return;
+    const bounded = (index + filteredMessages.length) % filteredMessages.length;
+    setCurrentMatchIndex(bounded);
+    const targetMsg = filteredMessages[bounded];
+    if (targetMsg) {
+      const el = document.getElementById(`msg-${targetMsg.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-cyan-400', 'bg-cyan-500/15', 'rounded-2xl');
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-cyan-400', 'bg-cyan-500/15', 'rounded-2xl');
+        }, 1800);
+      }
+    }
+  };
+
+  const handleNextMatch = () => scrollToMatch(currentMatchIndex + 1);
+  const handlePrevMatch = () => scrollToMatch(currentMatchIndex - 1);
+
+  // Ctrl+F / Cmd+F shortcut listener
+  useEffect(() => {
+    const handleSearchKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsSearching(true);
+      }
+      if (e.key === 'Escape' && isSearching) {
+        setIsSearching(false);
+        setSearchQuery('');
+        setChatFilters({});
+      }
+    };
+    window.addEventListener('keydown', handleSearchKeyDown);
+    return () => window.removeEventListener('keydown', handleSearchKeyDown);
+  }, [isSearching]);
 
   const slicedMessages = filteredMessages.slice(-visibleCount);
 
@@ -474,13 +573,41 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       else if (file.type.startsWith('audio/') || name.match(/\.(mp3|wav|ogg|m4a|aac)$/)) type = 'audio';
       else if (file.type.startsWith('video/') || name.match(/\.(mp4|webm|mov)$/)) type = 'video';
 
-      setSelectedFile({
-        name: file.name,
-        type,
-        data: reader.result as string,
-        size: file.size,
-        rawBlob: file
-      });
+      if (type === 'video') {
+        const tempVideo = document.createElement('video');
+        tempVideo.preload = 'metadata';
+        tempVideo.src = reader.result as string;
+        tempVideo.onloadedmetadata = () => {
+          const ratio = tempVideo.videoWidth / (tempVideo.videoHeight || 1);
+          setSelectedFile({
+            name: file.name,
+            type,
+            data: reader.result as string,
+            size: file.size,
+            rawBlob: file,
+            width: tempVideo.videoWidth,
+            height: tempVideo.videoHeight,
+            orientation: ratio < 0.85 ? 'vertical' : ratio > 1.15 ? 'horizontal' : 'square'
+          });
+        };
+        tempVideo.onerror = () => {
+          setSelectedFile({
+            name: file.name,
+            type,
+            data: reader.result as string,
+            size: file.size,
+            rawBlob: file
+          });
+        };
+      } else {
+        setSelectedFile({
+          name: file.name,
+          type,
+          data: reader.result as string,
+          size: file.size,
+          rawBlob: file
+        });
+      }
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -836,24 +963,34 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           )}
 
           {/* Search bar */}
-          <div className="flex-1 relative">
-            <IconSearch size={16} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={roomFilterQuery}
-              onChange={(e) => setRoomFilterQuery(e.target.value)}
-              placeholder="Search"
-              className="w-full pl-9 pr-7 py-1.5 rounded-full bg-slate-100 dark:bg-[#242f3d] border-none text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3390ec]"
-            />
-            {roomFilterQuery && (
-              <button
-                type="button"
-                onClick={() => setRoomFilterQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <IconX size={14} />
-              </button>
-            )}
+          <div className="flex-1 relative flex items-center gap-1.5">
+            <div className="relative flex-1">
+              <IconSearch size={16} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={roomFilterQuery}
+                onChange={(e) => setRoomFilterQuery(e.target.value)}
+                placeholder="Поиск чатов..."
+                className="w-full pl-9 pr-7 py-1.5 rounded-full bg-slate-100 dark:bg-[#242f3d] border-none text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3390ec]"
+              />
+              {roomFilterQuery && (
+                <button
+                  type="button"
+                  onClick={() => setRoomFilterQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                >
+                  <IconX size={14} />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowGlobalSearchModal(true)}
+              className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3390ec] dark:hover:text-[#3390ec] transition-colors cursor-pointer shrink-0"
+              title="Глобальный поиск сообщений (FTS)"
+            >
+              <IconWorld size={18} />
+            </button>
           </div>
         </div>
 
@@ -911,6 +1048,27 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
         {/* Chat List Items */}
         <div className="flex-1 overflow-y-auto px-1.5 py-1 space-y-0.5">
+          {/* Prompt to search messages across all chats */}
+          {roomFilterQuery.trim() && (
+            <button
+              type="button"
+              onClick={() => setShowGlobalSearchModal(true)}
+              className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-[#3390ec]/10 hover:bg-[#3390ec]/20 border border-[#3390ec]/30 text-[#3390ec] transition-all cursor-pointer text-left mb-1.5 shadow-xs"
+            >
+              <div className="w-9 h-9 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-xs font-bold shadow-md shadow-[#3390ec]/20 shrink-0">
+                🔍
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold truncate text-slate-900 dark:text-white">
+                  Искать «{roomFilterQuery}»
+                </div>
+                <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
+                  Полнотекстовый поиск по сообщениям
+                </div>
+              </div>
+            </button>
+          )}
+
           {filteredRooms.map((room) => {
             const isActive = room.id === activeRoomId;
             const peerId = room.type === 'direct' ? room.participants.find(p => p !== currentUser) as UserId | undefined : null;
@@ -1005,15 +1163,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
       {/* 2. Main Center Chat Panel: Telegram Wallpaper & Bubbles */}
       <main
-        className={`flex-1 flex flex-col h-full tg-chat-canvas transition-transform duration-150 relative ${mobileView === 'chat'
+        className={`flex-1 min-w-0 w-full max-w-full flex flex-col h-full tg-chat-canvas transition-transform duration-150 relative overflow-hidden ${mobileView === 'chat'
           ? 'translate-x-0 flex'
           : '-translate-x-full md:translate-x-0 absolute md:relative z-10 w-full h-full hidden md:flex'
           }`}
       >
         {/* Telegram Chat Header or Top Selection Action Bar */}
-        <header className="px-4 py-2.5 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[58px] transition-all">
+        <header className="px-3 sm:px-4 py-2 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[56px] w-full min-w-0 max-w-full">
           {isSelectMode ? (
-            <div className="w-full flex items-center justify-between animate-pop-in">
+            <div className="w-full min-w-0 flex items-center justify-between animate-pop-in">
               {/* Left: Cancel Cross Button & Counter */}
               <div className="flex items-center gap-3">
                 <button
@@ -1106,6 +1264,74 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                 </button>
               </div>
             </div>
+          ) : isSearching ? (
+            /* Ultra-clean Telegram / iOS Minimalist Search Bar */
+            <div className="w-full min-w-0 flex items-center gap-2">
+              {/* Minimalist Search Input Capsule */}
+              <div className="flex-1 min-w-0 flex items-center gap-2 bg-slate-100 dark:bg-[#242f3d] px-3 py-1.5 rounded-full border border-transparent focus-within:border-[#3390ec]/50 transition-all">
+                <IconSearch size={16} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Поиск в чате..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (e.shiftKey) handlePrevMatch();
+                      else handleNextMatch();
+                    }
+                  }}
+                  className="bg-transparent border-none text-[13.5px] text-slate-900 dark:text-white focus:outline-none w-full min-w-0 placeholder-slate-400"
+                  autoFocus
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-slate-400 hover:text-slate-200 cursor-pointer p-0.5 shrink-0"
+                    title="Очистить"
+                  >
+                    <IconX size={14} />
+                  </button>
+                )}
+
+                {/* Match Counter & Quick Navigation */}
+                {filteredMessages.length > 0 && (searchQuery.trim() || activeChatFiltersCount > 0) && (
+                  <div className="flex items-center gap-0.5 text-[11px] font-mono text-slate-500 dark:text-slate-400 shrink-0 border-l border-slate-300 dark:border-white/10 pl-1.5">
+                    <span>{currentMatchIndex + 1}/{filteredMessages.length}</span>
+                    <button
+                      type="button"
+                      onClick={handlePrevMatch}
+                      className="p-0.5 hover:text-[#3390ec] cursor-pointer"
+                      title="Предыдущее"
+                    >
+                      <IconChevronUp size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextMatch}
+                      className="p-0.5 hover:text-[#3390ec] cursor-pointer"
+                      title="Следующее"
+                    >
+                      <IconChevronDown size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Cancel Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSearching(false);
+                  setSearchQuery('');
+                  setChatFilters({});
+                }}
+                className="text-xs sm:text-[13px] font-medium text-[#3390ec] hover:text-[#3390ec]/80 px-1 py-1 cursor-pointer shrink-0 transition-colors whitespace-nowrap"
+              >
+                Отмена
+              </button>
+            </div>
           ) : (
             <>
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowUserInfo(!showUserInfo)}>
@@ -1159,75 +1385,147 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
               {/* Action Buttons */}
               <div className="flex items-center gap-1">
-                {isSearching ? (
-                  <div className="flex items-center gap-2 bg-slate-100 dark:bg-[#242f3d] px-3 py-1.5 rounded-full">
-                    <IconSearch size={16} className="text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Поиск в чате..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-transparent border-none text-xs text-slate-900 dark:text-white focus:outline-none w-28 sm:w-48 placeholder-slate-400"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsSearching(false);
-                        setSearchQuery('');
-                      }}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                    >
-                      <IconX size={14} />
-                    </button>
-                  </div>
-                ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSearching(true);
+                  }}
+                  className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                  title="Поиск в чате (Ctrl+F)"
+                >
+                  <IconSearch size={20} />
+                </button>
+
+                {activeRoom?.type === 'direct' && (
                   <>
                     <button
                       type="button"
-                      onClick={() => setIsSearching(true)}
+                      onClick={() => startCall('audio')}
                       className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                      title="Поиск"
+                      title="Аудиозвонок"
                     >
-                      <IconSearch size={20} />
+                      <IconPhone size={20} />
                     </button>
-
-                    {activeRoom?.type === 'direct' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => startCall('audio')}
-                          className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                          title="Аудиозвонок"
-                        >
-                          <IconPhone size={20} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => startCall('video')}
-                          className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                          title="Видеозвонок"
-                        >
-                          <IconVideo size={20} />
-                        </button>
-                      </>
-                    )}
-
                     <button
                       type="button"
-                      onClick={() => setShowUserInfo(!showUserInfo)}
-                      className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${showUserInfo ? 'text-[#3390ec]' : 'text-slate-500 dark:text-slate-400'
-                        }`}
-                      title="Информация"
+                      onClick={() => startCall('video')}
+                      className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                      title="Видеозвонок"
                     >
-                      <IconDotsVertical size={20} />
+                      <IconVideo size={20} />
                     </button>
                   </>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowUserInfo(!showUserInfo)}
+                  className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${showUserInfo ? 'text-[#3390ec]' : 'text-slate-500 dark:text-slate-400'
+                    }`}
+                  title="Информация"
+                >
+                  <IconDotsVertical size={20} />
+                </button>
               </div>
             </>
           )}
         </header>
+
+        {/* Minimalist Horizontal Filter Tabs */}
+        {isSearching && (
+          <div className="w-full max-w-full min-w-0 px-2.5 sm:px-3 py-1.5 bg-white/95 dark:bg-[#17212b]/95 border-b border-slate-200/60 dark:border-white/5 backdrop-blur-md flex items-center gap-1.5 overflow-x-auto no-scrollbar z-20 select-none">
+            <button
+              type="button"
+              onClick={() => setChatFilters({})}
+              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                activeChatFiltersCount === 0
+                  ? 'bg-[#3390ec] text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
+              }`}
+            >
+              Все
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const isMedia = chatFilters.attachmentTypes?.includes('image') || chatFilters.attachmentTypes?.includes('video');
+                setChatFilters(prev => ({
+                  ...prev,
+                  attachmentTypes: isMedia ? undefined : ['image', 'video'],
+                  hasAttachments: isMedia ? undefined : true,
+                }));
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                chatFilters.attachmentTypes?.includes('image') || chatFilters.attachmentTypes?.includes('video')
+                  ? 'bg-[#3390ec] text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
+              }`}
+            >
+              Медиа
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const isDoc = chatFilters.attachmentTypes?.includes('document');
+                setChatFilters(prev => ({
+                  ...prev,
+                  attachmentTypes: isDoc ? undefined : ['document'],
+                  hasAttachments: isDoc ? undefined : true,
+                }));
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                chatFilters.attachmentTypes?.includes('document')
+                  ? 'bg-[#3390ec] text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
+              }`}
+            >
+              Файлы
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const isAudio = chatFilters.attachmentTypes?.includes('audio');
+                setChatFilters(prev => ({
+                  ...prev,
+                  attachmentTypes: isAudio ? undefined : ['audio'],
+                  hasAttachments: isAudio ? undefined : true,
+                }));
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                chatFilters.attachmentTypes?.includes('audio')
+                  ? 'bg-[#3390ec] text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
+              }`}
+            >
+              Голосовые
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleDatePreset('today')}
+              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                Boolean(chatFilters.dateRange?.startDate)
+                  ? 'bg-[#3390ec] text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
+              }`}
+            >
+              Сегодня
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowGlobalSearchModal(true)}
+              className="ml-auto px-2.5 py-1 rounded-full text-xs text-slate-500 dark:text-slate-400 hover:text-[#3390ec] dark:hover:text-[#3390ec] shrink-0 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+            >
+              <IconWorld size={14} />
+              <span className="hidden sm:inline">Во всех чатах</span>
+              <span className="sm:hidden">Везде</span>
+            </button>
+          </div>
+        )}
 
         {/* Pinned Message Banner */}
         {currentPinnedMessage && (
@@ -1236,7 +1534,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               const el = document.getElementById(`msg-${currentPinnedMessage.id}`);
               el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
-            className="px-4 py-1.5 bg-white/95 dark:bg-[#17212b]/95 border-b border-slate-200 dark:border-white/10 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors z-20 backdrop-blur-md animate-pop-in select-none shadow-xs"
+            className="px-4 py-1.5 bg-white/95 dark:bg-[#17212b]/95 border-b border-slate-200 dark:border-white/10 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors z-20 backdrop-blur-md animate-pop-in select-none shadow-xs w-full min-w-0"
           >
             <div className="flex items-center gap-2.5 min-w-0 border-l-[3px] border-[#3390ec] pl-2.5">
               <div className="min-w-0">
@@ -1252,7 +1550,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
                 e.stopPropagation();
                 togglePinMessage(currentPinnedMessage.id);
               }}
-              className="p-1 rounded-full text-slate-400 hover:text-rose-500 cursor-pointer"
+              className="p-1 rounded-full text-slate-400 hover:text-rose-500 cursor-pointer shrink-0"
               title="Открепить"
             >
               <IconX size={16} />
@@ -1264,9 +1562,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         <section
           ref={messageFeedRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-4 sm:px-8 py-3"
+          className="flex-1 min-w-0 w-full max-w-full overflow-y-auto overflow-x-hidden px-2.5 sm:px-6 py-3"
         >
-          <div key={activeRoomId} className="max-w-2xl mx-auto w-full flex flex-col min-h-full justify-end animate-chat-switch">
+          <div key={activeRoomId} className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col min-h-full justify-end animate-chat-switch">
             {slicedMessages.map((message, index) => {
               const isSelf = message.sender === currentUser;
               const senderName = isSelf ? 'Вы' : USER_NAMES[message.sender];
@@ -1340,13 +1638,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               <div className="flex items-center gap-2.5 min-w-0">
                 {selectedFile.type === 'image' ? (
                   <img src={selectedFile.data} className="w-10 h-10 rounded-lg object-cover" alt="thumbnail" />
+                ) : selectedFile.type === 'video' ? (
+                  <div className="w-10 h-10 rounded-lg bg-black relative overflow-hidden flex items-center justify-center shrink-0">
+                    <video src={selectedFile.data} className="w-full h-full object-cover" muted />
+                    <span className="absolute bottom-0.5 right-0.5 text-[8px] bg-black/70 text-white px-1 rounded-xs font-mono">
+                      {selectedFile.orientation === 'vertical' ? '9:16' : '16:9'}
+                    </span>
+                  </div>
                 ) : (
                   <div className="w-10 h-10 rounded-lg bg-[#3390ec] flex items-center justify-center text-white text-xs font-bold">
                     📄
                   </div>
                 )}
                 <div className="min-w-0">
-                  <span className="text-xs font-semibold text-slate-900 dark:text-white truncate block">{selectedFile.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-slate-900 dark:text-white truncate block">{selectedFile.name}</span>
+                    {selectedFile.type === 'video' && selectedFile.orientation === 'vertical' && (
+                      <span className="text-[9px] bg-[#3390ec]/20 text-[#3390ec] font-medium px-1 rounded-xs shrink-0">📱 Вертикальное</span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-slate-400 font-mono">{(selectedFile.size / 1024).toFixed(1)} КБ</span>
                 </div>
               </div>
@@ -1425,11 +1735,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         )}
 
         {/* Telegram Bottom Input Bar */}
-        <footer className="p-2 sm:p-3 relative z-10">
-          <div className="max-w-2xl mx-auto w-full flex items-end gap-2">
+        <footer className="p-2 sm:p-3 relative z-10 w-full min-w-0 max-w-full">
+          <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex items-end gap-2">
 
             {/* Input Capsule */}
-            <form onSubmit={handleSend} className="flex-1 flex items-center min-h-[44px] sm:min-h-[46px] px-2.5 py-1 rounded-[23px] tg-input-capsule">
+            <form onSubmit={handleSend} className="flex-1 min-w-0 flex items-center min-h-[44px] sm:min-h-[46px] px-2.5 py-1 rounded-[23px] tg-input-capsule">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1526,142 +1836,160 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         </footer>
       </main>
 
-      {/* 3. Right Sidebar: Telegram User Info Panel */}
+      {/* 3. Right Sidebar: Telegram User Info Panel (Full-screen Drawer on Mobile, Inline on Desktop) */}
       {showUserInfo && (
-        <aside className="w-80 tg-user-panel h-full flex flex-col shrink-0 z-20 animate-pop-in">
-          {/* Header */}
-          <div className="p-3.5 flex items-center justify-between border-b border-slate-200 dark:border-white/5">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowUserInfo(false)}
-                className="p-1 rounded-full text-slate-500 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-              >
-                <IconX size={20} />
-              </button>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
-                Информация
-              </h3>
-            </div>
-          </div>
+        <>
+          {/* Mobile Dark Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs md:hidden animate-fade-in"
+            onClick={() => setShowUserInfo(false)}
+          />
 
-          {/* Profile Card */}
-          <div className="p-5 flex flex-col items-center text-center border-b border-slate-200 dark:border-white/5">
-            <div className="relative mb-3">
-              {activePeerAvatar ? (
-                <img 
-                  src={activePeerAvatar} 
-                  alt="Avatar" 
-                  className="w-24 h-24 rounded-full object-cover shadow-md ring-4 ring-[#3390ec]/20" 
-                />
-              ) : (
-                <div className={`w-24 h-24 rounded-full ${activeRoom ? getRoomColor(activeRoom) : 'bg-[#3390ec]'} text-white flex items-center justify-center text-3xl font-bold shadow-md ring-4 ring-[#3390ec]/20`}>
-                  {activeRoom ? (activeRoom.type === 'group' ? <IconUsers size={40} /> : getRoomDisplayName(activeRoom).charAt(0)) : '?'}
-                </div>
-              )}
-              {activePeerProfile?.statusEmoji && (
-                <span className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white dark:bg-[#17212b] shadow-md flex items-center justify-center text-sm border-2 border-white dark:border-[#17212b]">
-                  {activePeerProfile.statusEmoji}
-                </span>
-              )}
+          <aside className="fixed inset-0 z-50 w-full h-full md:relative md:inset-auto md:w-80 md:z-20 tg-user-panel flex flex-col shrink-0 overflow-y-auto shadow-2xl md:shadow-none animate-slide-in-right md:animate-pop-in">
+            {/* Header */}
+            <div className="p-3.5 sm:p-4 flex items-center justify-between border-b border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#17212b]/80 backdrop-blur-md sticky top-0 z-10">
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowUserInfo(false)}
+                  className="min-h-[40px] min-w-[40px] p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 cursor-pointer flex items-center justify-center transition-all touch-manipulation"
+                  title="Закрыть"
+                >
+                  <IconChevronLeft size={22} className="md:hidden" />
+                  <IconX size={20} className="hidden md:block" />
+                </button>
+                <h3 className="text-base sm:text-sm font-bold text-slate-900 dark:text-white m-0">
+                  Информация
+                </h3>
+              </div>
             </div>
 
-            <h2 className="text-base font-bold text-slate-900 dark:text-white m-0 flex items-center gap-1.5 justify-center">
-              <span>{activeRoom ? getRoomDisplayName(activeRoom) : ''}</span>
-              {activePeerProfile?.statusEmoji && (
-                <span className="text-sm">{activePeerProfile.statusEmoji}</span>
-              )}
-            </h2>
-            <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {activePeerId ? (isPeerOnline ? 'в сети' : 'был(а) недавно') : `${activeRoom?.participants.length} участников`}
-            </span>
-
-            {/* Edit Profile button if viewing own profile */}
-            {activePeerId === currentUser && (
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(true)}
-                className="mt-3 px-4 py-1.5 rounded-full bg-[#3390ec]/10 text-[#3390ec] hover:bg-[#3390ec]/20 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
-              >
-                <IconEdit size={14} />
-                <span>Изменить профиль</span>
-              </button>
-            )}
-          </div>
-
-          {/* Details List */}
-          <div className="p-4 space-y-4 text-xs">
-            {activePeerId && (
-              <>
-                {/* Phone */}
-                <div className="flex items-center gap-3">
-                  <IconPhoneCall size={18} className="text-slate-400 shrink-0" />
-                  <div>
-                    <span className="text-slate-900 dark:text-white font-medium block">
-                      {activePeerProfile?.phoneNumber || '+7 (999) 000-00-00'}
-                    </span>
-                    <span className="text-[10px] text-slate-400">Телефон</span>
-                  </div>
-                </div>
-
-                {/* Username */}
-                <div className="flex items-center gap-3">
-                  <IconUserCheck size={18} className="text-slate-400 shrink-0" />
-                  <div>
-                    <span className="text-slate-900 dark:text-white font-medium block">
-                      @{activePeerProfile?.username || activePeerId}
-                    </span>
-                    <span className="text-[10px] text-slate-400">Имя пользователя</span>
-                  </div>
-                </div>
-
-                {/* Bio */}
-                {activePeerProfile?.bio && (
-                  <div className="flex items-center gap-3">
-                    <IconFileText size={18} className="text-slate-400 shrink-0" />
-                    <div>
-                      <span className="text-slate-900 dark:text-white font-medium block">
-                        {activePeerProfile.bio}
-                      </span>
-                      <span className="text-[10px] text-slate-400">О себе</span>
-                    </div>
+            {/* Profile Card */}
+            <div className="p-6 sm:p-5 flex flex-col items-center text-center border-b border-slate-200 dark:border-white/5">
+              <div className="relative mb-3.5 sm:mb-3">
+                {activePeerAvatar ? (
+                  <img 
+                    src={activePeerAvatar} 
+                    alt="Avatar" 
+                    className="w-28 h-28 sm:w-24 sm:h-24 rounded-full object-cover shadow-lg ring-4 ring-[#3390ec]/20" 
+                  />
+                ) : (
+                  <div className={`w-28 h-28 sm:w-24 sm:h-24 rounded-full ${activeRoom ? getRoomColor(activeRoom) : 'bg-[#3390ec]'} text-white flex items-center justify-center text-4xl sm:text-3xl font-bold shadow-lg ring-4 ring-[#3390ec]/20`}>
+                    {activeRoom ? (activeRoom.type === 'group' ? <IconUsers size={44} /> : getRoomDisplayName(activeRoom).charAt(0)) : '?'}
                   </div>
                 )}
-              </>
-            )}
-
-            {/* Notifications Toggle */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/5">
-              <div className="flex items-center gap-3">
-                <IconBell size={18} className="text-slate-400" />
-                <span className="text-slate-900 dark:text-white font-medium">Уведомления</span>
+                {activePeerProfile?.statusEmoji && (
+                  <span className="absolute -bottom-1 -right-1 w-8 h-8 sm:w-7 sm:h-7 rounded-full bg-white dark:bg-[#17212b] shadow-md flex items-center justify-center text-base sm:text-sm border-2 border-white dark:border-[#17212b]">
+                    {activePeerProfile.statusEmoji}
+                  </span>
+                )}
               </div>
-              <input
-                type="checkbox"
-                checked={notificationsEnabled}
-                onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                className="w-4 h-4 text-[#3390ec] rounded cursor-pointer"
-              />
-            </div>
-          </div>
 
-          {/* Shared Media Tabs */}
-          <div className="flex-1 p-4 border-t border-slate-100 dark:border-white/5 overflow-y-auto">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
-              Общие медиа
-            </span>
-            <div className="grid grid-cols-3 gap-1.5">
-              {activeMessages.filter(m => m.file?.type === 'image').slice(-6).map((m) => (
-                <img
-                  key={m.id}
-                  src={m.file?.data}
-                  alt="shared"
-                  className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                />
-              ))}
+              <h2 className="text-lg sm:text-base font-bold text-slate-900 dark:text-white m-0 flex items-center gap-1.5 justify-center">
+                <span>{activeRoom ? getRoomDisplayName(activeRoom) : ''}</span>
+                {activePeerProfile?.statusEmoji && (
+                  <span className="text-base sm:text-sm">{activePeerProfile.statusEmoji}</span>
+                )}
+              </h2>
+              <span className="text-xs sm:text-xs text-slate-500 dark:text-slate-400 mt-1 sm:mt-0.5">
+                {activePeerId ? (isPeerOnline ? 'в сети' : 'был(а) недавно') : `${activeRoom?.participants.length} участников`}
+              </span>
+
+              {/* Edit Profile button if viewing own profile */}
+              {activePeerId === currentUser && (
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(true)}
+                  className="mt-3.5 sm:mt-3 px-5 sm:px-4 py-2 sm:py-1.5 rounded-full bg-[#3390ec]/10 text-[#3390ec] hover:bg-[#3390ec]/20 active:scale-95 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 touch-manipulation"
+                >
+                  <IconEdit size={16} />
+                  <span>Изменить профиль</span>
+                </button>
+              )}
             </div>
-          </div>
-        </aside>
+
+            {/* Details List */}
+            <div className="p-5 sm:p-4 space-y-4 sm:space-y-4 text-sm sm:text-xs">
+              {activePeerId && (
+                <>
+                  {/* Phone */}
+                  <div className="flex items-center gap-3.5 sm:gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center shrink-0">
+                      <IconPhoneCall size={18} className="text-[#3390ec]" />
+                    </div>
+                    <div>
+                      <span className="text-slate-900 dark:text-white font-medium block text-sm sm:text-xs">
+                        {activePeerProfile?.phoneNumber || '+7 (999) 000-00-00'}
+                      </span>
+                      <span className="text-[11px] sm:text-[10px] text-slate-400">Телефон</span>
+                    </div>
+                  </div>
+
+                  {/* Username */}
+                  <div className="flex items-center gap-3.5 sm:gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center shrink-0">
+                      <IconUserCheck size={18} className="text-[#3390ec]" />
+                    </div>
+                    <div>
+                      <span className="text-slate-900 dark:text-white font-medium block text-sm sm:text-xs">
+                        @{activePeerProfile?.username || activePeerId}
+                      </span>
+                      <span className="text-[11px] sm:text-[10px] text-slate-400">Имя пользователя</span>
+                    </div>
+                  </div>
+
+                  {/* Bio */}
+                  {activePeerProfile?.bio && (
+                    <div className="flex items-center gap-3.5 sm:gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center shrink-0">
+                        <IconFileText size={18} className="text-[#3390ec]" />
+                      </div>
+                      <div>
+                        <span className="text-slate-900 dark:text-white font-medium block text-sm sm:text-xs">
+                          {activePeerProfile.bio}
+                        </span>
+                        <span className="text-[11px] sm:text-[10px] text-slate-400">О себе</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Notifications Toggle */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-white/5">
+                <div className="flex items-center gap-3.5 sm:gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center shrink-0">
+                    <IconBell size={18} className="text-[#3390ec]" />
+                  </div>
+                  <span className="text-slate-900 dark:text-white font-medium text-sm sm:text-xs">Уведомления</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notificationsEnabled}
+                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                  className="w-5 h-5 sm:w-4 sm:h-4 text-[#3390ec] rounded cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Shared Media Tabs */}
+            <div className="flex-1 p-5 sm:p-4 border-t border-slate-100 dark:border-white/5 overflow-y-auto">
+              <span className="text-xs sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
+                Общие медиа
+              </span>
+              <div className="grid grid-cols-3 gap-2 sm:gap-1.5">
+                {activeMessages.filter(m => m.file?.type === 'image').slice(-6).map((m) => (
+                  <img
+                    key={m.id}
+                    src={m.file?.data}
+                    alt="shared"
+                    className="w-full aspect-square object-cover rounded-xl sm:rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                  />
+                ))}
+              </div>
+            </div>
+          </aside>
+        </>
       )}
 
       {/* WebRTC Calling Overlay */}
@@ -2098,6 +2426,63 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         <ProfileEditModal
           onClose={() => setShowProfileModal(false)}
           onToast={showToast}
+        />
+      )}
+
+      {/* Global Message Search Suite Modal */}
+      {showGlobalSearchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full h-full md:h-[80vh] md:max-w-xl bg-white dark:bg-[#17212b] md:rounded-3xl md:border md:border-slate-200 dark:md:border-white/10 md:shadow-2xl flex flex-col overflow-hidden">
+            <SearchPage
+              roomId={activeRoomId || undefined}
+              userId={currentUser || 'vlad'}
+              allMessages={messages}
+              rooms={rooms}
+              userProfiles={userProfiles}
+              onNavigateToMessage={(item) => {
+                const targetRoomId = item.room_id || item.roomId;
+                if (targetRoomId && targetRoomId !== activeRoomId) {
+                  setActiveRoomId(targetRoomId);
+                }
+                setShowGlobalSearchModal(false);
+                setTimeout(() => {
+                  const el = document.getElementById(`msg-${item.id}`);
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('ring-2', 'ring-[#3390ec]', 'bg-[#3390ec]/20', 'rounded-2xl');
+                    setTimeout(() => {
+                      el.classList.remove('ring-2', 'ring-[#3390ec]', 'bg-[#3390ec]/20', 'rounded-2xl');
+                    }, 2500);
+                  }
+                }, 300);
+              }}
+              onClose={() => setShowGlobalSearchModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Filter Modal */}
+      {showAdvancedSearchModal && (
+        <AdvancedSearchModal
+          isOpen={showAdvancedSearchModal}
+          filters={{
+            startDate: chatFilters.dateRange?.startDate || undefined,
+            endDate: chatFilters.dateRange?.endDate || undefined,
+            senderId: chatFilters.senders?.[0] || undefined,
+            contentType: chatFilters.attachmentTypes?.[0] || undefined,
+            hasAttachments: chatFilters.hasAttachments || false,
+          }}
+          onClose={() => setShowAdvancedSearchModal(false)}
+          onApplyFilters={(applied) => {
+            setChatFilters((prev) => ({
+              ...prev,
+              dateRange: applied.startDate || applied.endDate ? { startDate: applied.startDate, endDate: applied.endDate } : undefined,
+              senders: applied.senderId ? [applied.senderId] : undefined,
+              attachmentTypes: applied.contentType ? [applied.contentType as any] : undefined,
+              hasAttachments: applied.hasAttachments || undefined,
+            }));
+          }}
         />
       )}
 

@@ -126,10 +126,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               onChange?.(e);
             }}
             className={`
-              w-full py-2.5 rounded-[12px] text-sm font-body
+              w-full min-h-[48px] py-3 sm:py-2.5 rounded-[14px] text-base sm:text-sm font-body
               glass-input transition-all duration-200
-              ${leftIcon ? 'pl-10' : 'pl-3.5'}
-              ${rightIcon || (showClearButton && hasValue) ? 'pr-11' : 'pr-3.5'}
+              ${leftIcon ? 'pl-11' : 'pl-4'}
+              ${rightIcon || (showClearButton && hasValue) ? 'pr-12' : 'pr-4'}
               ${error ? 'input-error !bg-[#FF3333]/[0.08] !border-[#FF3333]' : ''}
               placeholder-slate-400/80 dark:placeholder-slate-500/80
               focus:placeholder-slate-400/40
@@ -150,14 +150,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 exit={{ opacity: 0, scale: 0.6, rotate: 45 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                 className={`
-                  absolute right-3 p-1 rounded-full bg-slate-200/80 dark:bg-white/15 text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white
-                  hover:scale-110 active:scale-95 transition-all flex items-center justify-center cursor-pointer
-                  ${rightIcon ? 'right-9' : 'right-3'}
+                  absolute right-3.5 p-1.5 rounded-full bg-slate-200/80 dark:bg-white/15 text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white
+                  hover:scale-110 active:scale-95 transition-all flex items-center justify-center cursor-pointer touch-target
+                  ${rightIcon ? 'right-11' : 'right-3.5'}
                 `}
                 title="Очистить поле"
                 tabIndex={-1}
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </motion.button>
             )}
           </AnimatePresence>
@@ -169,7 +169,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               onClick={onRightIconClick}
               tabIndex={-1}
               className={`
-                absolute right-3 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white
+                absolute right-3 p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white
                 hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center
                 ${onRightIconClick ? 'cursor-pointer' : 'pointer-events-none'}
               `}

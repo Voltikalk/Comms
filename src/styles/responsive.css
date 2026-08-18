@@ -1,0 +1,124 @@
+/* ==========================================================================
+   Comms Mobile, Tablet & Accessibility Responsive System
+   Touch targets, Hardware acceleration, prefers-reduced-motion, Safe areas
+   ========================================================================== */
+
+/* 1. Mobile & Touch Input Optimization (Prevents iOS zoom on focus) */
+@media (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS Safari */
+  }
+
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* 2. Touch Active Feedback & Hover Disabling on Touchscreens */
+@media (hover: none) and (pointer: coarse) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Disable hover scale stickiness on mobile, rely on :active */
+  .hover\:scale-105:hover,
+  .hover\:scale-108:hover,
+  .hover\:scale-110:hover {
+    transform: none !important;
+  }
+
+  /* Instant touch feedback */
+  button:active,
+  [role="button"]:active {
+    transform: scale(0.97) !important;
+    opacity: 0.85;
+    transition: transform 0.1s ease, opacity 0.1s ease !important;
+  }
+}
+
+/* 3. Performance & CSS Containment Optimizations */
+.contain-card {
+  contain: layout style;
+  content-visibility: auto;
+}
+
+.gpu-layer {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* 4. Safe Area Inset Support (Notch & Mobile Virtual Home Bar) */
+.safe-area-pb {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+.safe-area-pt {
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+}
+
+/* 5. Accessibility: prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .auth-orb-1,
+  .auth-orb-2,
+  .auth-orb-3,
+  .auth-blob,
+  .animate-rotate-border,
+  .animate-gradient-slow,
+  .animate-shimmer,
+  .animate-error-shake,
+  .animate-icon-wobble,
+  .animate-success-check {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  /* Replace moving gradient with clean static gradient */
+  .animate-gradient-slow {
+    background-position: 50% 50% !important;
+  }
+}
+
+/* 6. High Contrast Mode (prefers-contrast) */
+@media (prefers-contrast: more) {
+  .glass-card {
+    background: #FFFFFF !important;
+    border: 2px solid #000000 !important;
+    box-shadow: none !important;
+  }
+
+  .dark .glass-card {
+    background: #0E1621 !important;
+    border: 2px solid #FFFFFF !important;
+    box-shadow: none !important;
+  }
+
+  .glass-input {
+    border: 2px solid #0066FF !important;
+  }
+
+  .dark .glass-input {
+    border: 2px solid #9933FF !important;
+  }
+}
+
+/* 7. Mobile Keyboard Viewport Resiliency */
+.mobile-viewport-container {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}

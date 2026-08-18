@@ -33,9 +33,9 @@ export const Button: React.FC<ButtonProps> = ({
   const { ripples, createRipple, buttonVariants } = useButtonAnimation();
 
   const sizeStyles = {
-    sm: 'py-2 px-3.5 text-xs font-semibold gap-1.5',
-    md: 'py-2.5 px-4 text-sm font-semibold gap-2',
-    lg: 'py-3.5 px-6 text-base font-bold gap-2.5',
+    sm: 'min-h-[40px] py-2 px-3.5 text-xs font-semibold gap-1.5',
+    md: 'min-h-[48px] py-3 px-4 text-sm font-semibold gap-2',
+    lg: 'min-h-[52px] py-3.5 px-6 text-base font-bold gap-2.5',
   };
 
   const variantStyles = {
@@ -66,7 +66,7 @@ export const Button: React.FC<ButtonProps> = ({
       onClick={handleClick}
       className={`
         relative overflow-hidden inline-flex items-center justify-center select-none cursor-pointer
-        rounded-[12px] transition-all duration-300
+        rounded-[14px] transition-all duration-300 touch-manipulation
         focus:outline-none focus:ring-2 focus:ring-[#0066FF]/40
         ${fullWidth ? 'w-full' : ''}
         ${sizeStyles[size]}
@@ -98,7 +98,7 @@ export const Button: React.FC<ButtonProps> = ({
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            className="flex items-center justify-center gap-2"
+            className="flex items-center justify-center gap-2 font-bold"
           >
             <Check className="w-5 h-5 animate-success-check" strokeWidth={3} />
             <span>Успешно!</span>

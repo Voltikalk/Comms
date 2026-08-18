@@ -8,7 +8,9 @@
     "readBy": [
       "mom",
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "dad"
     ],
     "reactions": {}
   },
@@ -21,7 +23,9 @@
     "readBy": [
       "mom",
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "dad"
     ],
     "reactions": {}
   },
@@ -35,7 +39,9 @@
     "readBy": [
       "vlad",
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "dad"
     ],
     "reactions": {}
   },
@@ -48,7 +54,9 @@
     "readBy": [
       "vlad",
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "dad"
     ],
     "reactions": {
       "❤️": [
@@ -65,7 +73,9 @@
     "readBy": [
       "vlad",
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "dad"
     ],
     "reactions": {}
   },
@@ -75,7 +85,9 @@
     "sender": "vlad",
     "text": "🚀",
     "timestamp": 1786703863898,
-    "readBy": [],
+    "readBy": [
+      "dad"
+    ],
     "reactions": {}
   },
   {
@@ -90,7 +102,9 @@
       "data": "/uploads/1786703888885-715twxf.mp4",
       "size": 2177666
     },
-    "readBy": []
+    "readBy": [
+      "dad"
+    ]
   },
   {
     "id": "33auotq",
@@ -104,7 +118,9 @@
       "data": "/uploads/1786703914502-jzflhgt.png",
       "size": 2255883
     },
-    "readBy": []
+    "readBy": [
+      "dad"
+    ]
   },
   {
     "id": "ums4b7r",
@@ -122,7 +138,9 @@
     "readBy": [
       "sister",
       "mom",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "dad"
     ],
     "reactions": {
       "💩": [
@@ -139,7 +157,9 @@
     "readBy": [
       "mom",
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "dad"
     ],
     "reactions": {
       "❤️": [
@@ -159,7 +179,9 @@
       "data": "/uploads/1786705292773-mgpy2cr.bin",
       "size": 21231
     },
-    "readBy": []
+    "readBy": [
+      "dad"
+    ]
   },
   {
     "id": "nausy5d",
@@ -169,7 +191,10 @@
     "timestamp": 1786706407735,
     "readBy": [
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ]
   },
   {
@@ -180,7 +205,10 @@
     "timestamp": 1786707010356,
     "readBy": [
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ],
     "reactions": {}
   },
@@ -192,7 +220,10 @@
     "timestamp": 1786707014966,
     "readBy": [
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ]
   },
   {
@@ -209,7 +240,10 @@
     },
     "readBy": [
       "sister",
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ],
     "reactions": {}
   },
@@ -253,7 +287,10 @@
       "size": 18395201
     },
     "readBy": [
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ],
     "reactions": {}
   },
@@ -264,7 +301,10 @@
     "text": "🤔",
     "timestamp": 1786725081104,
     "readBy": [
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ]
   },
   {
@@ -274,7 +314,10 @@
     "text": "❤️",
     "timestamp": 1786725126130,
     "readBy": [
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ],
     "reactions": {}
   },
@@ -285,7 +328,10 @@
     "text": "Хахх",
     "timestamp": 1786725141190,
     "readBy": [
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ],
     "reactions": {
       "🐳": [
@@ -300,7 +346,10 @@
     "text": "Джемени лох",
     "timestamp": 1786725146576,
     "readBy": [
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ]
   },
   {
@@ -326,7 +375,10 @@
     "text": "test message",
     "timestamp": 1786725198720,
     "readBy": [
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ]
   },
   {
@@ -398,7 +450,10 @@
       "size": 170597
     },
     "readBy": [
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ],
     "reactions": {}
   },
@@ -415,7 +470,10 @@
       "size": 64881
     },
     "readBy": [
-      "usr_2o2uuvp"
+      "usr_2o2uuvp",
+      "usr_4fzpubn",
+      "mom",
+      "dad"
     ]
   },
   {
@@ -512,6 +570,114 @@
     "sender": "vlad",
     "text": "а",
     "timestamp": 1786729969030,
+    "readBy": []
+  },
+  {
+    "id": "rh3vukf",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "привет",
+    "timestamp": 1786985977182,
+    "readBy": [
+      "anya"
+    ]
+  },
+  {
+    "id": "4ocaqts",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "хахахахах",
+    "timestamp": 1786985980318,
+    "readBy": [
+      "anya"
+    ]
+  },
+  {
+    "id": "5q48j0u",
+    "roomId": "mom-dm",
+    "sender": "vlad",
+    "text": "привает",
+    "timestamp": 1786986032213,
+    "readBy": []
+  },
+  {
+    "id": "ddx7ep3",
+    "roomId": "mom-dm",
+    "sender": "vlad",
+    "text": "хахахахахах",
+    "timestamp": 1786986034474,
+    "readBy": []
+  },
+  {
+    "id": "1sgbcgi",
+    "roomId": "mom-dm",
+    "sender": "vlad",
+    "text": "хахаха",
+    "timestamp": 1786986035289,
+    "readBy": []
+  },
+  {
+    "id": "t4xe343",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "вапрварпв",
+    "timestamp": 1786986276250,
+    "readBy": [
+      "anya"
+    ]
+  },
+  {
+    "id": "8z6ack1",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "чывчпваы",
+    "timestamp": 1786986379977,
+    "readBy": [
+      "anya"
+    ]
+  },
+  {
+    "id": "5sxyo6t",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "ХАХАХАХАХАХАХАХААХХА",
+    "timestamp": 1786986395485,
+    "readBy": [
+      "anya"
+    ]
+  },
+  {
+    "id": "zl36ims",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "💯",
+    "timestamp": 1786986399457,
+    "readBy": [
+      "anya"
+    ]
+  },
+  {
+    "id": "m8ppohx",
+    "roomId": "girlfriend",
+    "sender": "vlad",
+    "text": "привает",
+    "timestamp": 1786986554206,
+    "readBy": [
+      "anya"
+    ]
+  },
+  {
+    "id": "ui0v963",
+    "roomId": "family",
+    "sender": "vlad",
+    "text": "",
+    "timestamp": 1786993441589,
+    "file": {
+      "name": "dam 2026-06-25 14344040A38BA0033B.mov",
+      "type": "video",
+      "data": "/uploads/1786993441408-pbwnmen.mov",
+      "size": 19808327
+    },
     "readBy": []
   }
 ]

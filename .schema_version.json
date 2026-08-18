@@ -1,0 +1,22 @@
+[
+  {
+    "version": "001_initial_schema.sql",
+    "applied_at": "2026-08-17T17:28:08.099Z"
+  },
+  {
+    "version": "002_rls_policies.sql",
+    "applied_at": "2026-08-17T17:28:08.202Z"
+  },
+  {
+    "version": "003_add_timestamps_triggers.sql",
+    "applied_at": "2026-08-17T17:28:08.358Z"
+  },
+  {
+    "version": "004_add_fulltext_search.sql",
+    "applied_at": "2026-08-17T17:55:25.324Z"
+  },
+  {
+    "version": "005_add_message_archive.sql",
+    "applied_at": "2026-08-17T18:07:54.386Z"
+  }
+]

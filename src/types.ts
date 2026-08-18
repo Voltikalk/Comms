@@ -20,6 +20,9 @@ export interface Message {
     uploadProgress?: number;
     isUploading?: boolean;
     rawBlob?: Blob | File;
+    width?: number;
+    height?: number;
+    orientation?: 'vertical' | 'horizontal' | 'square';
   };
 }
 
