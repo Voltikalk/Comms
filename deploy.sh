@@ -7,7 +7,10 @@ echo "=================================================="
 echo "  🚀 Развертывание Comms Messenger: ${DOMAIN}      "
 echo "=================================================="
 
-# 1. Проверка и установка необходимых пакетов (Docker, Certbot, OpenSSL)
+# 1. Проверка и установка необходимых пакетов (Docker, Certbot, OpenSSL, Compose)
+apt-get update -y
+apt-get install -y curl wget ca-certificates openssl certbot
+
 if ! command -v docker &> /dev/null; then
     echo "⚙️ Docker не найден. Выполняется автоматическая установка..."
     curl -fsSL https://get.docker.com -o get-docker.sh
@@ -16,14 +19,28 @@ if ! command -v docker &> /dev/null; then
     echo "✅ Docker успешно установлен!"
 fi
 
-if ! docker compose version &> /dev/null; then
-    echo "⚙️ Установка docker-compose-plugin..."
-    apt-get update && apt-get install -y docker-compose-plugin
+# Установка Docker Compose v2 (как плагин и как бинарник)
+if ! docker compose version &> /dev/null && ! command -v docker-compose &> /dev/null; then
+    echo "⚙️ Установка Docker Compose v2..."
+    ARCH=$(uname -m)
+    mkdir -p /usr/local/lib/docker/cli-plugins
+    mkdir -p /usr/local/bin
+    curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" -o /usr/local/lib/docker/cli-plugins/docker-compose || \
+    wget -O /usr/local/lib/docker/cli-plugins/docker-compose "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}"
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+    ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+    echo "✅ Docker Compose успешно установлен!"
 fi
 
-if ! command -v certbot &> /dev/null; then
-    echo "⚙️ Установка certbot для выпуска SSL-сертификата..."
-    apt-get update && apt-get install -y certbot openssl
+# Определение команды для вызова Compose
+if docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+else
+    echo "⚙️ Установка docker-compose из apt..."
+    apt-get install -y docker-compose
+    COMPOSE_CMD="docker-compose"
 fi
 
 # 2. Создание директорий для сертификатов и ACME-валидации
@@ -52,18 +69,18 @@ fi
 # 4. Настройка автопродления сертификата в crontab
 if ! crontab -l 2>/dev/null | grep -q "certbot renew"; then
     echo "⏰ Настройка автоматического продления SSL (раз в месяц)..."
-    (crontab -l 2>/dev/null; echo "0 3 1 * * certbot renew --quiet && cd $(pwd) && docker compose restart frontend") | crontab -
+    (crontab -l 2>/dev/null; echo "0 3 1 * * certbot renew --quiet && cd $(pwd) && $COMPOSE_CMD restart frontend") | crontab -
 fi
 
 # 5. Сборка и запуск контейнеров через Docker Compose
 echo "📦 Сборка и запуск контейнеров..."
-docker compose down 2>/dev/null || true
-docker compose up -d --build
+$COMPOSE_CMD down 2>/dev/null || true
+$COMPOSE_CMD up -d --build
 
 # 6. Проверка статуса
 echo ""
 echo "📊 Статус контейнеров:"
-docker compose ps
+$COMPOSE_CMD ps
 
 echo ""
 echo "=================================================="

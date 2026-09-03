@@ -1293,6 +1293,13 @@ npm run storybook
   * [`src/components/VideoPlayer/index.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/index.ts) — точка входа и экспорта модуля.
   * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
 
+### [v2.18.1] — 3 сентября 2026 г.
+* **Повышение надежности скрипта развертывания (`deploy.sh`)**:
+  * Добавлена гарантированная установка пакетов `curl`, `wget`, `ca-certificates`, `openssl`, `certbot`.
+  * Реализована прямая загрузка официального бинарника Docker Compose v2 с GitHub Releases в `/usr/local/lib/docker/cli-plugins/docker-compose` и создание симлинка `/usr/local/bin/docker-compose` на случай отсутствия пакета `docker-compose-plugin` в стандартных репозиториях Ubuntu Jammy.
+  * Реализовано динамическое определение команды вызова (`docker compose` или `docker-compose`) через переменную `$COMPOSE_CMD`.
+  * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
+
 ### [v2.18.0] — 3 сентября 2026 г.
 * **Инфраструктура контейнеризации и развертывания на виртуальном сервере (Ubuntu VPS / Docker Compose)**:
   * **Контейнеризация бэкенда (`Dockerfile.backend`)**:
