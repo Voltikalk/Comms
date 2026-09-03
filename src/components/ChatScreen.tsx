@@ -1,59 +1,34 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { USER_NAMES } from '../constants';
-import { MessageBubble } from './MessageBubble';
 import type { Room, UserId, Message } from '../types';
-import {
-  IconPhone,
-  IconVideo,
-  IconPhoneOff,
-  IconSearch,
-  IconLogout,
-  IconPaperclip,
-  IconSend,
-  IconMicrophone,
-  IconX,
-  IconUsers,
-  IconChevronLeft,
-  IconSun,
-  IconMoon,
-  IconCamera,
-  IconMoodSmile,
-  IconMenu2,
-  IconDotsVertical,
-  IconBell,
-  IconPhoneCall,
-  IconUserCheck,
-  IconDeviceMobile,
-  IconQrcode,
-  IconCopy,
-  IconCheck,
-  IconChecks,
-  IconPhoto,
-  IconEdit,
-  IconShare3,
-  IconTrash,
-  IconPin,
-  IconUser,
-  IconFileText,
-  IconChevronUp,
-  IconChevronDown,
-  IconWorld,
-  IconPalette
-} from '@tabler/icons-react';
-import { TelegramEmojiPickerModal } from './TelegramEmojiPickerModal';
-import { TelegramContextMenuModal } from './TelegramContextMenuModal';
-import { ProfileEditModal } from './ProfileEditModal';
-import { SearchPage } from '../pages/SearchPage';
-import { AdvancedSearchModal } from './Search/AdvancedSearchModal';
-import { ThemeSettingsModal } from './Theme/ThemeSettingsModal';
 import { DEFAULT_THEME_CONFIG, getWallpaperById, getAccentColorById } from '../constants/wallpapers';
 import type { ChatThemeConfig } from '../types/theme.types';
 import { applyFilters, type FilterOptions } from '../lib/filter-utils';
+import {
+  getActiveToken,
+  buildMentionCandidates,
+  filterMentionCandidates,
+  type ActiveToken,
+  type MentionCandidate
+} from '../lib/mentions';
 import { triggerTelegramDisintegrate } from './effects/disintegrate';
 import { findStickersByEmoji } from '../constants/stickers';
+import { createAudioLiveAnalyser, normalizeWaveform, type AudioLiveAnalyser } from '../lib/audio-waveform';
 import type { Sticker } from '../types/sticker.types';
-import { TgsStickerPlayer } from './Stickers/TgsStickerPlayer';
+import { usePlatform } from '../context/PlatformContext';
+import { DesktopTitleBar } from './Desktop/DesktopTitleBar';
+import type { MobileTab } from './Mobile/MobileBottomNav';
+import type { ChatFolderId, FolderCountInfo } from './Navigation/ChatFolderTabs';
+import { Squares, Aurora, Particles, LetterGlitch, Hyperspeed, Waves, Dither } from './Backgrounds';
+import {
+  ChatSidebar,
+  ChatHeader,
+  ChatMessageFeed,
+  ChatInputBar,
+  ChatModalsHost,
+  ChatUserInfoPanel
+} from './Chat';
 
 interface ChatScreenProps {
   darkMode: boolean;
@@ -83,6 +58,8 @@ const getSelectedText = (count: number) => {
   return `Выбрано ${count} сообщений`;
 };
 
+const isSavedMessagesRoom = (room: Room) => room.id === 'saved-messages' || room.id === 'saved';
+
 export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode }) => {
   const {
     currentUser,
@@ -96,6 +73,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     setActiveRoomId,
     activeRoom,
     onlineStatus,
+    isConnected,
     messages,
     activeMessages,
     logout,
@@ -104,10 +82,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     deleteMessage,
     editMessage,
     toggleReaction,
+    votePoll,
+    closePoll,
     typingUsers,
     sendTypingStatus,
     unreadCount,
     lastMessageOf,
+    notificationsEnabled,
+    setNotificationsEnabled,
 
     // Calling context
     callSession,
@@ -123,6 +105,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     toggleCamera
   } = useSocket();
 
+  const {
+    isDesktopView,
+    triggerHaptic,
+    setShowShortcutsModal,
+    setShowInstallModal,
+  } = usePlatform();
+
+  const [mobileTab, setMobileTab] = useState<MobileTab>('chats');
+  const [activeFolder, setActiveFolder] = useState<ChatFolderId>('all');
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+
   const [inputText, setInputText] = useState('');
   const [roomFilterQuery, setRoomFilterQuery] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -130,9 +123,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [showMenuDropdown, setShowMenuDropdown] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
-  const [isUrlCopied, setIsUrlCopied] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [themeConfig, setThemeConfig] = useState<ChatThemeConfig>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('tg_chat_theme_config');
@@ -144,6 +137,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
     return DEFAULT_THEME_CONFIG;
   });
+
+  // Helper for room display name
+  const getRoomDisplayName = useCallback((room: Room) => {
+    if (isSavedMessagesRoom(room)) return 'Избранное';
+    if (room.type === 'direct') {
+      const peerId = room.participants.find(p => p !== currentUser) as UserId | undefined;
+      return peerId ? (getUserDisplayName(peerId) || USER_NAMES[peerId] || peerId) : room.name;
+    }
+    return room.name;
+  }, [currentUser, getUserDisplayName]);
 
   // Apply accent colors dynamically to CSS root variables
   useEffect(() => {
@@ -159,29 +162,143 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   }, [themeConfig]);
 
+  const totalUnreadCount = useMemo(() => {
+    return rooms.reduce((acc, r) => acc + unreadCount(r.id), 0);
+  }, [rooms, unreadCount]);
+
+  // Dynamic counts for each folder tab
+  const folderCounts = useMemo<Record<ChatFolderId, FolderCountInfo>>(() => {
+    let allUnread = 0;
+    let directTotal = 0;
+    let directUnread = 0;
+    let groupsTotal = 0;
+    let groupsUnread = 0;
+    let unreadTotal = 0;
+    let unreadUnread = 0;
+    let savedTotal = 0;
+    let savedUnread = 0;
+
+    rooms.forEach((r) => {
+      const u = unreadCount(r.id);
+      allUnread += u;
+      const isSaved = isSavedMessagesRoom(r);
+      const isDirect = r.type === 'direct';
+      const isGroup = r.type === 'group';
+
+      if (isSaved) {
+        savedTotal++;
+        savedUnread += u;
+      } else if (isDirect) {
+        directTotal++;
+        directUnread += u;
+      } else if (isGroup) {
+        groupsTotal++;
+        groupsUnread += u;
+      }
+
+      if (u > 0) {
+        unreadTotal++;
+        unreadUnread += u;
+      }
+    });
+
+    return {
+      all: { total: rooms.length, unread: allUnread },
+      direct: { total: directTotal, unread: directUnread },
+      groups: { total: groupsTotal, unread: groupsUnread },
+      unread: { total: unreadTotal, unread: unreadUnread },
+      saved: { total: savedTotal, unread: savedUnread },
+    };
+  }, [rooms, unreadCount]);
+
+  // Filtered rooms list by folder tab AND search in sidebar
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((r) => {
+      // 1. Folder tab filter
+      if (activeFolder === 'direct') {
+        if (r.type !== 'direct' || isSavedMessagesRoom(r)) return false;
+      } else if (activeFolder === 'groups') {
+        if (r.type !== 'group') return false;
+      } else if (activeFolder === 'unread') {
+        if (unreadCount(r.id) <= 0) return false;
+      } else if (activeFolder === 'saved') {
+        if (!isSavedMessagesRoom(r)) return false;
+      }
+
+      // 2. Query search filter
+      if (!roomFilterQuery.trim()) return true;
+      const name = getRoomDisplayName(r);
+      return name.toLowerCase().includes(roomFilterQuery.toLowerCase());
+    });
+  }, [rooms, activeFolder, roomFilterQuery, unreadCount, getRoomDisplayName]);
+
+  const handleMobileTabSelect = (tab: MobileTab) => {
+    setMobileTab(tab);
+    if (tab === 'chats') {
+      setActiveFolder('all');
+      setMobileView('list');
+    } else if (tab === 'stories') {
+      setIsStoryCreateOpen(true);
+    } else if (tab === 'search') {
+      setShowCommandPalette(true);
+    } else if (tab === 'rooms') {
+      setActiveFolder('groups');
+      setMobileView('list');
+    } else if (tab === 'settings') {
+      setShowThemeModal(true);
+    }
+  };
+
+  // Edge-swipe navigation for mobile (swipe from left edge to return to chat list)
+  const edgeTouchStartX = useRef<number | null>(null);
+  const edgeTouchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    edgeTouchStartX.current = e.touches[0].clientX;
+    edgeTouchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (edgeTouchStartX.current === null || edgeTouchStartY.current === null) return;
+    const diffX = e.changedTouches[0].clientX - edgeTouchStartX.current;
+    const diffY = e.changedTouches[0].clientY - edgeTouchStartY.current;
+
+    // Trigger edge swipe if started near left edge (< 48px) and swiped right (> 50px)
+    if (edgeTouchStartX.current < 48 && diffX > 50 && Math.abs(diffY) < 60) {
+      if (mobileView === 'chat') {
+        triggerHaptic('light');
+        setMobileView('list');
+      }
+    }
+    edgeTouchStartX.current = null;
+    edgeTouchStartY.current = null;
+  };
+
   const getChatBackgroundStyle = (): React.CSSProperties => {
+    const wp = getWallpaperById(themeConfig.wallpaperId);
+    const blur = themeConfig.customWallpaper?.blur ?? (themeConfig.wallpaperId === 'custom' ? 0 : (wp.blur ?? 0));
+    const filterStyle = blur > 0 ? `blur(${blur}px)` : undefined;
+    const transformStyle = blur > 0 ? 'scale(1.12)' : undefined;
+
     if (themeConfig.wallpaperId === 'custom' && themeConfig.customWallpaper?.imageUrl) {
-      const blur = themeConfig.customWallpaper.blur || 0;
       return {
         backgroundImage: `url("${themeConfig.customWallpaper.imageUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        filter: blur > 0 ? `blur(${blur}px)` : undefined,
-        transform: blur > 0 ? 'scale(1.08)' : undefined
+        filter: filterStyle,
+        transform: transformStyle
       };
     }
 
-    const wp = getWallpaperById(themeConfig.wallpaperId);
     if (wp.imageUrl) {
-      const blur = wp.blur || 0;
       return {
         backgroundImage: `url("${wp.imageUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        filter: blur > 0 ? `blur(${blur}px)` : undefined,
-        transform: blur > 0 ? 'scale(1.08)' : undefined
+        filter: filterStyle,
+        transform: transformStyle
       };
     }
 
@@ -191,17 +308,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       return {
         backgroundImage: `${wp.patternSvg}, ${bgCss}`,
         backgroundSize: '160px 160px, 100% 100%',
-        backgroundRepeat: 'repeat, no-repeat'
+        backgroundRepeat: 'repeat, no-repeat',
+        filter: filterStyle,
+        transform: transformStyle
       };
     }
 
     return {
       backgroundImage: bgCss,
-      backgroundSize: '100% 100%'
+      backgroundSize: '100% 100%',
+      filter: filterStyle,
+      transform: transformStyle
     };
   };
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messageFeedRef = useRef<HTMLElement | null>(null);
   const isNearBottomRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -213,6 +333,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [isSearching, setIsSearching] = useState(false);
   const [chatFilters, setChatFilters] = useState<FilterOptions>({});
   const [showGlobalSearchModal, setShowGlobalSearchModal] = useState(false);
+  const [globalSearchSeed, setGlobalSearchSeed] = useState<string | undefined>(undefined);
+  const [showPollModal, setShowPollModal] = useState(false);
   const [showAdvancedSearchModal, setShowAdvancedSearchModal] = useState(false);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(40);
@@ -235,7 +357,209 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
 
-  const showToast = (
+  // Global Keyboard Shortcuts (Desktop / Power User Navigation Suite)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + K or Cmd + K: Command Palette (Spotlight)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        triggerHaptic('selection');
+        setShowCommandPalette((prev) => !prev);
+        return;
+      }
+
+      // Alt + Up: Previous chat in filtered list
+      if (e.altKey && e.key === 'ArrowUp') {
+        e.preventDefault();
+        triggerHaptic('selection');
+        const currentIdx = filteredRooms.findIndex((r) => r.id === activeRoomId);
+        if (currentIdx > 0) {
+          setActiveRoomId(filteredRooms[currentIdx - 1].id);
+          setMobileView('chat');
+        } else if (filteredRooms.length > 0) {
+          setActiveRoomId(filteredRooms[filteredRooms.length - 1].id);
+          setMobileView('chat');
+        }
+        return;
+      }
+
+      // Alt + Down: Next chat in filtered list
+      if (e.altKey && e.key === 'ArrowDown') {
+        e.preventDefault();
+        triggerHaptic('selection');
+        const currentIdx = filteredRooms.findIndex((r) => r.id === activeRoomId);
+        if (currentIdx !== -1 && currentIdx < filteredRooms.length - 1) {
+          setActiveRoomId(filteredRooms[currentIdx + 1].id);
+          setMobileView('chat');
+        } else if (filteredRooms.length > 0) {
+          setActiveRoomId(filteredRooms[0].id);
+          setMobileView('chat');
+        }
+        return;
+      }
+
+      // Alt + 1..5: Chat Folder Switching
+      if (e.altKey && /^[1-5]$/.test(e.key)) {
+        e.preventDefault();
+        triggerHaptic('selection');
+        const folders: ChatFolderId[] = ['all', 'direct', 'groups', 'unread', 'saved'];
+        const target = folders[parseInt(e.key, 10) - 1];
+        if (target) setActiveFolder(target);
+        return;
+      }
+
+      // Ctrl + /: Keyboard shortcuts cheat sheet
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        triggerHaptic('selection');
+        setShowShortcutsModal(true);
+        return;
+      }
+
+      // Ctrl + ,: Theme & Settings
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        triggerHaptic('selection');
+        setShowThemeModal(true);
+        return;
+      }
+
+      // Ctrl + 1..9: Chat Switching by Index
+      if ((e.ctrlKey || e.metaKey) && /^[1-9]$/.test(e.key)) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (rooms[idx]) {
+          e.preventDefault();
+          triggerHaptic('selection');
+          setActiveRoomId(rooms[idx].id);
+          setMobileView('chat');
+        }
+        return;
+      }
+
+      // Hierarchical Escape
+      if (e.key === 'Escape') {
+        if (showCommandPalette) {
+          e.preventDefault();
+          setShowCommandPalette(false);
+          return;
+        }
+        if (showGlobalSearchModal) {
+          e.preventDefault();
+          setShowGlobalSearchModal(false);
+          return;
+        }
+        if (showEmojiPicker) {
+          e.preventDefault();
+          setShowEmojiPicker(false);
+          return;
+        }
+        if (editingMessage) {
+          e.preventDefault();
+          setEditingMessage(null);
+          setInputText('');
+          return;
+        }
+        if (replyingToMessage) {
+          e.preventDefault();
+          setReplyingToMessage(null);
+          return;
+        }
+        if (isSearching) {
+          e.preventDefault();
+          setIsSearching(false);
+          setSearchQuery('');
+          return;
+        }
+        if (mobileView === 'chat' && !isDesktopView) {
+          e.preventDefault();
+          setMobileView('list');
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    rooms,
+    filteredRooms,
+    activeRoomId,
+    showCommandPalette,
+    showGlobalSearchModal,
+    showEmojiPicker,
+    editingMessage,
+    replyingToMessage,
+    isSearching,
+    mobileView,
+    isDesktopView,
+    triggerHaptic,
+    setShowShortcutsModal,
+    setActiveRoomId,
+  ]);
+
+  // Media Gallery and Formatting Toolbar states
+  const [activeGalleryMediaId, setActiveGalleryMediaId] = useState<string | null>(null);
+  const [formattingToolbar, setFormattingToolbar] = useState<{
+    isVisible: boolean;
+    position: { top: number; left: number };
+  } | null>(null);
+
+  const handleTextSelection = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setFormattingToolbar(null);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    if (start !== end && end - start > 0) {
+      const rect = textarea.getBoundingClientRect();
+      setFormattingToolbar({
+        isVisible: true,
+        position: {
+          top: Math.max(10, rect.top - 8),
+          left: Math.min(window.innerWidth - 120, Math.max(120, rect.left + rect.width / 2)),
+        },
+      });
+    } else {
+      setFormattingToolbar(null);
+    }
+  }, []);
+
+  const applyFormatting = useCallback((tagOpen: string, tagClose: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = inputTextRef.current;
+
+    if (start !== end) {
+      const selectedText = currentText.substring(start, end);
+      const newText = currentText.substring(0, start) + tagOpen + selectedText + tagClose + currentText.substring(end);
+      setInputText(newText);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + tagOpen.length, end + tagOpen.length);
+      }, 0);
+    } else {
+      const newText = currentText.substring(0, start) + tagOpen + tagClose + currentText.substring(end);
+      setInputText(newText);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + tagOpen.length, start + tagOpen.length);
+      }, 0);
+    }
+    setFormattingToolbar(null);
+  }, []);
+
+  // Stories Modal States
+  const [activeStoryViewerUser, setActiveStoryViewerUser] = useState<string | null>(null);
+  const [isStoryCreateOpen, setIsStoryCreateOpen] = useState(false);
+
+  const showToast = useCallback((
     textOrConfig: string | { text: string; actionLabel?: string; onAction?: () => void }
   ) => {
     if (typeof textOrConfig === 'string') {
@@ -244,7 +568,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       setToast(textOrConfig);
     }
     setTimeout(() => setToast(null), 3500);
-  };
+  }, []);
 
   // File & Voice Attachment states
   const [selectedFile, setSelectedFile] = useState<{ 
@@ -257,14 +581,36 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     height?: number;
     orientation?: 'vertical' | 'horizontal' | 'square';
     stickerData?: Sticker;
+    waveform?: number[];
+    duration?: number;
   } | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
+  const [liveVolumeLevels, setLiveVolumeLevels] = useState<number[]>([]);
+  const [inputActionMode, setInputActionMode] = useState<'voice' | 'video'>('voice');
+  const [isVoiceLocked, setIsVoiceLocked] = useState(false);
+  const [isVoicePaused, setIsVoicePaused] = useState(false);
+  const [voiceDragOffset, setVoiceDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [recordedVoicePreview, setRecordedVoicePreview] = useState<{
+    blob: Blob;
+    url: string;
+    waveform: number[];
+    duration: number;
+    mimeType: string;
+  } | null>(null);
+
+  const voiceStopActionRef = useRef<'send' | 'preview' | 'cancel'>('send');
+  const voicePointerStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isVoiceHoldingRef = useRef(false);
+  const voiceStartTimeRef = useRef<number>(0);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordIntervalRef = useRef<any>(null);
+  const audioAnalyserRef = useRef<AudioLiveAnalyser | null>(null);
+  const rawAudioAmplitudesRef = useRef<number[]>([]);
+  const audioVolumeIntervalRef = useRef<any>(null);
 
   // Video Circle recording states
   const [isRecordingVideo, setIsRecordingVideo] = useState(false);
@@ -292,7 +638,106 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       setVisibleCount(40);
     }
     setShowEmojiPicker(false);
+    setShowScrollDownBtn(false);
   }, [activeRoomId]);
+
+  // ===== Per-chat Message Drafts (localStorage persistence like Telegram Desktop) =====
+  const inputTextRef = useRef('');
+  useEffect(() => {
+    inputTextRef.current = inputText;
+  }, [inputText]);
+
+  // Reactive mirror of persisted drafts for chat list previews
+  const [draftsMap, setDraftsMap] = useState<Record<string, string>>({});
+
+  // Hydrate all saved drafts once on mount
+  useEffect(() => {
+    const map: Record<string, string> = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('tg_draft_')) {
+          map[key.slice('tg_draft_'.length)] = localStorage.getItem(key) || '';
+        }
+      }
+    } catch { /* ignore */ }
+    setDraftsMap(map);
+  }, []);
+
+  const persistDraft = useCallback((roomId: string | null, text: string) => {
+    if (!roomId) return;
+    const hasText = Boolean(text.trim());
+    try {
+      if (hasText) localStorage.setItem(`tg_draft_${roomId}`, text);
+      else localStorage.removeItem(`tg_draft_${roomId}`);
+    } catch { /* quota exceeded — ignore */ }
+    setDraftsMap((prev) => {
+      if (hasText && prev[roomId] === text) return prev;
+      const next = { ...prev };
+      if (hasText) next[roomId] = text;
+      else delete next[roomId];
+      return next;
+    });
+  }, []);
+
+  // ===== Per-Chat Mute =====
+  const [mutedRooms, setMutedRooms] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('tg_muted_rooms') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleRoomMute = useCallback((roomId: string) => {
+    setMutedRooms((prev) => {
+      const next = { ...prev, [roomId]: !prev[roomId] };
+      try {
+        localStorage.setItem('tg_muted_rooms', JSON.stringify(next));
+      } catch { /* ignore */ }
+      return next;
+    });
+    showToast(mutedRooms[roomId] ? 'Уведомления чата включены' : 'Чат отключён от уведомлений');
+  }, [mutedRooms, showToast]);
+
+  const prevDraftRoomRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const prevRoom = prevDraftRoomRef.current;
+
+    let restored = '';
+    if (activeRoomId) {
+      try {
+        restored = localStorage.getItem(`tg_draft_${activeRoomId}`) || '';
+      } catch { /* ignore */ }
+    }
+
+    // Flush the previous room's draft synchronously before switching
+    if (prevRoom && prevRoom !== activeRoomId) {
+      persistDraft(prevRoom, prevRoom === activeRoomId ? restored : inputTextRef.current);
+    }
+
+    setInputText(restored);
+    setMentionState(null);
+    setDraftsMap((prev) => {
+      if (restored.trim()) {
+        return prev[activeRoomId || ''] === restored ? prev : { ...prev, [activeRoomId || '']: restored };
+      }
+      if (!prev[activeRoomId || '']) return prev;
+      const next = { ...prev };
+      delete next[activeRoomId || ''];
+      return next;
+    });
+    prevDraftRoomRef.current = activeRoomId || null;
+  }, [activeRoomId, persistDraft]);
+
+  useEffect(() => {
+    if (!activeRoomId || editingMessage) return;
+    const timer = setTimeout(() => {
+      persistDraft(activeRoomId, inputText);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [inputText, activeRoomId, editingMessage, persistDraft]);
 
   // Memoized message map for O(1) replies lookup
   const messageMap = React.useMemo(() => {
@@ -444,7 +889,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     setIsSelectMode(false);
     setSelectedMessageIds(new Set());
     showToast(ids.length > 1 ? 'Сообщения удалены' : 'Сообщение удалено');
-  }, [selectedMessageIds, deleteMessage]);
+  }, [selectedMessageIds, deleteMessage, showToast]);
 
   // Filter messages using our rich applyFilters system
   const filteredMessages = React.useMemo(() => {
@@ -457,13 +902,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     });
   }, [activeMessages, isSearching, chatFilters, searchQuery]);
 
-  const activeChatFiltersCount = Object.keys(chatFilters).filter((k) => {
-    const v = (chatFilters as any)[k];
-    if (v === undefined || v === null || v === false) return false;
-    if (Array.isArray(v)) return v.length > 0;
-    if (typeof v === 'object') return Object.values(v).some(Boolean);
-    return true;
-  }).length;
+  // Media gallery collection for active room
+  const roomMediaMessages = React.useMemo(() => {
+    return activeMessages.filter(
+      (m) =>
+        m.file &&
+        (m.file.type === 'image' ||
+          m.file.type === 'video' ||
+          m.file.type?.startsWith('image/') ||
+          m.file.type?.startsWith('video/') ||
+          /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov)$/i.test(m.file.name || ''))
+    );
+  }, [activeMessages]);
 
   const handleDatePreset = (preset: 'today' | 'week' | 'month') => {
     const now = new Date();
@@ -622,28 +1072,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   // Get typing users in active room (excluding self)
   const activeRoomTypingMap = typingUsers[activeRoomId || ''] || {};
-  const typingUserNames = Object.keys(activeRoomTypingMap)
+  const activeRoomTypingUsers = Object.keys(activeRoomTypingMap)
     .filter((u) => u !== currentUser)
     .map((u) => USER_NAMES[u as UserId] || u);
 
-  const isSomeoneTyping = typingUserNames.length > 0;
-
-  // Filtered rooms list by search in sidebar
-  const filteredRooms = rooms.filter((r) => {
-    if (!roomFilterQuery.trim()) return true;
-    const name = r.type === 'direct'
-      ? (USER_NAMES[r.participants.find(p => p !== currentUser) as UserId] || r.name)
-      : r.name;
-    return name.toLowerCase().includes(roomFilterQuery.toLowerCase());
-  });
-
   const isInitialRoomLoadRef = useRef(true);
+  const [showScrollDownBtn, setShowScrollDownBtn] = useState(false);
 
   const handleScroll = () => {
     if (!messageFeedRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = messageFeedRef.current;
-    const nearBottom = scrollHeight - scrollTop - clientHeight < 150;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const nearBottom = distanceFromBottom < 150;
     isNearBottomRef.current = nearBottom;
+
+    // Scroll-to-bottom FAB visibility
+    setShowScrollDownBtn(distanceFromBottom > 350);
 
     // If user scrolled up intentionally during initial load, release lock so we don't fight user
     if (!nearBottom) {
@@ -862,6 +1306,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   const handleInputChange = (text: string) => {
     setInputText(text);
+    updateMentionDetection(text);
 
     if (!isTyping) {
       setIsTyping(true);
@@ -876,6 +1321,70 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       setIsTyping(false);
       sendTypingStatus(false);
     }, 2000);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionState && filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionCursor((prev) => (prev + 1) % filteredMentions.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionCursor((prev) => (prev - 1 + filteredMentions.length) % filteredMentions.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        applyMention(filteredMentions[mentionCursor]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setMentionState(null);
+        return;
+      }
+    }
+    // Rich text formatting hotkeys
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        applyFormatting('**', '**');
+        return;
+      }
+      if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        applyFormatting('*', '*');
+        return;
+      }
+      if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault();
+        applyFormatting('__', '__');
+        return;
+      }
+      if (e.shiftKey && (e.key === 'X' || e.key === 'x')) {
+        e.preventDefault();
+        applyFormatting('~~', '~~');
+        return;
+      }
+      if (e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        applyFormatting('||', '||');
+        return;
+      }
+      if (e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+        e.preventDefault();
+        applyFormatting('`', '`');
+        return;
+      }
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(e);
+    }
   };
 
   const handleSend = (e?: React.FormEvent) => {
@@ -902,19 +1411,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
 
     sendMessage(inputText, replyingToMessage?.id, selectedFile || undefined);
+    persistDraft(activeRoomId || null, '');
     setInputText('');
+    setMentionState(null);
     setReplyingToMessage(null);
     setSelectedFile(null);
     setShowEmojiPicker(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend(e);
     }
   };
 
@@ -936,15 +1440,68 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     showToast('Стикер отправлен');
   };
 
+  const handleCreatePoll = (poll: import('../types').Poll) => {
+    sendMessage('', undefined, undefined, undefined, undefined, poll);
+    setShowPollModal(false);
+    showToast('Опрос создан');
+  };
+
   const quickStickerSuggestions = React.useMemo(() => {
     const trimmed = inputText.trim();
     if (!trimmed || trimmed.length > 8) return [];
     return findStickersByEmoji(trimmed);
   }, [inputText]);
 
-  // File selection
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  // ===== @Mention Autocomplete =====
+  const [mentionState, setMentionState] = useState<ActiveToken | null>(null);
+  const [mentionCursor, setMentionCursor] = useState(0);
+
+  const roomParticipantIds = activeRoom?.participants || [];
+  const participantKey = roomParticipantIds.join(',');
+
+  const mentionCandidates = React.useMemo(() => {
+    return buildMentionCandidates(roomParticipantIds, { ...userProfiles });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participantKey, userProfiles]);
+
+  const filteredMentions = React.useMemo(() => {
+    if (!mentionState || mentionState.type !== 'mention') return [];
+    return filterMentionCandidates(mentionCandidates, mentionState.query);
+  }, [mentionCandidates, mentionState]);
+
+  const updateMentionDetection = (text: string) => {
+    const caret = textareaRef.current?.selectionStart ?? text.length;
+    const token = getActiveToken(text, caret);
+    if (token && token.type === 'mention') {
+      setMentionState(token);
+      setMentionCursor(0);
+    } else {
+      setMentionState(null);
+    }
+  };
+
+  const applyMention = (candidate: MentionCandidate) => {
+    const caret = textareaRef.current?.selectionStart ?? inputText.length;
+    const token = getActiveToken(inputText, caret) || mentionState;
+    if (!token) return;
+    const handle = candidate.profile?.username || candidate.userId;
+    const nextText = `${inputText.slice(0, token.startIndex)}@${handle} ${inputText.slice(token.endIndex)}`;
+    setInputText(nextText);
+    setMentionState(null);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      const pos = token.startIndex + handle.length + 2;
+      textareaRef.current?.setSelectionRange(pos, pos);
+    });
+  };
+
+  const handleHashtagClick = useCallback((tag: string) => {
+    setGlobalSearchSeed(tag);
+    setShowGlobalSearchModal(true);
+  }, []);
+
+  // File selection & Drag&Drop attachment processing
+  const acceptIncomingFile = useCallback((file: File) => {
     if (!file) return;
 
     let type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker' = 'file';
@@ -996,11 +1553,48 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         rawBlob: file
       });
     }
+  }, []);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    acceptIncomingFile(file);
     e.target.value = '';
   };
 
-  // Audio Note recording
+  // ===== Full-Chat-Area Drag & Drop Attachments =====
+  const dragDepthRef = useRef(0);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  const handleChatDragEnter = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFile(true);
+  };
+
+  const handleChatDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleChatDragLeave = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFile(false);
+  };
+
+  const handleChatDrop = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) acceptIncomingFile(file);
+  };
+
+  // Audio Note recording with Web Audio Waveform Capture & Slide-to-Cancel / Lock / Preview
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1015,6 +1609,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      rawAudioAmplitudesRef.current = [];
+      setLiveVolumeLevels([]);
+      setIsVoiceLocked(false);
+      setIsVoicePaused(false);
+      setVoiceDragOffset({ x: 0, y: 0 });
+      setRecordedVoicePreview(null);
+      voiceStopActionRef.current = 'send';
+      voiceStartTimeRef.current = Date.now();
+
+      // Initialize real-time Web Audio Analyser
+      const analyser = createAudioLiveAnalyser(stream);
+      audioAnalyserRef.current = analyser;
+
+      if (analyser) {
+        audioVolumeIntervalRef.current = setInterval(() => {
+          const vol = analyser.getInstantVolume();
+          rawAudioAmplitudesRef.current.push(vol);
+          setLiveVolumeLevels((prev) => [...prev.slice(-15), vol]);
+        }, 90);
+      }
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -1023,22 +1637,50 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       };
 
       mediaRecorder.onstop = () => {
+        if (audioVolumeIntervalRef.current) {
+          clearInterval(audioVolumeIntervalRef.current);
+          audioVolumeIntervalRef.current = null;
+        }
+        audioAnalyserRef.current?.close();
+        audioAnalyserRef.current = null;
+
+        const action = voiceStopActionRef.current;
         const actualMimeType = mediaRecorder.mimeType || mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          const extension = actualMimeType.includes('mp4') ? 'mp4' : actualMimeType.includes('ogg') ? 'ogg' : actualMimeType.includes('aac') ? 'aac' : 'webm';
-          sendMessage('', undefined, {
-            name: `Голосовое сообщение.${extension}`,
-            type: 'audio',
-            data: base64,
-            size: audioBlob.size,
-            rawBlob: audioBlob
+        const normalizedWaveform = normalizeWaveform(rawAudioAmplitudesRef.current, 30, 8, 100);
+        const duration = Math.max(1, recordTime);
+
+        if (action === 'send') {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result as string;
+            const extension = actualMimeType.includes('mp4') ? 'mp4' : actualMimeType.includes('ogg') ? 'ogg' : actualMimeType.includes('aac') ? 'aac' : 'webm';
+            sendMessage('', undefined, {
+              name: `Голосовое сообщение.${extension}`,
+              type: 'audio',
+              data: base64,
+              size: audioBlob.size,
+              rawBlob: audioBlob,
+              waveform: normalizedWaveform,
+              duration
+            });
+          };
+          reader.readAsDataURL(audioBlob);
+          stream.getTracks().forEach((track) => track.stop());
+        } else if (action === 'preview') {
+          const previewUrl = URL.createObjectURL(audioBlob);
+          setRecordedVoicePreview({
+            blob: audioBlob,
+            url: previewUrl,
+            waveform: normalizedWaveform,
+            duration,
+            mimeType: actualMimeType
           });
-        };
-        reader.readAsDataURL(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
+          stream.getTracks().forEach((track) => track.stop());
+        } else {
+          // action === 'cancel'
+          stream.getTracks().forEach((track) => track.stop());
+        }
       };
 
       mediaRecorder.start();
@@ -1054,21 +1696,132 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   };
 
-  const stopRecording = (shouldSend = true) => {
+  const toggleVoicePause = () => {
+    if (!mediaRecorderRef.current || !isRecording) return;
+    if (mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
+      if (audioVolumeIntervalRef.current) clearInterval(audioVolumeIntervalRef.current);
+      setIsVoicePaused(true);
+      triggerHaptic('light');
+    } else if (mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      recordIntervalRef.current = setInterval(() => {
+        setRecordTime((t) => t + 1);
+      }, 1000);
+      if (audioAnalyserRef.current) {
+        audioVolumeIntervalRef.current = setInterval(() => {
+          const vol = audioAnalyserRef.current?.getInstantVolume() ?? 10;
+          rawAudioAmplitudesRef.current.push(vol);
+          setLiveVolumeLevels((prev) => [...prev.slice(-15), vol]);
+        }, 90);
+      }
+      setIsVoicePaused(false);
+      triggerHaptic('light');
+    }
+  };
+
+  const stopRecording = (action: 'send' | 'preview' | 'cancel' = 'send') => {
+    voiceStopActionRef.current = action;
     if (recordIntervalRef.current) {
       clearInterval(recordIntervalRef.current);
       recordIntervalRef.current = null;
     }
+    if (audioVolumeIntervalRef.current) {
+      clearInterval(audioVolumeIntervalRef.current);
+      audioVolumeIntervalRef.current = null;
+    }
 
     if (mediaRecorderRef.current && isRecording) {
-      if (!shouldSend) {
-        mediaRecorderRef.current.onstop = () => {
-          mediaRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
-        };
-      }
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
+    setIsVoiceLocked(false);
+    setIsVoicePaused(false);
+    setVoiceDragOffset({ x: 0, y: 0 });
+    setLiveVolumeLevels([]);
+  };
+
+  const sendRecordedVoicePreview = () => {
+    if (!recordedVoicePreview) return;
+    const { blob, mimeType, waveform, duration, url } = recordedVoicePreview;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      const extension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : mimeType.includes('aac') ? 'aac' : 'webm';
+      sendMessage('', undefined, {
+        name: `Голосовое сообщение.${extension}`,
+        type: 'audio',
+        data: base64,
+        size: blob.size,
+        rawBlob: blob,
+        waveform,
+        duration
+      });
+      URL.revokeObjectURL(url);
+      setRecordedVoicePreview(null);
+    };
+    reader.readAsDataURL(blob);
+  };
+
+  const cancelRecordedVoicePreview = () => {
+    if (recordedVoicePreview) {
+      URL.revokeObjectURL(recordedVoicePreview.url);
+      setRecordedVoicePreview(null);
+    }
+  };
+
+  const handleVoicePointerDown = (e: React.PointerEvent) => {
+    if (inputActionMode !== 'voice') return;
+    if (e.button !== 0) return;
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    voicePointerStartPosRef.current = { x: e.clientX, y: e.clientY };
+    isVoiceHoldingRef.current = true;
+    startRecording();
+  };
+
+  const handleVoicePointerMove = (e: React.PointerEvent) => {
+    if (!isVoiceHoldingRef.current || !voicePointerStartPosRef.current || isVoiceLocked) return;
+    const dx = e.clientX - voicePointerStartPosRef.current.x;
+    const dy = e.clientY - voicePointerStartPosRef.current.y;
+    setVoiceDragOffset({ x: dx, y: dy });
+
+    if (dx < -80) {
+      triggerHaptic('warning');
+      isVoiceHoldingRef.current = false;
+      stopRecording('cancel');
+      return;
+    }
+
+    if (dy < -55) {
+      triggerHaptic('success');
+      setIsVoiceLocked(true);
+      isVoiceHoldingRef.current = false;
+      setVoiceDragOffset({ x: 0, y: 0 });
+    }
+  };
+
+  const handleVoicePointerUp = (e: React.PointerEvent) => {
+    if (!isVoiceHoldingRef.current) return;
+    isVoiceHoldingRef.current = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+
+    if (!isVoiceLocked && isRecording) {
+      const elapsedMs = Date.now() - voiceStartTimeRef.current;
+      if (elapsedMs < 600) {
+        setIsVoiceLocked(true);
+      } else {
+        stopRecording('send');
+      }
+    }
   };
 
   const formatRecordTime = (seconds: number) => {
@@ -1077,7 +1830,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
 
-  // Video Circle Note recording
+  // Video Circle Note recording (up to 60 seconds)
   const startVideoRecording = async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -1086,8 +1839,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } }
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: {
+          facingMode: 'user',
+          width: { ideal: 480, max: 720 },
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 30, max: 30 }
+        }
       });
 
       setVideoStream(stream);
@@ -1108,7 +1870,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         else if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4';
       }
 
-      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recorderOptions: MediaRecorderOptions = {
+        mimeType: mimeType || undefined,
+        videoBitsPerSecond: 1_200_000
+      };
+
+      const mediaRecorder = new MediaRecorder(stream, recorderOptions);
       videoRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
@@ -1129,7 +1896,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             type: 'video_note',
             data: base64,
             size: videoBlob.size,
-            rawBlob: videoBlob
+            rawBlob: videoBlob,
+            duration: videoRecordTime || 1
           });
         };
         reader.readAsDataURL(videoBlob);
@@ -1139,7 +1907,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       mediaRecorder.start();
 
       videoIntervalRef.current = setInterval(() => {
-        setVideoRecordTime((t) => t + 1);
+        setVideoRecordTime((t) => {
+          if (t >= 59) {
+            stopVideoRecording(true);
+            return 60;
+          }
+          return t + 1;
+        });
       }, 1000);
     } catch (err) {
       console.error('Record video circle error:', err);
@@ -1168,21 +1942,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     setVideoStream(null);
   };
 
-  const getRoomDisplayName = (room: Room) => {
-    if (room.type === 'direct') {
-      const peerId = room.participants.find(p => p !== currentUser) as UserId | undefined;
-      return peerId ? (getUserDisplayName(peerId) || USER_NAMES[peerId] || peerId) : room.name;
-    }
-    return room.name;
-  };
-
   const getRoomColor = (room: Room) => {
     if (room.type === 'group') return 'bg-[#3390ec]';
     const peerId = room.participants.find(p => p !== currentUser) || '';
     return ROOM_AVATAR_COLORS[peerId] || 'bg-[#3390ec]';
   };
 
-  const getCleanMessageText = (msg: Message | null, showSender = false): string => {
+  const getCleanMessageText = useCallback((msg: Message | null, showSender = false): string => {
     if (!msg) return '';
 
     // 1. Remove zero-width spaces, fwd metadata tags, and legacy forward headers
@@ -1224,7 +1990,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
 
     return content;
-  };
+  }, [currentUser, getUserDisplayName]);
 
   const getLastMessageTime = (msg: Message | null) => {
     if (!msg) return '';
@@ -1235,6 +2001,52 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
+
+  const getLastMessagePreview = useCallback((roomId: string) => {
+    const draft = draftsMap[roomId];
+    const lastMsg = lastMessageOf(roomId);
+
+    if (draft && (!lastMsg || draft.trim())) {
+      return {
+        text: `Черновик: ${draft}`,
+        time: lastMsg ? getLastMessageTime(lastMsg) : '',
+        sender: currentUser || '',
+        isMine: true,
+        isPhoto: false,
+        isVideo: false,
+        isVoice: false,
+        isFile: false,
+        isSticker: false,
+        isPoll: false
+      };
+    }
+
+    if (!lastMsg) return null;
+
+    const isMine = lastMsg.sender === currentUser;
+    const time = getLastMessageTime(lastMsg);
+    const text = getCleanMessageText(lastMsg);
+
+    const isPhoto = Boolean(lastMsg.file && (lastMsg.file.type === 'image' || lastMsg.file.type?.startsWith('image/')));
+    const isVideo = Boolean(lastMsg.file && (lastMsg.file.type === 'video' || lastMsg.file.type === 'video_note' || lastMsg.file.type?.startsWith('video/')));
+    const isVoice = Boolean(lastMsg.file && (lastMsg.file.type === 'audio' || lastMsg.file.type?.startsWith('audio/')));
+    const isFile = Boolean(lastMsg.file && !isPhoto && !isVideo && !isVoice);
+    const isSticker = Boolean(lastMsg.sticker || (lastMsg.file && lastMsg.file.type === 'sticker'));
+    const isPoll = Boolean(lastMsg.poll);
+
+    return {
+      text,
+      time,
+      sender: lastMsg.sender,
+      isMine,
+      isPhoto,
+      isVideo,
+      isVoice,
+      isFile,
+      isSticker,
+      isPoll
+    };
+  }, [lastMessageOf, currentUser, draftsMap, getCleanMessageText]);
 
   const formatSeparatorDate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -1255,1953 +2067,548 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   };
 
-  return (
-    <div className="flex h-dvh w-full overflow-hidden select-none">
+  const getRoomAvatar = useCallback((room: Room) => {
+    if (room.type === 'direct') {
+      const peerId = room.participants.find(p => p !== currentUser);
+      return peerId ? (getUserAvatar(peerId as UserId) || (peerId === currentUser ? currentUserProfile?.avatarUrl : undefined)) : undefined;
+    }
+    return undefined;
+  }, [currentUser, getUserAvatar, currentUserProfile]);
 
-      {/* 1. Left Sidebar: Telegram Chat List & Contacts */}
-      <aside
-        style={{
-          '--sidebar-width': `${sidebarWidth}px`,
-        } as React.CSSProperties}
-        className={`w-full md:w-[var(--sidebar-width)] tg-sidebar flex flex-col shrink-0 ${
-          showMenuDropdown ? 'z-50' : 'z-20'
-        } ${
-          isResizingSidebar ? 'select-none transition-none' : 'transition-transform duration-150'
-        } ${mobileView === 'list'
-          ? 'translate-x-0 flex'
-          : '-translate-x-full md:translate-x-0 absolute md:relative z-20 h-full left-0 top-0 hidden md:flex'
-          }`}
-      >
-        {/* Top Bar: Hamburger + Search Input */}
-        <div className={`p-2.5 flex items-center gap-2 relative ${isCompactSidebar ? 'justify-center p-2' : ''}`}>
-          <button
-            type="button"
-            onClick={() => setShowMenuDropdown(!showMenuDropdown)}
-            className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors shrink-0"
-            title="Меню"
-          >
-            <IconMenu2 size={20} />
-          </button>
+  const isRoomOnline = useCallback((room: Room) => {
+    if (room.type !== 'direct') return false;
+    const peerId = room.participants.find(p => p !== currentUser);
+    return peerId ? Boolean(onlineStatus[peerId as UserId]) : false;
+  }, [currentUser, onlineStatus]);
 
-          {/* Menu Dropdown */}
-          {showMenuDropdown && (
-            <>
-              <div 
-                className="fixed inset-0 z-40"
-                onClick={() => setShowMenuDropdown(false)}
-              />
-              <div className={`absolute top-12 ${isCompactSidebar ? 'left-2' : 'left-3'} z-50 w-64 tg-header rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 py-2 animate-pop-in select-none`}>
-                {/* User Profile Card Header */}
-                <div 
-                  onClick={() => {
-                    setShowProfileModal(true);
-                    setShowMenuDropdown(false);
-                  }}
-                  className="px-3.5 py-2.5 mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3"
-                >
-                  <div className="relative shrink-0">
-                    {currentUserProfile?.avatarUrl ? (
-                      <img 
-                        src={currentUserProfile.avatarUrl} 
-                        alt="Avatar" 
-                        className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-[#3390ec]/20" 
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-sm font-bold shadow-xs">
-                        {currentUserName?.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    {currentUserProfile?.statusEmoji && (
-                      <span className="absolute -bottom-1 -right-1 text-xs">
-                        {currentUserProfile.statusEmoji}
-                      </span>
-                    )}
-                  </div>
+  const getRoomTypingUsers = useCallback((roomId: string) => {
+    const roomTyping = typingUsers[roomId] || {};
+    return Object.keys(roomTyping)
+      .filter((u) => u !== currentUser)
+      .map((u) => USER_NAMES[u as UserId] || u);
+  }, [typingUsers, currentUser]);
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
-                        {currentUserName}
-                      </span>
-                      <IconEdit size={14} className="text-[#3390ec] shrink-0" />
-                    </div>
-                    <span className="text-[10.5px] text-slate-400 truncate block">
-                      {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите для настройки')}
-                    </span>
-                  </div>
-                </div>
+  const handleClearCurrentChatHistory = useCallback(() => {
+    if (!activeRoomId) return;
+    if (window.confirm('Вы уверены, что хотите очистить историю этого чата?')) {
+      activeMessages.forEach((m) => deleteMessage(m.id));
+      showToast('История чата очищена');
+    }
+  }, [activeRoomId, activeMessages, deleteMessage, showToast]);
 
-                {/* Menu Actions */}
-                <div className="pt-1.5 space-y-0.5 px-1">
-                  {/* Search Action */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowGlobalSearchModal(true);
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconSearch size={18} className="text-[#3390ec]" />
-                      <span>Поиск по сообщениям</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">FTS</span>
-                  </button>
+  const handleSearchQueryChange = useCallback((q: string) => {
+    setSearchQuery(q);
+    setCurrentMatchIndex(0);
+  }, []);
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowProfileModal(true);
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconUser size={18} className="text-[#3390ec]" />
-                      <span>Мой профиль</span>
-                    </span>
-                  </button>
+  const handleContextMenu = useCallback((e: React.MouseEvent | { clientX: number; clientY: number; preventDefault?: () => void }, msg: Message) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    if (isSelectMode) {
+      setSelectedMessageIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(msg.id)) next.delete(msg.id);
+        else next.add(msg.id);
+        return next;
+      });
+      return;
+    }
+    setContextMenuTarget({
+      message: msg,
+      x: e.clientX,
+      y: e.clientY,
+      isSelf: msg.sender === currentUser
+    });
+  }, [isSelectMode, currentUser]);
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowQrModal(true);
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconDeviceMobile size={18} className="text-[#3390ec]" />
-                      <span>Открыть на телефоне</span>
-                    </span>
-                  </button>
+  const handleNavigateFromGlobalSearch = useCallback((targetRoomId: string, targetMessageId?: string) => {
+    setActiveRoomId(targetRoomId);
+    setMobileView('chat');
+    setShowGlobalSearchModal(false);
+    if (targetMessageId) {
+      setTimeout(() => jumpToMessage(targetMessageId), 150);
+    }
+  }, [jumpToMessage, setActiveRoomId]);
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      toggleDarkMode();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      {darkMode ? <IconSun size={18} className="text-amber-400" /> : <IconMoon size={18} className="text-indigo-500" />}
-                      <span>{darkMode ? 'Светлая тема' : 'Ночной режим'}</span>
-                    </span>
-                    <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${darkMode ? 'bg-[#3390ec]' : 'bg-slate-300 dark:bg-slate-600'}`}>
-                      <div className={`w-3 h-3 rounded-full bg-white transition-transform ${darkMode ? 'translate-x-4' : 'translate-x-0'}`} />
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowThemeModal(true);
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconPalette size={18} className="text-[#3390ec]" />
-                      <span>Оформление и обои</span>
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logout();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-rose-500 hover:bg-rose-500/10 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconLogout size={18} />
-                      <span>Выйти</span>
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Search Input Bar (Shown in expanded mode) */}
-          {!isCompactSidebar && (
-            <div className="relative flex-1 min-w-0">
-              <input
-                type="text"
-                value={roomFilterQuery}
-                onChange={(e) => setRoomFilterQuery(e.target.value)}
-                placeholder="Поиск..."
-                className="w-full pl-9 pr-8 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-white/5 border border-transparent focus:border-[#3390ec] outline-hidden text-slate-900 dark:text-white placeholder:text-slate-400 transition-colors"
-              />
-              <IconSearch size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              {roomFilterQuery && (
-                <button
-                  type="button"
-                  onClick={() => setRoomFilterQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 rounded-full"
-                >
-                  <IconX size={14} />
-                </button>
-              )}
-            </div>
-          )}
-
-          {!isCompactSidebar && (
-            <button
-              type="button"
-              onClick={() => setShowGlobalSearchModal(true)}
-              className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3390ec] dark:hover:text-[#3390ec] transition-colors cursor-pointer shrink-0"
-              title="Глобальный поиск сообщений (FTS)"
-            >
-              <IconWorld size={18} />
-            </button>
-          )}
+  const renderDynamicWallpaper = () => {
+    const activeWp = getWallpaperById(themeConfig.wallpaperId);
+    let wallpaperContent: React.ReactNode = null;
+    if (activeWp.animatedType === 'squares') {
+      wallpaperContent = (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <Squares speed={0.4} borderColor={darkMode ? 'rgba(51, 144, 236, 0.15)' : 'rgba(51, 144, 236, 0.25)'} />
         </div>
-
-        {/* Stories / Active Contacts Circular Row (Hidden in compact icon mode) */}
-        {!isCompactSidebar && (
-          <div className="px-3 py-1 flex items-center gap-3 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-white/5 pb-2">
-            {rooms.filter(r => r.type === 'direct').map((room) => {
-              const peerId = room.participants.find(p => p !== currentUser) as UserId | undefined;
-              const isOnline = peerId ? onlineStatus[peerId] : false;
-              const name = peerId ? (getUserDisplayName(peerId) || USER_NAMES[peerId] || room.name) : room.name;
-              const avatarUrl = peerId ? getUserAvatar(peerId) : undefined;
-              const isSelected = room.id === activeRoomId;
-
-              return (
-                <button
-                  key={room.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveRoomId(room.id);
-                    setMobileView('chat');
-                  }}
-                  className="flex flex-col items-center gap-1 shrink-0 cursor-pointer group"
-                  title={name}
-                >
-                  <div className={`relative p-0.5 rounded-full ${isSelected ? 'ring-2 ring-[#3390ec]' : ''}`}>
-                    {avatarUrl ? (
-                      <img 
-                        src={avatarUrl} 
-                        alt={name} 
-                        className="w-12 h-12 rounded-full object-cover shadow-xs" 
-                      />
-                    ) : (
-                      <div className={`w-12 h-12 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
-                        {name.charAt(0)}
-                      </div>
-                    )}
-                    {isOnline && (
-                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
-                    )}
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate max-w-[56px] text-center">
-                    {name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Folder Tabs (All chats) */}
-        {!isCompactSidebar && (
-          <div className="px-3 pt-2 pb-1 flex items-center gap-2 text-xs font-semibold select-none">
-            <div className="px-3 py-1 rounded-full bg-[#3390ec] text-white flex items-center gap-1.5 shadow-xs">
-              <span>Все</span>
-              <span className="text-[10px] bg-white/20 px-1 rounded-full">{rooms.length}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Chat List Items */}
-        <div className={`flex-1 overflow-y-auto ${isCompactSidebar ? 'px-1 py-1 space-y-1' : 'px-1.5 py-1 space-y-0.5'}`}>
-          {/* Prompt to search messages across all chats */}
-          {!isCompactSidebar && roomFilterQuery.trim() && (
-            <button
-              type="button"
-              onClick={() => setShowGlobalSearchModal(true)}
-              className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-[#3390ec]/10 hover:bg-[#3390ec]/20 border border-[#3390ec]/30 text-[#3390ec] transition-all cursor-pointer text-left mb-1.5 shadow-xs"
-            >
-              <div className="w-9 h-9 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-xs font-bold shadow-md shadow-[#3390ec]/20 shrink-0">
-                🔍
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold truncate text-slate-900 dark:text-white">
-                  Искать «{roomFilterQuery}»
-                </div>
-                <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
-                  Полнотекстовый поиск по сообщениям
-                </div>
-              </div>
-            </button>
-          )}
-
-          {filteredRooms.map((room) => {
-            const isActive = room.id === activeRoomId;
-            const peerId = room.type === 'direct' ? room.participants.find(p => p !== currentUser) as UserId | undefined : null;
-            const isOnline = room.type === 'direct' ? (peerId ? onlineStatus[peerId] : false) : false;
-            const avatarUrl = peerId ? getUserAvatar(peerId) : undefined;
-
-            const lastMsg = lastMessageOf(room.id);
-            const count = unreadCount(room.id);
-
-            const roomTyping = typingUsers[room.id] || {};
-            const isTypingInRoom = Object.keys(roomTyping).some(u => u !== currentUser);
-
-            return (
-              <button
-                key={room.id}
-                type="button"
-                onClick={() => {
-                  setActiveRoomId(room.id);
-                  setMobileView('chat');
-                  setReplyingToMessage(null);
-                  setSearchQuery('');
-                  setIsSearching(false);
-                  setSelectedFile(null);
-                }}
-                title={getRoomDisplayName(room)}
-                className={`w-full flex items-center transition-colors cursor-pointer select-none ${
-                  isCompactSidebar 
-                    ? 'justify-center p-1.5 rounded-2xl relative' 
-                    : 'gap-3 p-2.5 rounded-xl text-left'
-                } ${isActive
-                  ? (isCompactSidebar ? 'bg-[#3390ec]/15 dark:bg-[#3390ec]/25 text-[#3390ec]' : 'bg-[#3390ec] text-white shadow-xs')
-                  : 'hover:bg-black/5 dark:hover:bg-white/5 text-slate-800 dark:text-slate-200'
-                }`}
-              >
-                {/* Avatar */}
-                <div className={`relative shrink-0 ${isCompactSidebar && isActive ? 'ring-2 ring-[#3390ec] rounded-full' : ''}`}>
-                  {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt={getRoomDisplayName(room)} 
-                      className={`${isCompactSidebar ? 'w-11 h-11' : 'w-12 h-12'} rounded-full object-cover shadow-xs`} 
-                    />
-                  ) : (
-                    <div className={`${isCompactSidebar ? 'w-11 h-11' : 'w-12 h-12'} rounded-full flex items-center justify-center text-sm font-bold ${
-                      isActive && !isCompactSidebar ? 'bg-white/20 text-white' : `${getRoomColor(room)} text-white`
-                    }`}>
-                      {room.type === 'group' ? (
-                        <IconUsers size={isCompactSidebar ? 18 : 20} />
-                      ) : (
-                        getRoomDisplayName(room).charAt(0).toUpperCase()
-                      )}
-                    </div>
-                  )}
-
-                  {room.type === 'direct' && isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
-                  )}
-
-                  {/* Compact mode unread badge on top-right of avatar */}
-                  {isCompactSidebar && count > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-[#3390ec] text-white shadow-xs border-2 border-white dark:border-[#17212b]">
-                      {count}
-                    </span>
-                  )}
-                </div>
-
-                {/* Details (Hidden in compact icon mode) */}
-                {!isCompactSidebar && (
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[14px] truncate block ${isActive ? 'font-bold text-white' : 'font-semibold text-slate-900 dark:text-white'}`}>
-                        {getRoomDisplayName(room)}
-                      </span>
-                      {lastMsg && (
-                        <span className={`text-[11.5px] font-mono ml-1 shrink-0 ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
-                          {getLastMessageTime(lastMsg)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-0.5 gap-2">
-                      {isTypingInRoom ? (
-                        <span className={`text-xs font-semibold flex items-center gap-1.5 truncate ${isActive ? 'text-white' : 'text-[#3390ec]'}`}>
-                          <span className="inline-flex gap-0.5 items-center">
-                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
-                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0.2s]" />
-                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0.4s]" />
-                          </span>
-                          <span>печатает...</span>
-                        </span>
-                      ) : (
-                        <div className="flex-1 min-w-0">
-                          {(() => {
-                            if (!lastMsg) {
-                              if (room.type === 'group') {
-                                return <span className={`text-[13px] truncate block ${isActive ? 'text-white/80' : 'text-slate-400'}`}>Группа семьи</span>;
-                              }
-                              return (
-                                <span className={`text-[13px] truncate block ${isActive ? 'text-white/80' : isOnline ? 'text-emerald-500 font-medium' : 'text-slate-400'}`}>
-                                  {isOnline ? 'в сети' : 'был(а) недавно'}
-                                </span>
-                              );
-                            }
-
-                            const isSelf = lastMsg.sender === currentUser;
-                            const isRead = (lastMsg.readBy || []).some((u) => u !== currentUser);
-
-                            const cleanText = (lastMsg.text || '')
-                              .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
-                              .replace(/^\[Переслано от [^\]]+\]:\s*/, '')
-                              .trim();
-
-                            const senderPrefix = isSelf 
-                              ? 'Вы: ' 
-                              : (room.type === 'group' ? `${getUserDisplayName(lastMsg.sender) || USER_NAMES[lastMsg.sender] || lastMsg.sender}: ` : '');
-
-                            return (
-                              <div className="flex items-center gap-1 min-w-0 text-[13px] truncate">
-                                {isSelf && (
-                                  <span className="shrink-0 inline-flex items-center mr-0.5">
-                                    {isRead ? (
-                                      <IconChecks size={14} className={isActive ? 'text-white' : 'text-[#3390ec] dark:text-[#70b1ff]'} />
-                                    ) : (
-                                      <IconCheck size={14} className={isActive ? 'text-white/70' : 'text-slate-400'} />
-                                    )}
-                                  </span>
-                                )}
-
-                                {senderPrefix && (
-                                  <span className={`shrink-0 font-medium ${isActive ? 'text-white' : isSelf ? 'text-slate-800 dark:text-slate-200' : 'text-[#3390ec] dark:text-[#70b1ff]'}`}>
-                                    {senderPrefix}
-                                  </span>
-                                )}
-
-                                {cleanText ? (
-                                  <span className={`truncate ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
-                                    {cleanText}
-                                  </span>
-                                ) : lastMsg.file ? (
-                                  lastMsg.file.type === 'image' ? (
-                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-[#3390ec] dark:text-[#70b1ff]'}`}>
-                                      <IconPhoto size={14} className="shrink-0" />
-                                      <span>Фотография</span>
-                                    </span>
-                                  ) : lastMsg.file.type === 'video' ? (
-                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-[#3390ec] dark:text-[#70b1ff]'}`}>
-                                      <IconVideo size={14} className="shrink-0" />
-                                      <span>Видео</span>
-                                    </span>
-                                  ) : lastMsg.file.type === 'sticker' || (lastMsg.file.name && lastMsg.file.name.includes('sticker')) ? (
-                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-amber-500'}`}>
-                                      <IconMoodSmile size={14} className="shrink-0" />
-                                      <span>Стикер</span>
-                                    </span>
-                                  ) : lastMsg.file.type === 'video_note' ? (
-                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-[#3390ec] dark:text-[#70b1ff]'}`}>
-                                      <IconCamera size={14} className="shrink-0" />
-                                      <span>Видеосообщение</span>
-                                    </span>
-                                  ) : lastMsg.file.type === 'audio' ? (
-                                    <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-emerald-500'}`}>
-                                      <IconMicrophone size={14} className="shrink-0" />
-                                      <span>Голосовое</span>
-                                    </span>
-                                  ) : (
-                                    <span className={`inline-flex items-center gap-1 truncate ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
-                                      <IconFileText size={14} className="shrink-0" />
-                                      <span className="truncate">{lastMsg.file.name || 'Вложение'}</span>
-                                    </span>
-                                  )
-                                ) : lastMsg.sticker ? (
-                                  <span className={`inline-flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-amber-500'}`}>
-                                    <IconMoodSmile size={14} className="shrink-0" />
-                                    <span>Стикер</span>
-                                  </span>
-                                ) : (
-                                  <span className={`truncate ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
-                                    Сообщение
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                      {count > 0 && (
-                        <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold ${isActive ? 'bg-white text-[#3390ec]' : 'bg-[#3390ec] text-white'
-                          }`}>
-                          {count}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
+      );
+    } else if (activeWp.animatedType === 'aurora') {
+      wallpaperContent = (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <Aurora />
         </div>
-      </aside>
-
-      {/* Draggable Divider Handle between Sidebar and Chat (Telegram Desktop behavior) */}
-      <div
-        onMouseDown={startResizingSidebar}
-        onTouchStart={startResizingSidebar}
-        className={`hidden md:flex relative w-1 hover:w-2 active:w-2 group cursor-col-resize z-10 transition-all items-center justify-center shrink-0 -ml-0.5 select-none ${
-          isResizingSidebar ? 'w-2' : ''
-        }`}
-        title="Потяните, чтобы изменить ширину списка чатов"
-      >
-        <div
-          className={`w-[1px] h-full transition-colors pointer-events-none ${
-            isResizingSidebar
-              ? 'bg-[#3390ec] w-[2px]'
-              : 'bg-slate-200/80 dark:bg-white/10 group-hover:bg-[#3390ec] group-hover:w-[2px]'
-          }`}
-        />
-      </div>
-
-      {/* Global Drag Overlay to prevent iframe/mouse trapping while resizing */}
-      {isResizingSidebar && (
-        <div
-          className="fixed inset-0 z-[99999] cursor-col-resize select-none pointer-events-auto"
-          onMouseMove={(e) => {
-            const maxAllowed = Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * 0.6);
-            let newWidth: number;
-            if (e.clientX < SNAP_THRESHOLD) {
-              newWidth = COMPACT_SIDEBAR_WIDTH;
-            } else {
-              newWidth = Math.max(MIN_EXPANDED_WIDTH, Math.min(e.clientX, maxAllowed));
-            }
-            setSidebarWidth(newWidth);
-          }}
-          onMouseUp={() => {
-            setIsResizingSidebar(false);
-            localStorage.setItem('tg_sidebar_width', sidebarWidth.toString());
-          }}
-        />
-      )}
-
-      {/* 2. Main Center Chat Panel: Telegram Wallpaper & Bubbles */}
-      <main
-        className={`flex-1 min-w-0 w-full max-w-full flex flex-col h-full tg-chat-canvas transition-transform duration-150 relative overflow-hidden ${mobileView === 'chat'
-          ? 'translate-x-0 flex'
-          : '-translate-x-full md:translate-x-0 absolute md:relative z-10 w-full h-full hidden md:flex'
-          }`}
-      >
-        {/* Dynamic Wallpaper Background Layer */}
+      );
+    } else if (activeWp.animatedType === 'particles') {
+      wallpaperContent = (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <Particles particleCount={45} particleColor={darkMode ? '#3390ec' : '#2563eb'} />
+        </div>
+      );
+    } else if (activeWp.animatedType === 'letter-glitch') {
+      wallpaperContent = (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <LetterGlitch glitchSpeed={60} />
+        </div>
+      );
+    } else if (activeWp.animatedType === 'hyperspeed') {
+      wallpaperContent = (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <Hyperspeed speed={12} starCount={350} />
+        </div>
+      );
+    } else if (activeWp.animatedType === 'waves') {
+      wallpaperContent = (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <Waves waveAmpX={35} waveAmpY={22} lineColor={darkMode ? 'rgba(51, 144, 236, 0.22)' : 'rgba(51, 144, 236, 0.35)'} />
+        </div>
+      );
+    } else if (activeWp.animatedType === 'dither') {
+      wallpaperContent = (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <Dither colorA={darkMode ? '#080d1a' : '#e0e7ff'} colorB={darkMode ? '#3390ec' : '#6366f1'} />
+        </div>
+      );
+    } else {
+      wallpaperContent = (
         <div 
           className="absolute inset-0 pointer-events-none transition-all duration-300 overflow-hidden"
           style={getChatBackgroundStyle()}
         />
+      );
+    }
 
-        {/* Dimming overlay for photo wallpapers and custom uploads */}
-        {((themeConfig.wallpaperId === 'custom' && themeConfig.customWallpaper) || Boolean(getWallpaperById(themeConfig.wallpaperId).imageUrl)) && (
+    const dimming = themeConfig.customWallpaper?.dimming ?? (
+      themeConfig.wallpaperId === 'custom'
+        ? 20
+        : (getWallpaperById(themeConfig.wallpaperId).dimming ?? 0)
+    );
+
+    return (
+      <>
+        {wallpaperContent}
+        {dimming > 0 && (
           <div 
             className="absolute inset-0 bg-black pointer-events-none transition-opacity duration-200"
-            style={{
-              opacity: (
-                themeConfig.wallpaperId === 'custom'
-                  ? (themeConfig.customWallpaper?.dimming ?? 20)
-                  : (getWallpaperById(themeConfig.wallpaperId).dimming ?? 20)
-              ) / 100
-            }}
+            style={{ opacity: dimming / 100 }}
           />
         )}
-
-        {/* Telegram Chat Header or Top Selection Action Bar */}
-        <header className="px-3 sm:px-4 py-2 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[56px] w-full min-w-0 max-w-full">
-          {isSelectMode ? (
-            <div className="w-full min-w-0 flex items-center justify-between animate-pop-in">
-              {/* Left: Cancel Cross Button & Counter */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSelectMode(false);
-                    setSelectedMessageIds(new Set());
-                  }}
-                  className="p-1.5 rounded-full text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
-                  title="Отменить (Esc)"
-                >
-                  <IconX size={22} />
-                </button>
-
-                <span className="text-[15px] font-bold text-slate-900 dark:text-white">
-                  Выбрано: {selectedMessageIds.size}
-                </span>
-              </div>
-
-              {/* Right: Group Action Buttons */}
-              <div className="flex items-center gap-1">
-                {/* Pin */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const firstId = Array.from(selectedMessageIds)[0];
-                    if (firstId) {
-                      togglePinMessage(firstId);
-                      setIsSelectMode(false);
-                      setSelectedMessageIds(new Set());
-                    }
-                  }}
-                  disabled={selectedMessageIds.size === 0}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
-                  title="Закрепить"
-                >
-                  <IconPin size={20} />
-                </button>
-
-                {/* Copy */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const texts = activeMessages
-                      .filter(m => selectedMessageIds.has(m.id) && m.text)
-                      .map(m => m.text)
-                      .join('\n\n');
-                    if (texts) {
-                      navigator.clipboard.writeText(texts);
-                      showToast('Текст скопирован в буфер');
-                    }
-                  }}
-                  disabled={selectedMessageIds.size === 0}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
-                  title="Копировать"
-                >
-                  <IconCopy size={20} />
-                </button>
-
-                {/* Forward */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const firstSelected = activeMessages.find(m => selectedMessageIds.has(m.id));
-                    if (firstSelected) {
-                      setForwardingMessage(firstSelected);
-                    }
-                  }}
-                  disabled={selectedMessageIds.size === 0}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
-                  title="Переслать"
-                >
-                  <IconShare3 size={20} />
-                </button>
-
-                {/* Delete */}
-                <button
-                  type="button"
-                  onClick={handleDeleteSelectedAnimated}
-                  disabled={selectedMessageIds.size === 0}
-                  className="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 disabled:opacity-30 cursor-pointer transition-colors"
-                  title="Удалить"
-                >
-                  <IconTrash size={20} />
-                </button>
-              </div>
-            </div>
-          ) : isSearching ? (
-            /* Ultra-clean Telegram / iOS Minimalist Search Bar */
-            <div className="w-full min-w-0 flex items-center gap-2">
-              {/* Minimalist Search Input Capsule */}
-              <div className="flex-1 min-w-0 flex items-center gap-2 bg-slate-100 dark:bg-[#242f3d] px-3 py-1.5 rounded-full border border-transparent focus-within:border-[#3390ec]/50 transition-all">
-                <IconSearch size={16} className="text-slate-400 shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Поиск в чате..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      if (e.shiftKey) handlePrevMatch();
-                      else handleNextMatch();
-                    }
-                  }}
-                  className="bg-transparent border-none text-[13.5px] text-slate-900 dark:text-white focus:outline-none w-full min-w-0 placeholder-slate-400"
-                  autoFocus
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="text-slate-400 hover:text-slate-200 cursor-pointer p-0.5 shrink-0"
-                    title="Очистить"
-                  >
-                    <IconX size={14} />
-                  </button>
-                )}
-
-                {/* Match Counter & Quick Navigation */}
-                {filteredMessages.length > 0 && (searchQuery.trim() || activeChatFiltersCount > 0) && (
-                  <div className="flex items-center gap-0.5 text-[11px] font-mono text-slate-500 dark:text-slate-400 shrink-0 border-l border-slate-300 dark:border-white/10 pl-1.5">
-                    <span>{currentMatchIndex + 1}/{filteredMessages.length}</span>
-                    <button
-                      type="button"
-                      onClick={handlePrevMatch}
-                      className="p-0.5 hover:text-[#3390ec] cursor-pointer"
-                      title="Предыдущее"
-                    >
-                      <IconChevronUp size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNextMatch}
-                      className="p-0.5 hover:text-[#3390ec] cursor-pointer"
-                      title="Следующее"
-                    >
-                      <IconChevronDown size={13} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Cancel Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSearching(false);
-                  setSearchQuery('');
-                  setChatFilters({});
-                }}
-                className="text-xs sm:text-[13px] font-medium text-[#3390ec] hover:text-[#3390ec]/80 px-1 py-1 cursor-pointer shrink-0 transition-colors whitespace-nowrap"
-              >
-                Отмена
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowUserInfo(!showUserInfo)}>
-                {/* Mobile back */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMobileView('list');
-                  }}
-                  className="p-1 rounded-full text-slate-500 hover:text-[#3390ec] cursor-pointer md:hidden"
-                >
-                  <IconChevronLeft size={24} />
-                </button>
-
-                {/* Contact Avatar */}
-                {activeRoom && (
-                  <div className="relative">
-                    {activePeerAvatar ? (
-                      <img 
-                        src={activePeerAvatar} 
-                        alt="Avatar" 
-                        className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-[#3390ec]/20" 
-                      />
-                    ) : (
-                      <div className={`w-10 h-10 rounded-full ${getRoomColor(activeRoom)} text-white flex items-center justify-center text-sm font-bold shadow-xs`}>
-                        {activeRoom.type === 'group' ? <IconUsers size={20} /> : getRoomDisplayName(activeRoom).charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    {activeRoom.type === 'direct' && isPeerOnline && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#17212b]" />
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <h2 className="text-[15px] font-bold text-slate-900 dark:text-white m-0 leading-tight">
-                    {activeRoom ? getRoomDisplayName(activeRoom) : ''}
-                  </h2>
-                  <div className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    {isSomeoneTyping ? (
-                      <span className="text-[#3390ec] font-semibold">печатает...</span>
-                    ) : activeRoom?.type === 'direct' ? (
-                      isPeerOnline ? <span className="text-[#3390ec] font-semibold">в сети</span> : 'был(а) недавно'
-                    ) : (
-                      `${activeRoom?.participants.length || 0} участников`
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSearching(true);
-                  }}
-                  className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                  title="Поиск в чате (Ctrl+F)"
-                >
-                  <IconSearch size={20} />
-                </button>
-
-                {activeRoom?.type === 'direct' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => startCall('audio')}
-                      className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                      title="Аудиозвонок"
-                    >
-                      <IconPhone size={20} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startCall('video')}
-                      className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                      title="Видеозвонок"
-                    >
-                      <IconVideo size={20} />
-                    </button>
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setShowThemeModal(true)}
-                  className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
-                  title="Обои и оформление чата"
-                >
-                  <IconPalette size={20} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowUserInfo(!showUserInfo)}
-                  className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors ${showUserInfo ? 'text-[#3390ec]' : 'text-slate-500 dark:text-slate-400'
-                    }`}
-                  title="Информация"
-                >
-                  <IconDotsVertical size={20} />
-                </button>
-              </div>
-            </>
-          )}
-        </header>
-
-        {/* Minimalist Horizontal Filter Tabs */}
-        {isSearching && (
-          <div className="w-full max-w-full min-w-0 px-2.5 sm:px-3 py-1.5 bg-white/95 dark:bg-[#17212b]/95 border-b border-slate-200/60 dark:border-white/5 backdrop-blur-md flex items-center gap-1.5 overflow-x-auto no-scrollbar z-20 select-none">
-            <button
-              type="button"
-              onClick={() => setChatFilters({})}
-              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-                activeChatFiltersCount === 0
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
-            >
-              Все
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const isMedia = chatFilters.attachmentTypes?.includes('image') || chatFilters.attachmentTypes?.includes('video');
-                setChatFilters(prev => ({
-                  ...prev,
-                  attachmentTypes: isMedia ? undefined : ['image', 'video'],
-                  hasAttachments: isMedia ? undefined : true,
-                }));
-              }}
-              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-                chatFilters.attachmentTypes?.includes('image') || chatFilters.attachmentTypes?.includes('video')
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
-            >
-              Медиа
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const isDoc = chatFilters.attachmentTypes?.includes('document');
-                setChatFilters(prev => ({
-                  ...prev,
-                  attachmentTypes: isDoc ? undefined : ['document'],
-                  hasAttachments: isDoc ? undefined : true,
-                }));
-              }}
-              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-                chatFilters.attachmentTypes?.includes('document')
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
-            >
-              Файлы
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const isAudio = chatFilters.attachmentTypes?.includes('audio');
-                setChatFilters(prev => ({
-                  ...prev,
-                  attachmentTypes: isAudio ? undefined : ['audio'],
-                  hasAttachments: isAudio ? undefined : true,
-                }));
-              }}
-              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-                chatFilters.attachmentTypes?.includes('audio')
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
-            >
-              Голосовые
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDatePreset('today')}
-              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-                Boolean(chatFilters.dateRange?.startDate)
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
-            >
-              Сегодня
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowGlobalSearchModal(true)}
-              className="ml-auto px-2.5 py-1 rounded-full text-xs text-slate-500 dark:text-slate-400 hover:text-[#3390ec] dark:hover:text-[#3390ec] shrink-0 transition-colors flex items-center gap-1 cursor-pointer font-medium"
-            >
-              <IconWorld size={14} />
-              <span className="hidden sm:inline">Во всех чатах</span>
-              <span className="sm:hidden">Везде</span>
-            </button>
-          </div>
-        )}
-
-        {/* Pinned Message Banner */}
-        {currentPinnedMessage && (
-          <div
-            onClick={() => {
-              jumpToMessage(currentPinnedMessage.id);
-            }}
-            className="px-4 py-1.5 bg-white/95 dark:bg-[#17212b]/95 border-b border-slate-200 dark:border-white/10 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors z-20 backdrop-blur-md animate-pop-in select-none shadow-xs w-full min-w-0"
-          >
-            <div className="flex items-center gap-2.5 min-w-0 border-l-[3px] border-[#3390ec] pl-2.5">
-              <div className="min-w-0">
-                <span className="text-[11.5px] font-bold text-[#3390ec] block">Закреплённое сообщение</span>
-                <span className="text-[12px] text-slate-700 dark:text-slate-300 truncate block">
-                  {getCleanMessageText(currentPinnedMessage)}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                togglePinMessage(currentPinnedMessage.id);
-              }}
-              className="p-1 rounded-full text-slate-400 hover:text-rose-500 cursor-pointer shrink-0"
-              title="Открепить"
-            >
-              <IconX size={16} />
-            </button>
-          </div>
-        )}
-
-        {/* Telegram Chat Message Stream */}
-        <section
-          ref={messageFeedRef}
-          onScroll={handleScroll}
-          className="flex-1 min-w-0 w-full max-w-full overflow-y-auto overflow-x-hidden px-2.5 sm:px-6 py-3"
-        >
-          <div key={activeRoomId} className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col min-h-full">
-            {/* Top flexible spacer to anchor small chats cleanly without flexbox justify-end scroll jumping */}
-            <div className="flex-1 min-h-0" />
-            {slicedMessages.map((message, index) => {
-              const isSelf = message.sender === currentUser;
-              const senderName = isSelf ? 'Вы' : USER_NAMES[message.sender];
-              const parentMessage = message.replyToId ? messageMap.get(message.replyToId) || null : null;
-
-              const prevMessage = index > 0 ? slicedMessages[index - 1] : null;
-              const showDateSeparator = !prevMessage ||
-                new Date(prevMessage.timestamp).toDateString() !== new Date(message.timestamp).toDateString();
-
-              const isSameSender = prevMessage && prevMessage.sender === message.sender && !showDateSeparator;
-              const showSenderLabel = activeRoom?.type === 'group' && !isSameSender;
-
-              return (
-                <React.Fragment key={message.id}>
-                  {showDateSeparator && (
-                    <div className="flex justify-center my-2.5 select-none">
-                      <span className="px-3 py-0.5 rounded-full text-[12px] font-semibold tg-date-pill shadow-xs">
-                        {formatSeparatorDate(message.timestamp)}
-                      </span>
-                    </div>
-                  )}
-                  <div id={`msg-${message.id}`} className={isSameSender ? 'mt-0.5' : 'mt-1.5'}>
-                    <MessageBubble
-                      message={message}
-                      isSelf={isSelf}
-                      senderName={senderName}
-                      showSenderLabel={showSenderLabel}
-                      onReply={setReplyingToMessage}
-                      onOpenContextMenu={(msg, pos) => {
-                        if (isSelectMode) {
-                          setSelectedMessageIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(msg.id)) next.delete(msg.id);
-                            else next.add(msg.id);
-                            return next;
-                          });
-                          return;
-                        }
-                        setContextMenuTarget({ message: msg, x: pos.x, y: pos.y, isSelf: msg.sender === currentUser });
-                      }}
-                      parentMessage={parentMessage}
-                      currentUser={currentUser}
-                      deleteMessage={deleteMessage}
-                      editMessage={editMessage}
-                      toggleReaction={toggleReaction}
-                      roomParticipantCount={activeRoom?.participants.length || 0}
-                      searchQuery={searchQuery}
-                      isSelectMode={isSelectMode}
-                      isSelected={selectedMessageIds.has(message.id)}
-                      onToggleSelect={(id) => {
-                        setSelectedMessageIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(id)) next.delete(id);
-                          else next.add(id);
-                          return next;
-                        });
-                      }}
-                      onJumpToMessage={jumpToMessage}
-                    />
-                  </div>
-                </React.Fragment>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
-        </section>
-
-        {/* Telegram Bottom Input Bar */}
-        <footer className="p-2 sm:p-3 relative z-10 w-full min-w-0 max-w-full">
-          <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col gap-1.5 relative">
-
-            {/* 1. Selected File Preview Bar (Telegram Style Floating Glassmorphic Pill) */}
-            {selectedFile && (
-              <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border border-slate-200/80 dark:border-white/10 animate-pop-in">
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  {selectedFile.type === 'image' ? (
-                    <img src={selectedFile.data} className="w-11 h-11 rounded-xl object-cover shadow-xs border border-slate-200/50 dark:border-white/10 shrink-0" alt="preview" />
-                  ) : selectedFile.type === 'video' ? (
-                    <div className="w-11 h-11 rounded-xl bg-black relative overflow-hidden flex items-center justify-center shrink-0 shadow-xs border border-slate-200/50 dark:border-white/10">
-                      <video src={selectedFile.data} className="w-full h-full object-cover" muted playsInline />
-                      <span className="absolute bottom-0.5 right-0.5 text-[8px] bg-black/80 text-white px-1 rounded-xs font-mono font-bold">
-                        {selectedFile.orientation === 'vertical' ? '9:16' : '16:9'}
-                      </span>
-                    </div>
-                  ) : selectedFile.type === 'audio' ? (
-                    <div className="w-11 h-11 rounded-xl bg-[#3390ec] flex items-center justify-center text-white text-lg shadow-xs shrink-0">
-                      🎤
-                    </div>
-                  ) : (
-                    <div className="w-11 h-11 rounded-xl bg-slate-200 dark:bg-white/10 text-[#3390ec] flex items-center justify-center text-lg shadow-xs shrink-0">
-                      📄
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-slate-900 dark:text-white truncate block">{selectedFile.name}</span>
-                      {selectedFile.type === 'video' && selectedFile.orientation === 'vertical' && (
-                        <span className="text-[9px] bg-[#3390ec]/20 text-[#3390ec] font-medium px-1 rounded-xs shrink-0">📱 Вертикальное</span>
-                      )}
-                    </div>
-                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-mono block">
-                      {selectedFile.size > 1024 * 1024 
-                        ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} МБ` 
-                        : `${(selectedFile.size / 1024).toFixed(1)} КБ`}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedFile(null)}
-                  className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
-                  title="Удалить прикрепленный файл"
-                >
-                  <IconX size={18} />
-                </button>
-              </div>
-            )}
-
-            {/* 2. Editing Message Bar */}
-            {editingMessage && (
-              <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[4px] border-amber-500 border-slate-200/80 dark:border-white/10 animate-pop-in">
-                <div className="min-w-0 pl-1 flex items-center gap-2">
-                  <IconEdit size={16} className="text-amber-500 shrink-0" />
-                  <div className="min-w-0">
-                    <span className="text-[11px] font-bold text-amber-500 block">
-                      Редактирование
-                    </span>
-                    <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5">
-                      {editingMessage.text}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingMessage(null);
-                    setInputText('');
-                  }}
-                  className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
-                  title="Отменить"
-                >
-                  <IconX size={16} />
-                </button>
-              </div>
-            )}
-
-            {/* 3. Reply Quote Bar */}
-            {replyingToMessage && (
-              <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[4px] border-[#3390ec] border-slate-200/80 dark:border-white/10 animate-pop-in">
-                <div className="min-w-0 pl-1">
-                  <span className="text-[11px] font-bold text-[#3390ec] block">
-                    Ответ для: {replyingToMessage.sender === currentUser ? 'Вы' : (USER_NAMES[replyingToMessage.sender] || replyingToMessage.sender)}
-                  </span>
-                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5">
-                    {getCleanMessageText(replyingToMessage)}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setReplyingToMessage(null)}
-                  className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
-                  title="Отменить ответ"
-                >
-                  <IconX size={16} />
-                </button>
-              </div>
-            )}
-
-            <div className="flex items-end gap-2 relative w-full">
-
-            {/* Quick Emoji-to-Sticker Floating Bar (Telegram Style) */}
-            {quickStickerSuggestions.length > 0 && !showEmojiPicker && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 z-30 animate-pop-in">
-                <div className="p-2 bg-white/95 dark:bg-[#17212b]/95 rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 flex items-center gap-2 overflow-x-auto tg-scrollbar select-none backdrop-blur-md">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1.5 shrink-0 flex items-center gap-1">
-                    <span>✨</span>
-                    <span>Стикеры:</span>
-                  </span>
-                  {quickStickerSuggestions.slice(0, 12).map((sticker) => (
-                    <button
-                      key={`quick-${sticker.id}`}
-                      type="button"
-                      onClick={() => {
-                        handleSendSticker(sticker);
-                        setInputText('');
-                      }}
-                      className="w-11 h-11 p-1 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 shrink-0 cursor-pointer transition-transform hover:scale-115 active:scale-95 flex items-center justify-center"
-                      title={`${sticker.title} (${sticker.emoji})`}
-                    >
-                      <TgsStickerPlayer
-                        src={sticker.url}
-                        alt={sticker.title}
-                        className="w-full h-full"
-                        loop={true}
-                        autoplay={true}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Emoji Popup Anchored Right Above Input Bar */}
-            {showEmojiPicker && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowEmojiPicker(false)} 
-                />
-                <div 
-                  className="absolute bottom-full right-0 sm:right-12 mb-2.5 z-50 animate-pop-in max-w-[calc(100vw-24px)]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <TelegramEmojiPickerModal
-                    onSelectEmoji={(emoji) => insertEmoji(emoji)}
-                    onSelectSticker={(sticker) => handleSendSticker(sticker)}
-                    onClose={() => setShowEmojiPicker(false)}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Input Capsule */}
-            <form onSubmit={handleSend} className="flex-1 min-w-0 flex items-center min-h-[44px] sm:min-h-[46px] px-1.5 py-1 rounded-[22px] tg-input-capsule">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-
-              {/* Clip */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
-                title="Прикрепить"
-              >
-                <IconPaperclip size={20} />
-              </button>
-
-              {/* Input */}
-              {isRecording ? (
-                <div className="flex-1 flex items-center justify-between py-1.5 px-2 text-rose-500 font-semibold text-xs font-mono">
-                  <span>Запись {formatRecordTime(recordTime)}</span>
-                  <button
-                    type="button"
-                    onClick={() => stopRecording(false)}
-                    className="text-slate-400 hover:text-rose-500 cursor-pointer text-xs uppercase"
-                  >
-                    Отмена
-                  </button>
-                </div>
-              ) : (
-                <textarea
-                  ref={textareaRef}
-                  rows={1}
-                  value={inputText}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Сообщение..."
-                  className="flex-1 py-0.5 px-2 bg-transparent border-none text-slate-900 dark:text-white text-[15px] focus:outline-none focus:ring-0 placeholder-slate-400 resize-none max-h-[160px] leading-[22px] tg-scrollbar self-center"
-                  style={{ minHeight: '22px', height: '22px' }}
-                />
-              )}
-
-              {/* Emoji */}
-              <button
-                type="button"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
-                title="Эмодзи"
-              >
-                <IconMoodSmile size={20} />
-              </button>
-
-              {/* Video Note Circle */}
-              <button
-                type="button"
-                onClick={startVideoRecording}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
-                title="Видео-кружок"
-              >
-                <IconCamera size={20} />
-              </button>
-            </form>
-
-            {/* Blue Circle Action Button (Mic / Video / Send) */}
-            {!inputText.trim() && !selectedFile && !isRecording ? (
-              <button
-                type="button"
-                onClick={startRecording}
-                className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full tg-btn-primary flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95"
-                title="Голосовое сообщение"
-              >
-                <IconMicrophone size={20} />
-              </button>
-            ) : isRecording ? (
-              <button
-                type="button"
-                onClick={() => stopRecording(true)}
-                className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95"
-                title="Отправить голосовое"
-              >
-                <IconSend size={20} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => handleSend()}
-                className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full tg-btn-primary flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95"
-                title="Отправить"
-              >
-                <IconSend size={20} />
-              </button>
-            )}
-
-            </div>
-          </div>
-        </footer>
-      </main>
-
-      {/* 3. Right Sidebar: Telegram User Info Panel (Full-screen Drawer on Mobile, Inline on Desktop) */}
-      {showUserInfo && (
-        <>
-          {/* Mobile Dark Backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs md:hidden animate-fade-in"
-            onClick={() => setShowUserInfo(false)}
-          />
-
-          <aside className="fixed inset-0 z-50 w-full h-full md:relative md:inset-auto md:w-80 md:z-20 tg-user-panel flex flex-col shrink-0 overflow-y-auto shadow-2xl md:shadow-none animate-slide-in-right md:animate-pop-in">
-            {/* Header */}
-            <div className="p-3.5 sm:p-4 flex items-center justify-between border-b border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#17212b]/80 backdrop-blur-md sticky top-0 z-10">
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setShowUserInfo(false)}
-                  className="min-h-[40px] min-w-[40px] p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 cursor-pointer flex items-center justify-center transition-all touch-manipulation"
-                  title="Закрыть"
-                >
-                  <IconChevronLeft size={22} className="md:hidden" />
-                  <IconX size={20} className="hidden md:block" />
-                </button>
-                <h3 className="text-base sm:text-sm font-bold text-slate-900 dark:text-white m-0">
-                  Информация
-                </h3>
-              </div>
-            </div>
-
-            {/* Profile Card */}
-            <div className="p-6 sm:p-5 flex flex-col items-center text-center border-b border-slate-200 dark:border-white/5">
-              <div className="relative mb-3.5 sm:mb-3">
-                {activePeerAvatar ? (
-                  <img 
-                    src={activePeerAvatar} 
-                    alt="Avatar" 
-                    className="w-28 h-28 sm:w-24 sm:h-24 rounded-full object-cover shadow-lg ring-4 ring-[#3390ec]/20" 
-                  />
-                ) : (
-                  <div className={`w-28 h-28 sm:w-24 sm:h-24 rounded-full ${activeRoom ? getRoomColor(activeRoom) : 'bg-[#3390ec]'} text-white flex items-center justify-center text-4xl sm:text-3xl font-bold shadow-lg ring-4 ring-[#3390ec]/20`}>
-                    {activeRoom ? (activeRoom.type === 'group' ? <IconUsers size={44} /> : getRoomDisplayName(activeRoom).charAt(0)) : '?'}
-                  </div>
-                )}
-                {activePeerProfile?.statusEmoji && (
-                  <span className="absolute -bottom-1 -right-1 w-8 h-8 sm:w-7 sm:h-7 rounded-full bg-white dark:bg-[#17212b] shadow-md flex items-center justify-center text-base sm:text-sm border-2 border-white dark:border-[#17212b]">
-                    {activePeerProfile.statusEmoji}
-                  </span>
-                )}
-              </div>
-
-              <h2 className="text-lg sm:text-base font-bold text-slate-900 dark:text-white m-0 flex items-center gap-1.5 justify-center">
-                <span>{activeRoom ? getRoomDisplayName(activeRoom) : ''}</span>
-                {activePeerProfile?.statusEmoji && (
-                  <span className="text-base sm:text-sm">{activePeerProfile.statusEmoji}</span>
-                )}
-              </h2>
-              <span className="text-xs sm:text-xs text-slate-500 dark:text-slate-400 mt-1 sm:mt-0.5">
-                {activePeerId ? (isPeerOnline ? 'в сети' : 'был(а) недавно') : `${activeRoom?.participants.length} участников`}
-              </span>
-
-              {/* Edit Profile button if viewing own profile */}
-              {activePeerId === currentUser && (
-                <button
-                  type="button"
-                  onClick={() => setShowProfileModal(true)}
-                  className="mt-3.5 sm:mt-3 px-5 sm:px-4 py-2 sm:py-1.5 rounded-full bg-[#3390ec]/10 text-[#3390ec] hover:bg-[#3390ec]/20 active:scale-95 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 touch-manipulation"
-                >
-                  <IconEdit size={16} />
-                  <span>Изменить профиль</span>
-                </button>
-              )}
-            </div>
-
-            {/* Details List */}
-            <div className="p-5 sm:p-4 space-y-4 sm:space-y-4 text-sm sm:text-xs">
-              {activePeerId && (
-                <>
-                  {/* Phone */}
-                  <div className="flex items-center gap-3.5 sm:gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center shrink-0">
-                      <IconPhoneCall size={18} className="text-[#3390ec]" />
-                    </div>
-                    <div>
-                      <span className="text-slate-900 dark:text-white font-medium block text-sm sm:text-xs">
-                        {activePeerProfile?.phoneNumber || '+7 (999) 000-00-00'}
-                      </span>
-                      <span className="text-[11px] sm:text-[10px] text-slate-400">Телефон</span>
-                    </div>
-                  </div>
-
-                  {/* Username */}
-                  <div className="flex items-center gap-3.5 sm:gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center shrink-0">
-                      <IconUserCheck size={18} className="text-[#3390ec]" />
-                    </div>
-                    <div>
-                      <span className="text-slate-900 dark:text-white font-medium block text-sm sm:text-xs">
-                        @{activePeerProfile?.username || activePeerId}
-                      </span>
-                      <span className="text-[11px] sm:text-[10px] text-slate-400">Имя пользователя</span>
-                    </div>
-                  </div>
-
-                  {/* Bio */}
-                  {activePeerProfile?.bio && (
-                    <div className="flex items-center gap-3.5 sm:gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center shrink-0">
-                        <IconFileText size={18} className="text-[#3390ec]" />
-                      </div>
-                      <div>
-                        <span className="text-slate-900 dark:text-white font-medium block text-sm sm:text-xs">
-                          {activePeerProfile.bio}
-                        </span>
-                        <span className="text-[11px] sm:text-[10px] text-slate-400">О себе</span>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Notifications Toggle */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-white/5">
-                <div className="flex items-center gap-3.5 sm:gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center shrink-0">
-                    <IconBell size={18} className="text-[#3390ec]" />
-                  </div>
-                  <span className="text-slate-900 dark:text-white font-medium text-sm sm:text-xs">Уведомления</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notificationsEnabled}
-                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                  className="w-5 h-5 sm:w-4 sm:h-4 text-[#3390ec] rounded cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {/* Shared Media Tabs */}
-            <div className="flex-1 p-5 sm:p-4 border-t border-slate-100 dark:border-white/5 overflow-y-auto">
-              <span className="text-xs sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
-                Общие медиа
-              </span>
-              <div className="grid grid-cols-3 gap-2 sm:gap-1.5">
-                {activeMessages.filter(m => m.file?.type === 'image').slice(-6).map((m) => (
-                  <img
-                    key={m.id}
-                    src={m.file?.data}
-                    alt="shared"
-                    className="w-full aspect-square object-cover rounded-xl sm:rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                  />
-                ))}
-              </div>
-            </div>
-          </aside>
-        </>
-      )}
-
-      {/* WebRTC Calling Overlay */}
-      {callSession && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center text-white select-none animate-pop-in">
-
-          {callSession.status === 'active' && callSession.type === 'audio' && (
-            <div style={{ position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden' }}>
-              <audio ref={remoteAudioRef} autoPlay playsInline />
-              <audio ref={localAudioRef} autoPlay muted playsInline />
-            </div>
-          )}
-
-          <div className="w-full max-w-sm p-6 flex flex-col items-center justify-center gap-5">
-            <div className="flex flex-col items-center gap-2.5">
-              <div className="w-20 h-20 rounded-full bg-[#3390ec] flex items-center justify-center text-3xl font-bold select-none uppercase shadow-lg">
-                {activeRoom ? getRoomDisplayName(activeRoom).charAt(0) : '?'}
-              </div>
-              <h2 className="text-xl font-bold text-white mt-1">
-                {activeRoom ? getRoomDisplayName(activeRoom) : 'Собеседник'}
-              </h2>
-              <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
-                {callSession.status === 'calling' && 'Исходящий вызов...'}
-                {callSession.status === 'incoming' && `Входящий ${callSession.type === 'video' ? 'видеовызов' : 'аудиовызов'}...`}
-                {callSession.status === 'active' && `Разговор (${callSession.type === 'video' ? 'Видео' : 'Аудио'})`}
-              </span>
-            </div>
-
-            {callSession.status === 'active' && callSession.type === 'video' && (
-              <div className="w-full aspect-video rounded-2xl overflow-hidden relative bg-black shadow-xl border border-white/10">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-2 right-2 w-1/3 aspect-video rounded-xl overflow-hidden bg-black shadow-md border border-white/20">
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover scale-x-[-1]"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Controls */}
-            <div className="flex items-center gap-4 mt-4">
-              {callSession.status === 'incoming' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={rejectCall}
-                    className="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg cursor-pointer"
-                  >
-                    <IconPhoneOff size={22} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={acceptCall}
-                    className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg cursor-pointer"
-                  >
-                    <IconPhone size={22} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  {callSession.status === 'active' && (
-                    <button
-                      type="button"
-                      onClick={toggleMute}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                    >
-                      <IconMicrophone size={20} />
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={endCall}
-                    className="w-14 h-14 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg cursor-pointer"
-                  >
-                    <IconPhoneOff size={22} />
-                  </button>
-
-                  {callSession.status === 'active' && callSession.type === 'video' && (
-                    <button
-                      type="button"
-                      onClick={toggleCamera}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${isCameraOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                    >
-                      <IconVideo size={20} />
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Video Circle Record Modal */}
-      {isRecordingVideo && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex flex-col items-center justify-center select-none animate-pop-in">
-          <div className="p-6 tg-header rounded-3xl flex flex-col items-center gap-4 max-w-[280px] shadow-2xl border border-slate-200 dark:border-white/10">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              Видео-кружок
-            </span>
-
-            <div className="w-40 h-40 rounded-full overflow-hidden border-3 border-[#3390ec] bg-black shadow-lg relative">
-              <video
-                ref={videoPreviewRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover scale-x-[-1]"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-              <span className="text-xs font-bold font-mono text-slate-800 dark:text-slate-200">
-                {formatRecordTime(videoRecordTime)}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 w-full mt-1">
-              <button
-                type="button"
-                onClick={() => stopVideoRecording(false)}
-                className="flex-1 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 cursor-pointer"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={() => stopVideoRecording(true)}
-                className="flex-1 py-2 text-xs font-bold rounded-xl tg-btn-primary cursor-pointer shadow-xs"
-              >
-                Отправить
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Open on Phone QR Code Modal */}
-      {showQrModal && (
-        <div
-          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 select-none animate-pop-in"
-          onClick={() => setShowQrModal(false)}
-        >
-          <div
-            className="w-full max-w-[360px] tg-header rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl border border-slate-200 dark:border-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between w-full mb-3">
-              <div className="flex items-center gap-2">
-                <IconQrcode size={20} className="text-[#3390ec]" />
-                <h3 className="text-base font-bold text-slate-900 dark:text-white m-0">
-                  Открыть на телефоне
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <IconX size={20} />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-              Отсканируйте QR-код камерой телефона или откройте ссылку в браузере:
-            </p>
-
-            {/* QR Code Image */}
-            <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-100 mb-3 flex items-center justify-center">
-              <img
-                src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://mobiles-plots-voluntary-via.trycloudflare.com"
-                alt="QR Code to open chat"
-                className="w-44 h-44 rounded-lg block"
-              />
-            </div>
-
-            {/* Global HTTPS Cloudflare Link */}
-            <div className="w-full flex items-center gap-2 p-2 rounded-xl bg-slate-100 dark:bg-[#242f3d] mb-2">
-              <span className="text-[11px] font-mono text-slate-800 dark:text-slate-200 truncate flex-1 text-left px-1 select-all">
-                https://mobiles-plots-voluntary-via.trycloudflare.com
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText('https://mobiles-plots-voluntary-via.trycloudflare.com');
-                  setIsUrlCopied(true);
-                  setTimeout(() => setIsUrlCopied(false), 2000);
-                }}
-                className="p-1.5 rounded-lg tg-btn-primary cursor-pointer shrink-0 transition-all flex items-center gap-1 text-[11px] font-semibold text-white"
-                title="Скопировать ссылку"
-              >
-                {isUrlCopied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                <span>{isUrlCopied ? 'Скопировано' : 'Копия'}</span>
-              </button>
-            </div>
-
-            {/* Wi-Fi local fallback link */}
-            <div className="w-full text-left text-[10px] text-slate-400 font-mono mb-3 px-1">
-              Локально по Wi-Fi: <a href="https://192.168.0.9:5173" target="_blank" rel="noreferrer" className="text-[#3390ec] underline">https://192.168.0.9:5173</a>
-            </div>
-
-            {/* User Passwords reminder */}
-            <div className="w-full text-left bg-black/5 dark:bg-white/5 rounded-xl p-3 text-[11px] space-y-1">
-              <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Пароли для входа:
-              </span>
-              <div className="grid grid-cols-2 gap-1 text-slate-600 dark:text-slate-400 font-mono">
-                <div>Влад: <b className="text-[#3390ec]">vladpass</b></div>
-                <div>Аня: <b className="text-pink-500">anyapass</b></div>
-                <div>Мама: <b className="text-amber-500">mompass</b></div>
-                <div>Папа: <b className="text-sky-500">dadpass</b></div>
-                <div>Сестра: <b className="text-emerald-500">sispass</b></div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Global Singleton Telegram Context Menu Modal */}
-      {contextMenuTarget && (
-        <TelegramContextMenuModal
-          message={contextMenuTarget.message}
-          x={contextMenuTarget.x}
-          y={contextMenuTarget.y}
-          isSelf={contextMenuTarget.isSelf}
-          isPinned={activeRoomId ? pinnedMessages[activeRoomId] === contextMenuTarget.message.id : false}
-          currentUser={currentUser}
-          onClose={() => setContextMenuTarget(null)}
-          onReply={(msg) => {
-            setReplyingToMessage(msg);
-            setEditingMessage(null);
-            setContextMenuTarget(null);
-          }}
-          onPin={(msg) => {
-            togglePinMessage(msg.id);
-            setContextMenuTarget(null);
-          }}
-          onCopy={(msg) => {
-            if (msg.text) {
-              navigator.clipboard.writeText(msg.text);
-              showToast('Текст скопирован в буфер обмена');
-            } else if (msg.file) {
-              navigator.clipboard.writeText(msg.file.name);
-              showToast('Имя файла скопировано');
-            }
-            setContextMenuTarget(null);
-          }}
-          onEdit={(msg) => {
-            setReplyingToMessage(null);
-            setEditingMessage(msg);
-            setInputText(msg.text || '');
-            textareaRef.current?.focus();
-            setContextMenuTarget(null);
-          }}
-          onForward={(msg) => {
-            setForwardingMessage(msg);
-            setContextMenuTarget(null);
-          }}
-          onDelete={(msg) => {
-            handleDeleteMessageAnimated(msg.id);
-            showToast('Сообщение удалено');
-            setContextMenuTarget(null);
-          }}
-          onSelect={(msg) => {
-            setIsSelectMode(true);
-            setSelectedMessageIds(new Set([msg.id]));
-            showToast('Режим выделения активен');
-            setContextMenuTarget(null);
-          }}
-          onMarkRead={(_msg) => {
-            showToast('Сообщение прочитано');
-            setContextMenuTarget(null);
-          }}
-          onToggleReaction={(msgId, emoji) => {
-            toggleReaction(msgId, emoji);
-            setContextMenuTarget(null);
-          }}
+      </>
+    );
+  };
+
+  return (
+    <div
+      className="flex flex-col h-dvh w-full overflow-hidden select-none"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Desktop Native Titlebar (Shown in Desktop mode) */}
+      {isDesktopView && (
+        <DesktopTitleBar
+          onOpenSearch={() => setShowGlobalSearchModal(true)}
+          onOpenThemeSettings={() => setShowThemeModal(true)}
+          activeRoomName={activeRoom ? getRoomDisplayName(activeRoom) : undefined}
+          activeRoomIsOnline={isPeerOnline}
+          onOpenCommandPalette={() => setShowCommandPalette(true)}
         />
       )}
 
-      {/* Telegram Forward Message Modal */}
-      {forwardingMessage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-backdrop select-none"
-          onClick={() => setForwardingMessage(null)}
-        >
+      {/* Main Split-View Workspace */}
+      <div className="flex flex-1 w-full min-h-0 overflow-hidden relative">
+        {/* 1. Left Sidebar: Telegram Chat List & Contacts */}
+        <ChatSidebar
+          isDesktopView={isDesktopView}
+          mobileView={mobileView}
+          mobileTab={mobileTab}
+          onSelectMobileTab={handleMobileTabSelect}
+          activeFolder={activeFolder}
+          onSelectFolder={setActiveFolder}
+          folderCounts={folderCounts}
+          sidebarWidth={sidebarWidth}
+          isResizingSidebar={isResizingSidebar}
+          isCompactSidebar={isCompactSidebar}
+          showMenuDropdown={showMenuDropdown}
+          setShowMenuDropdown={setShowMenuDropdown}
+          currentUserName={currentUserName}
+          currentUserProfile={currentUserProfile}
+          rooms={filteredRooms}
+          activeRoomId={activeRoomId}
+          onSelectRoom={(roomId) => {
+            setActiveRoomId(roomId);
+            setMobileView('chat');
+          }}
+          getRoomDisplayName={getRoomDisplayName}
+          getRoomAvatar={getRoomAvatar}
+          getRoomColor={getRoomColor}
+          isRoomOnline={isRoomOnline}
+          unreadCount={unreadCount}
+          getLastMessagePreview={getLastMessagePreview}
+          roomTypingUsers={getRoomTypingUsers}
+          roomFilterQuery={roomFilterQuery}
+          setRoomFilterQuery={setRoomFilterQuery}
+          onOpenProfileModal={() => setShowProfileModal(true)}
+          onOpenGlobalSearch={() => setShowGlobalSearchModal(true)}
+          onOpenThemeModal={() => setShowThemeModal(true)}
+          onOpenQrModal={() => setShowQrModal(true)}
+          onOpenInstallModal={() => setShowInstallModal(true)}
+          onOpenShortcutsModal={() => setShowShortcutsModal(true)}
+          onOpenArchiveModal={() => setShowArchiveModal(true)}
+          onOpenNewChatModal={() => setShowNewChatModal(true)}
+          onClearHistory={handleClearCurrentChatHistory}
+          onLogout={logout}
+          onOpenStoryCreate={() => setIsStoryCreateOpen(true)}
+          onOpenStoryViewer={(userId) => setActiveStoryViewerUser(userId)}
+          startResizingSidebar={startResizingSidebar}
+          totalUnreadCount={totalUnreadCount}
+        />
+
+        {/* Global Drag Overlay to prevent iframe/mouse trapping while resizing */}
+        {isResizingSidebar && (
           <div
-            className="w-full max-w-sm bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 p-4 flex flex-col gap-3 animate-pop-in text-slate-900 dark:text-white"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/10">
-              <span className="font-bold text-sm">Переслать сообщение</span>
-              <button
-                type="button"
-                onClick={() => setForwardingMessage(null)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-200 cursor-pointer"
-              >
-                <IconX size={18} />
-              </button>
-            </div>
+            className="fixed inset-0 z-[99999] cursor-col-resize select-none pointer-events-auto"
+            onMouseMove={(e) => {
+              const maxAllowed = Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * 0.6);
+              let newWidth: number;
+              if (e.clientX < SNAP_THRESHOLD) {
+                newWidth = COMPACT_SIDEBAR_WIDTH;
+              } else {
+                newWidth = Math.max(MIN_EXPANDED_WIDTH, Math.min(e.clientX, maxAllowed));
+              }
+              setSidebarWidth(newWidth);
+            }}
+            onMouseUp={() => {
+              setIsResizingSidebar(false);
+              localStorage.setItem('tg_sidebar_width', sidebarWidth.toString());
+            }}
+          />
+        )}
 
-            {/* Preview */}
-            <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border-l-2 border-[#3390ec] text-xs text-slate-600 dark:text-slate-300 truncate">
-              {forwardingMessage.text || '📎 Вложение'}
-            </div>
+        {/* 2. Main Center Chat Panel: Telegram Wallpaper & Bubbles */}
+        <main
+          onDragEnter={handleChatDragEnter}
+          onDragOver={handleChatDragOver}
+          onDragLeave={handleChatDragLeave}
+          onDrop={handleChatDrop}
+          className={`flex-1 min-w-0 w-full max-w-full flex flex-col h-full tg-chat-canvas transition-transform duration-150 relative overflow-hidden ${
+            mobileView === 'chat' || isDesktopView
+              ? 'translate-x-0 flex'
+              : '-translate-x-full md:translate-x-0 absolute md:relative z-10 w-full h-full hidden md:flex'
+          }`}
+        >
+          {/* Dynamic Wallpaper Background Layer */}
+          {renderDynamicWallpaper()}
 
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
-              Выберите чат:
-            </div>
-
-            <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
-              {rooms.map((room) => {
-                const name = getRoomDisplayName(room);
-                return (
-                  <button
-                    key={room.id}
-                    type="button"
-                    onClick={() => handleForwardToRoom(room.id)}
-                    className="w-full p-2 rounded-2xl flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-                  >
-                    <div className={`w-9 h-9 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center text-xs font-bold shrink-0`}>
-                      {name.charAt(0)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="font-semibold text-xs text-slate-900 dark:text-white truncate block">{name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{room.type === 'direct' ? 'Личный чат' : 'Группа'}</span>
-                    </div>
-                    <IconShare3 size={16} className="text-slate-400 shrink-0" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Floating Toast Notification (Telegram Style with Action Button) */}
-      {toast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#17212b]/95 dark:bg-[#242f3d]/95 text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-medium backdrop-blur-md border border-white/10 animate-pop-in select-none flex items-center gap-3">
-          <span>{toast.text}</span>
-          {toast.actionLabel && toast.onAction && (
-            <button
-              type="button"
-              onClick={() => {
-                toast.onAction?.();
-                setToast(null);
-              }}
-              className="text-[#3390ec] dark:text-[#70b1ff] font-bold hover:underline cursor-pointer pl-1 shrink-0"
-            >
-              {toast.actionLabel}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Selection Mode Bottom Action Bar (1:1 with Telegram Web) */}
-      {isSelectMode && (
-        <div className="fixed bottom-3 inset-x-3 sm:inset-x-6 z-40 max-w-2xl mx-auto bg-white/98 dark:bg-[#17212b]/98 rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 px-4 py-2.5 flex items-center justify-between animate-pop-in select-none backdrop-blur-md">
-          {/* Left: Red Trash */}
-          <button
-            type="button"
-            onClick={handleDeleteSelectedAnimated}
-            disabled={selectedMessageIds.size === 0}
-            className="p-1.5 rounded-xl text-rose-500 hover:bg-rose-500/10 disabled:opacity-30 cursor-pointer transition-colors"
-            title="Удалить"
-          >
-            <IconTrash size={20} />
-          </button>
-
-          {/* Center: Selected count text */}
-          <span className="text-[13.5px] font-medium text-slate-800 dark:text-slate-200">
-            {getSelectedText(selectedMessageIds.size)}
-          </span>
-
-          {/* Right: Copy & Forward */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                const texts = activeMessages
-                  .filter(m => selectedMessageIds.has(m.id) && m.text)
-                  .map(m => m.text)
-                  .join('\n');
-                if (texts) {
-                  navigator.clipboard.writeText(texts);
-                  showToast('Скопировано в буфер');
-                }
-              }}
-              disabled={selectedMessageIds.size === 0}
-              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
-              title="Копировать"
-            >
-              <IconCopy size={20} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const firstSelected = activeMessages.find(m => selectedMessageIds.has(m.id));
-                if (firstSelected) {
-                  setForwardingMessage(firstSelected);
-                }
-              }}
-              disabled={selectedMessageIds.size === 0}
-              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
-              title="Переслать"
-            >
-              <IconShare3 size={20} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
+          {/* Chat Header or Selection Action Bar */}
+          <ChatHeader
+            activeRoom={activeRoom}
+            activeRoomDisplayName={activeRoom ? getRoomDisplayName(activeRoom) : ''}
+            isPeerOnline={isPeerOnline}
+            activeRoomTypingUsers={activeRoomTypingUsers}
+            getRoomAvatar={getRoomAvatar}
+            getRoomColor={getRoomColor}
+            onBackToRooms={() => setMobileView('list')}
+            isSelectMode={isSelectMode}
+            selectedMessageIds={selectedMessageIds}
+            onCancelSelectMode={() => {
+              setIsSelectMode(false);
+              setSelectedMessageIds(new Set());
+            }}
+            onPinSelected={() => {
+              const firstId = Array.from(selectedMessageIds)[0];
+              if (firstId) {
+                togglePinMessage(firstId);
                 setIsSelectMode(false);
                 setSelectedMessageIds(new Set());
-              }}
-              className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors ml-1"
-              title="Закрыть"
-            >
-              <IconX size={18} />
-            </button>
-          </div>
-        </div>
-      )}
+              }
+            }}
+            onCopySelected={() => {
+              const texts = activeMessages
+                .filter(m => selectedMessageIds.has(m.id))
+                .map(m => m.text || (m.poll ? `📊 Опрос: ${m.poll.question}\n` + m.poll.options.map((o, i) => `${i + 1}. ${o.text}`).join('\n') : (m.file ? `📎 ${m.file.name}` : '')))
+                .filter(Boolean)
+                .join('\n\n');
+              if (texts) {
+                navigator.clipboard.writeText(texts);
+                showToast('Скопировано в буфер');
+              }
+            }}
+            onForwardSelected={() => {
+              const firstSelected = activeMessages.find(m => selectedMessageIds.has(m.id));
+              if (firstSelected) {
+                setForwardingMessage(firstSelected);
+              }
+            }}
+            onDeleteSelected={handleDeleteSelectedAnimated}
+            isSearching={isSearching}
+            searchQuery={searchQuery}
+            onSearchQueryChange={handleSearchQueryChange}
+            totalSearchMatches={filteredMessages.length}
+            currentMatchIndex={currentMatchIndex}
+            onPrevMatch={handlePrevMatch}
+            onNextMatch={handleNextMatch}
+            onCloseSearch={() => {
+              setIsSearching(false);
+              setSearchQuery('');
+              setChatFilters({});
+            }}
+            onOpenGlobalSearch={() => setShowGlobalSearchModal(true)}
+            chatFilters={chatFilters}
+            setChatFilters={setChatFilters}
+            handleDatePreset={handleDatePreset}
+            onStartAudioCall={() => startCall('audio')}
+            onStartVideoCall={() => startCall('video')}
+            onStartSearching={() => setIsSearching(true)}
+            isRoomMuted={activeRoomId ? Boolean(mutedRooms[activeRoomId]) : false}
+            onToggleMute={() => activeRoomId && toggleRoomMute(activeRoomId)}
+            onOpenThemeModal={() => setShowThemeModal(true)}
+            onOpenUserInfo={() => setShowUserInfo(!showUserInfo)}
+            onClearHistory={handleClearCurrentChatHistory}
+          />
 
-      {/* Profile Edit Modal */}
-      {showProfileModal && (
-        <ProfileEditModal
-          onClose={() => setShowProfileModal(false)}
-          onToast={showToast}
-        />
-      )}
+          {/* Chat Message Stream */}
+          <ChatMessageFeed
+            activeRoomId={activeRoomId}
+            activeRoom={activeRoom}
+            currentUser={currentUser}
+            isConnected={isConnected}
+            messageFeedRef={messageFeedRef}
+            handleScroll={handleScroll}
+            slicedMessages={slicedMessages}
+            messageMap={messageMap}
+            currentPinnedMessage={currentPinnedMessage}
+            onJumpToMessage={jumpToMessage}
+            onTogglePinMessage={togglePinMessage}
+            getCleanMessageText={getCleanMessageText}
+            formatDateHeader={formatSeparatorDate}
+            isChatDragging={isDraggingFile}
+            showScrollDownBtn={showScrollDownBtn}
+            onScrollToBottom={scrollToBottom}
+            unreadCount={unreadCount}
+            isSelectMode={isSelectMode}
+            selectedMessageIds={selectedMessageIds}
+            onToggleSelectMessage={(id) => {
+              setSelectedMessageIds(prev => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                if (next.size === 0) setIsSelectMode(false);
+                return next;
+              });
+            }}
+            onReplyMessage={(msg) => {
+              setReplyingToMessage(msg);
+              setEditingMessage(null);
+            }}
+            onEditMessage={(msg) => {
+              setEditingMessage(msg);
+              setInputText(msg.text || '');
+              setReplyingToMessage(null);
+            }}
+            onDeleteMessageAnimated={handleDeleteMessageAnimated}
+            onToggleReaction={(msgId, reaction) => toggleReaction(msgId, reaction)}
+            onVotePoll={(msgId, roomId, optionIds) => votePoll(msgId, roomId, optionIds)}
+            onClosePoll={(msgId, roomId) => closePoll(msgId, roomId)}
+            onOpenGalleryMedia={(msgId) => setActiveGalleryMediaId(msgId)}
+            onContextMenu={handleContextMenu}
+          />
 
-      {/* Global Message Search Suite Modal */}
-      {showGlobalSearchModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="w-full h-full md:h-[80vh] md:max-w-xl bg-white dark:bg-[#17212b] md:rounded-3xl md:border md:border-slate-200 dark:md:border-white/10 md:shadow-2xl flex flex-col overflow-hidden">
-            <SearchPage
-              roomId={activeRoomId || undefined}
-              userId={currentUser || 'vlad'}
-              allMessages={messages}
-              rooms={rooms}
-              userProfiles={userProfiles}
-              onNavigateToMessage={(item) => {
-                const targetRoomId = item.room_id || item.roomId;
-                const targetMessageId = item.id;
-                setShowGlobalSearchModal(false);
-                setMobileView('chat');
+          {/* Bottom Input Bar */}
+          <ChatInputBar
+            selectedFile={selectedFile}
+            onClearSelectedFile={() => setSelectedFile(null)}
+            editingMessage={editingMessage}
+            onCancelEditing={() => {
+              setEditingMessage(null);
+              setInputText('');
+            }}
+            replyingToMessage={replyingToMessage}
+            onCancelReply={() => setReplyingToMessage(null)}
+            currentUser={currentUser}
+            getCleanMessageText={getCleanMessageText}
+            mentionState={mentionState}
+            filteredMentions={filteredMentions}
+            mentionCursor={mentionCursor}
+            setMentionCursor={setMentionCursor}
+            applyMention={applyMention}
+            quickStickerSuggestions={quickStickerSuggestions}
+            onSendSticker={handleSendSticker}
+            showEmojiPicker={showEmojiPicker}
+            setShowEmojiPicker={setShowEmojiPicker}
+            onInsertEmoji={insertEmoji}
+            recordedVoicePreview={recordedVoicePreview}
+            onCancelRecordedVoicePreview={cancelRecordedVoicePreview}
+            onSendRecordedVoicePreview={sendRecordedVoicePreview}
+            isRecording={isRecording}
+            isVoiceLocked={isVoiceLocked}
+            isVoicePaused={isVoicePaused}
+            recordTime={recordTime}
+            liveVolumeLevels={liveVolumeLevels}
+            voiceDragOffset={voiceDragOffset}
+            onStopRecording={stopRecording}
+            onToggleVoicePause={toggleVoicePause}
+            fileInputRef={fileInputRef}
+            onFileSelect={handleFileSelect}
+            textareaRef={textareaRef}
+            inputText={inputText}
+            onInputChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onTextSelection={handleTextSelection}
+            formattingToolbar={formattingToolbar}
+            applyFormatting={applyFormatting}
+            onCloseFormattingToolbar={() => setFormattingToolbar(null)}
+            onStartVideoRecording={startVideoRecording}
+            onOpenPollModal={() => setShowPollModal(true)}
+            inputActionMode={inputActionMode}
+            setInputActionMode={setInputActionMode}
+            onVoicePointerDown={handleVoicePointerDown}
+            onVoicePointerMove={handleVoicePointerMove}
+            onVoicePointerUp={handleVoicePointerUp}
+            onSend={handleSend}
+            showToast={showToast}
+          />
+        </main>
 
-                // Clear in-chat search & filter state so the conversation context is unobstructed
-                setIsSearching(false);
-                setSearchQuery('');
-                setChatFilters({});
+        {/* 3. Right Sidebar: User Info Panel */}
+        {showUserInfo && (
+          <ChatUserInfoPanel
+            onClose={() => setShowUserInfo(false)}
+            activeRoom={activeRoom}
+            activePeerId={activePeerId}
+            activePeerProfile={activePeerProfile}
+            activePeerAvatar={activePeerAvatar}
+            isPeerOnline={isPeerOnline}
+            currentUser={currentUser}
+            getRoomDisplayName={getRoomDisplayName}
+            getRoomColor={getRoomColor}
+            onOpenProfileModal={() => setShowProfileModal(true)}
+            isMuted={activeRoomId ? Boolean(mutedRooms[activeRoomId]) : false}
+            onToggleMute={() => activeRoomId && toggleRoomMute(activeRoomId)}
+            notificationsEnabled={notificationsEnabled}
+            setNotificationsEnabled={setNotificationsEnabled}
+            sharedMediaMessages={activeMessages.filter(m => m.file && (m.file.type === 'image' || m.file.type === 'video' || m.file.type?.startsWith('image/') || m.file.type?.startsWith('video/')))}
+            onOpenGalleryMedia={(msgId) => setActiveGalleryMediaId(msgId)}
+          />
+        )}
+      </div>
 
-                if (targetRoomId && targetRoomId !== activeRoomId) {
-                  pendingNavigateMessageIdRef.current = targetMessageId;
-                  setActiveRoomId(targetRoomId);
-                } else {
-                  jumpToMessage(targetMessageId);
-                }
-              }}
-              onClose={() => setShowGlobalSearchModal(false)}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Advanced Filter Modal */}
-      {showAdvancedSearchModal && (
-        <AdvancedSearchModal
-          isOpen={showAdvancedSearchModal}
-          filters={{
-            startDate: chatFilters.dateRange?.startDate || undefined,
-            endDate: chatFilters.dateRange?.endDate || undefined,
-            senderId: chatFilters.senders?.[0] || undefined,
-            contentType: chatFilters.attachmentTypes?.[0] || undefined,
-            hasAttachments: chatFilters.hasAttachments || false,
-          }}
-          onClose={() => setShowAdvancedSearchModal(false)}
-          onApplyFilters={(applied) => {
-            setChatFilters((prev) => ({
-              ...prev,
-              dateRange: applied.startDate || applied.endDate ? { startDate: applied.startDate, endDate: applied.endDate } : undefined,
-              senders: applied.senderId ? [applied.senderId] : undefined,
-              attachmentTypes: applied.contentType ? [applied.contentType as any] : undefined,
-              hasAttachments: applied.hasAttachments || undefined,
-            }));
-          }}
-        />
-      )}
-
-      {/* Theme & Wallpaper Settings Modal */}
-      {showThemeModal && (
-        <ThemeSettingsModal
-          currentConfig={themeConfig}
-          isDark={darkMode}
-          onSave={(newConfig) => {
-            setThemeConfig(newConfig);
-            showToast('Тема и обои успешно обновлены');
-          }}
-          onClose={() => setShowThemeModal(false)}
-        />
-      )}
-
+      {/* Centralized Modals Host */}
+      <ChatModalsHost
+        currentUser={currentUser}
+        rooms={rooms}
+        activeRoomId={activeRoomId}
+        activeRoom={activeRoom}
+        userProfiles={userProfiles}
+        getUserDisplayName={getUserDisplayName}
+        getUserAvatar={getUserAvatar}
+        getRoomDisplayName={getRoomDisplayName}
+        getRoomColor={getRoomColor}
+        onlineStatus={onlineStatus}
+        unreadCount={unreadCount}
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
+        isSelectMode={isSelectMode}
+        setIsSelectMode={setIsSelectMode}
+        selectedMessageIds={selectedMessageIds}
+        setSelectedMessageIds={setSelectedMessageIds}
+        activeMessages={activeMessages}
+        handleDeleteSelectedAnimated={handleDeleteSelectedAnimated}
+        getSelectedText={getSelectedText}
+        showProfileModal={showProfileModal}
+        setShowProfileModal={setShowProfileModal}
+        showPollModal={showPollModal}
+        setShowPollModal={setShowPollModal}
+        handleCreatePoll={handleCreatePoll}
+        showGlobalSearchModal={showGlobalSearchModal}
+        setShowGlobalSearchModal={setShowGlobalSearchModal}
+        globalSearchSeed={globalSearchSeed}
+        setGlobalSearchSeed={setGlobalSearchSeed}
+        onNavigateFromGlobalSearch={handleNavigateFromGlobalSearch}
+        allMessages={messages}
+        showAdvancedSearchModal={showAdvancedSearchModal}
+        setShowAdvancedSearchModal={setShowAdvancedSearchModal}
+        chatFilters={chatFilters}
+        setChatFilters={setChatFilters}
+        showThemeModal={showThemeModal}
+        setShowThemeModal={setShowThemeModal}
+        themeConfig={themeConfig}
+        setThemeConfig={setThemeConfig}
+        activeStoryViewerUser={activeStoryViewerUser}
+        setActiveStoryViewerUser={setActiveStoryViewerUser}
+        isStoryCreateOpen={isStoryCreateOpen}
+        setIsStoryCreateOpen={setIsStoryCreateOpen}
+        onSendStoryDirectMessage={(peerUserId, text) => {
+          const dmRoom = rooms.find(r => r.type === 'direct' && r.participants.includes(peerUserId as UserId));
+          if (dmRoom) {
+            sendMessage(text, undefined, undefined, dmRoom.id);
+          }
+        }}
+        activeGalleryMediaId={activeGalleryMediaId}
+        setActiveGalleryMediaId={setActiveGalleryMediaId}
+        roomMediaMessages={roomMediaMessages}
+        onHashtagClick={handleHashtagClick}
+        showCommandPalette={showCommandPalette}
+        setShowCommandPalette={setShowCommandPalette}
+        onSelectRoomFromPalette={(roomId) => {
+          setActiveRoomId(roomId);
+          setMobileView('chat');
+        }}
+        onToggleMuteActiveRoom={activeRoomId ? () => toggleRoomMute(activeRoomId) : undefined}
+        isRoomMuted={activeRoomId ? Boolean(mutedRooms[activeRoomId]) : false}
+        showArchiveModal={showArchiveModal}
+        setShowArchiveModal={setShowArchiveModal}
+        forwardingMessage={forwardingMessage}
+        setForwardingMessage={setForwardingMessage}
+        handleForwardToRoom={handleForwardToRoom}
+        contextMenuTarget={contextMenuTarget}
+        setContextMenuTarget={setContextMenuTarget}
+        onReplyMessage={(msg) => {
+          setReplyingToMessage(msg);
+          setEditingMessage(null);
+        }}
+        onEditMessage={(msg) => {
+          setEditingMessage(msg);
+          setInputText(msg.text || '');
+          setReplyingToMessage(null);
+        }}
+        onPinMessage={togglePinMessage}
+        onDeleteMessageAnimated={handleDeleteMessageAnimated}
+        onToggleReaction={(msgId, emoji) => toggleReaction(msgId, emoji)}
+        forwardMessage={forwardMessage}
+        toast={toast}
+        setToast={setToast}
+        showToast={showToast}
+        callSession={callSession}
+        remoteAudioRef={remoteAudioRef}
+        localAudioRef={localAudioRef}
+        remoteVideoRef={remoteVideoRef}
+        localVideoRef={localVideoRef}
+        acceptCall={acceptCall}
+        rejectCall={rejectCall}
+        endCall={endCall}
+        toggleMute={toggleMute}
+        isMuted={isMuted}
+        toggleCamera={toggleCamera}
+        isCameraOff={isCameraOff}
+        isRecordingVideo={isRecordingVideo}
+        videoPreviewRef={videoPreviewRef}
+        videoRecordTime={videoRecordTime}
+        formatRecordTime={formatRecordTime}
+        stopVideoRecording={stopVideoRecording}
+        showQrModal={showQrModal}
+        setShowQrModal={setShowQrModal}
+        showNewChatModal={showNewChatModal}
+        setShowNewChatModal={setShowNewChatModal}
+      />
     </div>
   );
 };
+
+export default ChatScreen;

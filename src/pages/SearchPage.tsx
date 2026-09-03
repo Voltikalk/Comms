@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchMessages } from '../hooks/useSearchMessages';
 import { SearchBar } from '../components/Search/SearchBar';
 import { SearchHistory } from '../components/Search/SearchHistory';
@@ -13,6 +13,7 @@ export interface SearchPageProps {
   allMessages?: Message[];
   rooms?: Room[];
   userProfiles?: Record<string, UserProfile>;
+  initialQuery?: string;
   onNavigateToMessage?: (item: any) => void;
   onClose?: () => void;
 }
@@ -23,6 +24,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
   allMessages = [],
   rooms = [],
   userProfiles = {},
+  initialQuery,
   onNavigateToMessage,
   onClose,
 }) => {
@@ -37,7 +39,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     }
   });
 
-  const saveHistory = (q: string) => {
+  const saveHistory = useCallback((q: string) => {
     const clean = q.trim();
     if (!clean || clean.length < 2) return;
     setSearchHistoryList((prev) => {
@@ -47,7 +49,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
       } catch {}
       return next;
     });
-  };
+  }, [userId]);
 
   const clearHistory = () => {
     setSearchHistoryList([]);
@@ -67,14 +69,21 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     clearSearch,
   } = useSearchMessages({ roomId: searchScope === 'room' ? roomId : undefined, userId });
 
-  const getRoomName = (rId: string): string => {
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) {
+      setQuery(initialQuery.trim());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const getRoomName = useCallback((rId: string): string => {
     const rList = rooms.length > 0 ? rooms : ALL_ROOMS;
     const room = rList.find((r) => r.id === rId);
     if (!room) return 'Чат';
     if (room.name) return room.name;
     const peer = room.participants?.find((p) => p !== userId);
     return peer ? (USER_NAMES[peer] || peer) : room.name || 'Диалог';
-  };
+  }, [rooms, userId]);
 
   const createHighlightedSnippet = (text: string, q: string) => {
     if (!text) return '';
@@ -116,9 +125,14 @@ export const SearchPage: React.FC<SearchPageProps> = ({
           .replace(/^\[Переслано от [^\]]+\]:\s*/, '');
         const textMatch = cleanMsgText.toLowerCase().includes(cleanQ);
         const fileNameMatch = m.file && m.file.name.toLowerCase().includes(cleanQ);
+        const pollMatch = Boolean(
+          m.poll &&
+            (m.poll.question.toLowerCase().includes(cleanQ) ||
+              m.poll.options?.some((opt) => opt.text.toLowerCase().includes(cleanQ)))
+        );
         const senderName = USER_NAMES[m.sender] || m.sender;
         const senderMatch = senderName.toLowerCase().includes(cleanQ);
-        return textMatch || fileNameMatch || senderMatch;
+        return textMatch || fileNameMatch || senderMatch || pollMatch;
       });
     }
 
@@ -144,7 +158,8 @@ export const SearchPage: React.FC<SearchPageProps> = ({
       const cleanMsgText = (m.text || '')
         .replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '')
         .replace(/^\[Переслано от [^\]]+\]:\s*/, '');
-      const headline = createHighlightedSnippet(cleanMsgText || (m.file ? m.file.name : ''), cleanQ);
+      const displayContent = cleanMsgText || (m.poll ? `📊 Опрос: ${m.poll.question}` : (m.file ? m.file.name : ''));
+      const headline = createHighlightedSnippet(displayContent, cleanQ);
       const senderProfile = userProfiles[m.sender];
       return {
         id: m.id,
@@ -157,15 +172,16 @@ export const SearchPage: React.FC<SearchPageProps> = ({
           display_name: senderProfile?.firstName || USER_NAMES[m.sender] || m.sender,
           avatar_url: senderProfile?.avatarUrl,
         },
-        content: cleanMsgText,
+        content: displayContent,
         text: cleanMsgText,
         timestamp: m.timestamp,
         created_at: new Date(m.timestamp).toISOString(),
         headline,
         file: m.file,
+        poll: m.poll,
       };
     });
-  }, [allMessages, query, activeTab, searchScope, roomId, rooms, userProfiles, userId]);
+  }, [allMessages, query, activeTab, searchScope, roomId, userProfiles, getRoomName]);
 
   // Combine local and remote results (deduplicating by message id)
   const combinedResults = useMemo(() => {
@@ -185,7 +201,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
       const t = setTimeout(() => saveHistory(query), 1200);
       return () => clearTimeout(t);
     }
-  }, [query]);
+  }, [query, saveHistory]);
 
   const handleTabChange = (tab: 'all' | 'media' | 'files' | 'voice' | 'today') => {
     setActiveTab(tab);

@@ -190,7 +190,6 @@ const REFRESH_TOKEN_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
 
 // Seed preset accounts in memory cache
 const memoryUsers = new Map();
-const memoryAttempts = [];
 
 const SEED_USERS = [
   { userId: 'vlad', email: 'vlad@telegram.org', username: 'vlad', pass: 'vladpass', firstName: 'Влад', lastName: '', bio: '⚡ Всегда на связи', statusEmoji: '⚡' },
@@ -206,6 +205,7 @@ async function initUsers() {
     const passwordHash = await bcrypt.hash(u.pass, salt);
     
     const userDoc = {
+      id: u.userId,
       userId: u.userId,
       email: u.email.toLowerCase(),
       username: u.username.toLowerCase(),
@@ -215,6 +215,7 @@ async function initUsers() {
       firstName: u.firstName,
       lastName: u.lastName,
       bio: u.bio,
+      avatarUrl: '',
       statusEmoji: u.statusEmoji,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -223,6 +224,38 @@ async function initUsers() {
     memoryUsers.set(u.userId, userDoc);
     memoryUsers.set(u.email.toLowerCase(), userDoc);
     memoryUsers.set(u.username.toLowerCase(), userDoc);
+  }
+
+  // Load registered users from Supabase PostgreSQL
+  try {
+    const { data: dbUsers, error } = await supabase.from('users').select('*');
+    if (!error && dbUsers) {
+      for (const u of dbUsers) {
+        const userId = u.username || u.id;
+        const userDoc = {
+          id: u.id,
+          userId: userId,
+          email: (u.email || '').toLowerCase(),
+          username: (u.username || '').toLowerCase(),
+          passwordHash: u.password_hash || '',
+          isActive: u.is_active !== false,
+          firstName: u.display_name || u.username,
+          lastName: '',
+          bio: u.bio || '',
+          avatarUrl: u.avatar_url || '',
+          statusEmoji: '✨',
+          createdAt: u.created_at ? new Date(u.created_at) : new Date(),
+          updatedAt: u.updated_at ? new Date(u.updated_at) : new Date()
+        };
+        memoryUsers.set(userId, userDoc);
+        if (u.id) memoryUsers.set(u.id, userDoc);
+        if (u.email) memoryUsers.set(u.email.toLowerCase(), userDoc);
+        if (u.username) memoryUsers.set(u.username.toLowerCase(), userDoc);
+      }
+      console.log(`[Supabase Auth] Loaded ${dbUsers.length} users into auth cache.`);
+    }
+  } catch (err) {
+    console.warn('[Supabase Auth Warning] Could not load users from Supabase:', err.message);
   }
 }
 initUsers();
@@ -282,14 +315,88 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Укажите email/логин и пароль.' });
     }
 
-    const cleanInput = email.toLowerCase().trim();
-    const user = memoryUsers.get(cleanInput);
+    let rawInput = String(email).trim();
+    if (rawInput.startsWith('@')) {
+      rawInput = rawInput.slice(1).trim();
+    }
+    const cleanInput = rawInput.toLowerCase();
+
+    // 1. Search in memory cache
+    let user = memoryUsers.get(cleanInput);
+
+    // 2. If not found in memory, query Supabase users table dynamically
+    if (!user) {
+      try {
+        const { data: dbUser, error: dbErr } = await supabase
+          .from('users')
+          .select('*')
+          .or(`username.ilike.${cleanInput},email.ilike.${cleanInput}`)
+          .maybeSingle();
+
+        if (dbUser && !dbErr) {
+          user = {
+            id: dbUser.id,
+            userId: dbUser.username || dbUser.id,
+            email: (dbUser.email || '').toLowerCase(),
+            username: (dbUser.username || '').toLowerCase(),
+            passwordHash: dbUser.password_hash || '',
+            isActive: dbUser.is_active !== false,
+            firstName: dbUser.display_name || dbUser.username,
+            lastName: '',
+            bio: dbUser.bio || '',
+            avatarUrl: dbUser.avatar_url || '',
+            statusEmoji: '✨',
+            createdAt: dbUser.created_at ? new Date(dbUser.created_at) : new Date(),
+            updatedAt: dbUser.updated_at ? new Date(dbUser.updated_at) : new Date()
+          };
+          memoryUsers.set(user.userId, user);
+          if (user.id) memoryUsers.set(user.id, user);
+          if (user.email) memoryUsers.set(user.email, user);
+          if (user.username) memoryUsers.set(user.username, user);
+        }
+      } catch (sbErr) {
+        console.warn('[Login DB lookup error]', sbErr.message);
+      }
+    }
 
     if (!user) {
       return res.status(401).json({ error: 'Неверный email/логин или пароль.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    // 3. Check password: exact match (plain text) or bcrypt
+    let isMatch = false;
+    if (user.passwordHash) {
+      if (user.passwordHash === password) {
+        isMatch = true;
+      } else {
+        try {
+          isMatch = await bcrypt.compare(password, user.passwordHash);
+        } catch {
+          isMatch = false;
+        }
+      }
+    }
+
+    // 4. Fallback: Check with Supabase Auth directly if bcrypt didn't match
+    if (!isMatch) {
+      try {
+        const emailToTry = cleanInput.includes('@') ? cleanInput : `${cleanInput}@telegram.org`;
+        const { data: sbAuth, error: sbErr } = await supabase.auth.signInWithPassword({
+          email: emailToTry,
+          password
+        });
+        if (!sbErr && sbAuth?.user) {
+          isMatch = true;
+          // Sync hash for faster logins
+          try {
+            const salt = await bcrypt.genSalt(10);
+            user.passwordHash = await bcrypt.hash(password, salt);
+            await supabase.from('users').update({ password_hash: user.passwordHash }).eq('id', user.id);
+          } catch {}
+        }
+      } catch {}
+    }
+
     if (!isMatch) {
       return res.status(401).json({ error: 'Неверный email/логин или пароль.' });
     }
@@ -310,7 +417,7 @@ app.post('/api/auth/login', async (req, res) => {
 // POST /api/auth/register
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, username, password, firstName, lastName, avatarUrl } = req.body || {};
+    const { email, username, password, firstName, lastName, avatarUrl, bio } = req.body || {};
     if (!email || !username || !password) {
       return res.status(400).json({ error: 'Заполните все обязательные поля.' });
     }
@@ -325,8 +432,30 @@ app.post('/api/auth/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
     const userId = cleanUsername;
+    const displayName = `${firstName || cleanUsername} ${lastName || ''}`.trim();
+    const newUuid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2, 11);
+
+    // Persist to Supabase PostgreSQL users table
+    try {
+      await supabase.from('users').insert({
+        id: newUuid,
+        email: cleanEmail,
+        username: cleanUsername,
+        password_hash: passwordHash,
+        display_name: displayName,
+        avatar_url: avatarUrl || '',
+        bio: bio || '',
+        is_active: true
+      });
+      console.log(`[Supabase Register] User ${cleanUsername} successfully persisted to database.`);
+    } catch (sbErr) {
+      console.warn('[Supabase Register Warning] Could not persist user to DB:', sbErr.message);
+    }
 
     const newUser = {
+      id: newUuid,
       userId,
       email: cleanEmail,
       username: cleanUsername,
@@ -336,13 +465,14 @@ app.post('/api/auth/register', async (req, res) => {
       firstName: firstName || cleanUsername,
       lastName: lastName || '',
       avatarUrl: avatarUrl || '',
-      bio: '',
+      bio: bio || '',
       statusEmoji: '✨',
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
     memoryUsers.set(userId, newUser);
+    memoryUsers.set(newUuid, newUser);
     memoryUsers.set(cleanEmail, newUser);
     memoryUsers.set(cleanUsername, newUser);
 
@@ -356,6 +486,73 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (err) {
     console.error('[Register Error]', err);
     return res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
+  }
+});
+
+// GET /api/users/search
+app.get('/api/users/search', async (req, res) => {
+  try {
+    const q = (req.query.q || '').toString().trim().toLowerCase();
+    const currentUserId = (req.query.currentUserId || '').toString().trim().toLowerCase();
+    if (!q || q.length < 1) {
+      return res.json({ users: [] });
+    }
+
+    const resultsMap = new Map();
+
+    // 1. Search in Supabase
+    try {
+      const { data: dbUsers } = await supabase
+        .from('users')
+        .select('id, username, display_name, avatar_url, bio, is_active')
+        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+        .limit(25);
+
+      if (dbUsers) {
+        dbUsers.forEach((u) => {
+          const uName = (u.username || '').toLowerCase();
+          if (uName !== currentUserId && u.id !== currentUserId) {
+            resultsMap.set(uName, {
+              userId: u.username,
+              username: u.username,
+              displayName: u.display_name || u.username,
+              avatarUrl: u.avatar_url || '',
+              bio: u.bio || '',
+              isOnline: (userSockets.get(u.username)?.size || 0) > 0
+            });
+          }
+        });
+      }
+    } catch {
+      // Supabase search fallback
+    }
+
+    // 2. Search in memoryUsers
+    for (const [key, user] of memoryUsers.entries()) {
+      if (typeof key === 'string' && key === user.username) {
+        const uName = (user.username || '').toLowerCase();
+        if (uName !== currentUserId && user.userId.toLowerCase() !== currentUserId) {
+          const dName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+          if (uName.includes(q) || dName.includes(q)) {
+            if (!resultsMap.has(uName)) {
+              resultsMap.set(uName, {
+                userId: user.username,
+                username: user.username,
+                displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username,
+                avatarUrl: user.avatarUrl || '',
+                bio: user.bio || '',
+                isOnline: (userSockets.get(user.username)?.size || 0) > 0
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return res.json({ users: Array.from(resultsMap.values()) });
+  } catch (err) {
+    console.error('[User Search Error]', err);
+    return res.status(500).json({ error: 'Ошибка поиска пользователей' });
   }
 });
 
@@ -379,29 +576,128 @@ const AUTH_KEYS = {
   'sispass': 'sister'
 };
 
-const USER_ROOMS = {
-  vlad: ['family', 'girlfriend', 'mom-dm', 'dad-dm', 'sister-dm'],
-  anya: ['girlfriend'],
-  mom: ['family', 'mom-dm', 'mom-dad-dm', 'mom-sister-dm'],
-  dad: ['family', 'dad-dm', 'mom-dad-dm', 'dad-sister-dm'],
-  sister: ['family', 'sister-dm', 'mom-sister-dm', 'dad-sister-dm']
-};
+// Dynamic Room Store
+const memoryRooms = new Map();
 
-const ALL_USERS = ['vlad', 'anya', 'mom', 'dad', 'sister'];
+const DEFAULT_ROOMS = [
+  { id: 'family', name: 'Семья', type: 'group', participants: ['vlad', 'mom', 'dad', 'sister'] },
+  { id: 'girlfriend', name: 'Аня', type: 'direct', participants: ['vlad', 'anya'] },
+  { id: 'mom-dm', name: 'Мама', type: 'direct', participants: ['vlad', 'mom'] },
+  { id: 'dad-dm', name: 'Папа', type: 'direct', participants: ['vlad', 'dad'] },
+  { id: 'sister-dm', name: 'Сестра', type: 'direct', participants: ['vlad', 'sister'] },
+  { id: 'mom-dad-dm', name: 'Папа', type: 'direct', participants: ['mom', 'dad'] },
+  { id: 'mom-sister-dm', name: 'Сестра', type: 'direct', participants: ['mom', 'sister'] },
+  { id: 'dad-sister-dm', name: 'Сестра', type: 'direct', participants: ['dad', 'sister'] }
+];
+DEFAULT_ROOMS.forEach((r) => memoryRooms.set(r.id, r));
+
+function getUserRooms(userId) {
+  const rooms = [];
+  const cleanUser = (userId || '').toLowerCase();
+
+  // Always include personal Saved Messages
+  rooms.push({
+    id: 'saved-messages',
+    name: 'Избранное',
+    type: 'direct',
+    participants: [cleanUser]
+  });
+
+  for (const r of memoryRooms.values()) {
+    if (r.id === 'saved-messages') continue;
+    const parts = (r.participants || []).map((p) => p.toLowerCase());
+    if (parts.includes(cleanUser)) {
+      if (r.type === 'direct' && r.participants.length === 2) {
+        const otherUser = r.participants.find((p) => p.toLowerCase() !== cleanUser) || cleanUser;
+        const otherDoc = memoryUsers.get(otherUser.toLowerCase());
+        const otherName = otherDoc
+          ? (`${otherDoc.firstName || ''} ${otherDoc.lastName || ''}`.trim() || otherDoc.username)
+          : (r.name || otherUser);
+        rooms.push({
+          ...r,
+          name: otherName,
+          avatarUrl: otherDoc?.avatarUrl || r.avatarUrl || ''
+        });
+      } else {
+        rooms.push(r);
+      }
+    }
+  }
+
+  return rooms;
+}
+
+async function loadRoomsFromSupabase() {
+  try {
+    const { data: dbRooms, error } = await supabase
+      .from('rooms')
+      .select('id, name, type, avatar_url, room_members(user_id, users(username))');
+
+    if (!error && dbRooms) {
+      for (const r of dbRooms) {
+        if (r.name === 'Избранное') continue;
+        const participants = (r.room_members || []).map((m) => m.users?.username || m.user_id).filter(Boolean);
+        if (participants.length > 0) {
+          let roomId = r.id;
+          if (r.name === 'Семья') roomId = 'family';
+          else if (r.name === 'Аня' && r.type === 'direct') roomId = 'girlfriend';
+          else if (r.name === 'Мама' && r.type === 'direct') roomId = 'mom-dm';
+          else if (r.name === 'Папа' && r.type === 'direct') roomId = 'dad-dm';
+          else if (r.name === 'Сестра' && r.type === 'direct') roomId = 'sister-dm';
+
+          memoryRooms.set(roomId, {
+            id: roomId,
+            dbId: r.id,
+            name: r.name,
+            type: r.type,
+            participants,
+            avatarUrl: r.avatar_url || ''
+          });
+        }
+      }
+      console.log(`[Supabase Rooms] Loaded rooms into cache (Total rooms: ${memoryRooms.size}).`);
+    }
+  } catch (err) {
+    console.warn('[Supabase Rooms Warning] Could not load rooms from Supabase:', err.message);
+  }
+}
+loadRoomsFromSupabase();
+
 const userSockets = new Map();
-ALL_USERS.forEach((u) => userSockets.set(u, new Set()));
 const socketToUser = new Map();
 
 function getOnlineStatus() {
   const status = {};
-  for (const u of ALL_USERS) {
-    status[u] = (userSockets.get(u)?.size || 0) > 0;
+  for (const [u, sockets] of userSockets.entries()) {
+    status[u] = (sockets?.size || 0) > 0;
   }
   return status;
 }
 
 // In-Memory message cache synchronized with Supabase
 let messageHistory = [];
+
+// ===== Stories (In-Memory, 24h lifetime) =====
+const _STORY_LIFETIME_MS = 24 * 60 * 60 * 1000;
+const storiesStore = new Map(); // userId -> Story[]
+
+function pruneExpiredStories() {
+  const now = Date.now();
+  for (const [userId, list] of storiesStore.entries()) {
+    const alive = list.filter((s) => s.expiresAt > now);
+    if (alive.length === 0) storiesStore.delete(userId);
+    else if (alive.length !== list.length) storiesStore.set(userId, alive);
+  }
+}
+
+function getStoriesState() {
+  pruneExpiredStories();
+  const state = {};
+  for (const [userId, list] of storiesStore.entries()) {
+    state[userId] = list;
+  }
+  return state;
+}
 
 // Helper: Load initial messages from Supabase PostgreSQL
 async function loadMessagesFromSupabase() {
@@ -449,7 +745,22 @@ async function loadMessagesFromSupabase() {
       if (att) {
         const mime = (att.file_type || '').toLowerCase();
         const fName = (att.file_name || '').toLowerCase();
-        if (mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|heic)$/i.test(fName)) {
+        const fUrl = (att.file_url || '').toLowerCase();
+        if (
+          mime === 'sticker' || 
+          fName.endsWith('.tgs') || 
+          fUrl.endsWith('.tgs') || 
+          fUrl.includes('sticker') || 
+          fName.startsWith('sticker_') ||
+          fName.includes('уточка') ||
+          fName.includes('вишенка') ||
+          fName.includes('stonks') ||
+          fName.includes('бокс') ||
+          fName.includes('пепе') ||
+          fName.includes('колобок')
+        ) {
+          fileType = 'sticker';
+        } else if (mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|heic)$/i.test(fName)) {
           fileType = 'image';
         } else if (mime.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac|opus)$/i.test(fName) || fName.startsWith('голосовое сообщение')) {
           fileType = 'audio';
@@ -514,6 +825,9 @@ async function resolveRoomUuid(roomIdOrName) {
   return data?.id || null;
 }
 
+// Periodically prune expired stories every 10 minutes
+setInterval(pruneExpiredStories, 10 * 60 * 1000);
+
 // Socket.io Connection Handler
 io.on('connection', async (socket) => {
   const tokenOrKey = socket.handshake.auth?.token || socket.handshake.query?.token;
@@ -540,39 +854,271 @@ io.on('connection', async (socket) => {
   if (!userSockets.has(user)) {
     userSockets.set(user, new Set());
   }
-  if (!ALL_USERS.includes(user)) {
-    ALL_USERS.push(user);
-  }
-  if (!USER_ROOMS[user]) {
-    USER_ROOMS[user] = ['family'];
-  }
 
   socketToUser.set(socket.id, user);
   userSockets.get(user).add(socket.id);
+  socket.join(user); // Личная комната для прямых оповещений
 
   console.log(`[Server] User connected: ${user} (Socket: ${socket.id}, Devices: ${userSockets.get(user).size})`);
 
-  // Dynamically check authorized rooms
+  // Динамическая проверка доступа к комнатам
   const isRoomAllowedForUser = (roomId, targetUser) => {
     if (!roomId) return false;
-    if (roomId === 'family' || roomId === 'general') return true;
-    if (USER_ROOMS[targetUser] && USER_ROOMS[targetUser].includes(roomId)) return true;
-    if (roomId.startsWith('dm-') && roomId.includes(targetUser)) return true;
-    return true;
+    if (roomId === 'saved-messages') return true;
+    const cleanTarget = (targetUser || '').toLowerCase();
+    const r = memoryRooms.get(roomId);
+    if (r && r.participants && r.participants.map((p) => p.toLowerCase()).includes(cleanTarget)) {
+      return true;
+    }
+    if (roomId.startsWith('dm-') && roomId.includes(cleanTarget)) {
+      return true;
+    }
+    return false;
   };
 
-  // Join authorized rooms
-  const allowedRooms = USER_ROOMS[user] || ['family'];
-  allowedRooms.forEach((roomId) => {
-    socket.join(roomId);
+  // Подключение к персональным комнатам пользователя
+  const userRooms = getUserRooms(user);
+  userRooms.forEach((roomIdObj) => {
+    socket.join(roomIdObj.id);
   });
+
+  // Отправка персонального списка комнат клиенту
+  socket.emit('rooms_list', userRooms);
 
   // Broadcast presence
   io.emit('status_update', getOnlineStatus());
 
+  // 0. Запрос списка комнат
+  socket.on('get_user_rooms', (callback) => {
+    const rooms = getUserRooms(user);
+    if (typeof callback === 'function') callback(rooms);
+    else socket.emit('rooms_list', rooms);
+  });
+
+  // 0.1. Поиск пользователей в реальном времени
+  socket.on('search_users', async ({ query }, callback) => {
+    const q = (query || '').trim().toLowerCase();
+    if (!q) {
+      if (typeof callback === 'function') callback({ users: [] });
+      return;
+    }
+    const resultsMap = new Map();
+    try {
+      const { data: dbUsers } = await supabase
+        .from('users')
+        .select('id, username, display_name, avatar_url, bio, is_active')
+        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+        .limit(25);
+      if (dbUsers) {
+        dbUsers.forEach((u) => {
+          const uName = (u.username || '').toLowerCase();
+          if (uName !== user.toLowerCase() && u.id !== user) {
+            resultsMap.set(uName, {
+              userId: u.username,
+              username: u.username,
+              displayName: u.display_name || u.username,
+              avatarUrl: u.avatar_url || '',
+              bio: u.bio || '',
+              isOnline: (userSockets.get(u.username)?.size || 0) > 0
+            });
+          }
+        });
+      }
+    } catch {
+      // Supabase search fallback
+    }
+
+    for (const [key, u] of memoryUsers.entries()) {
+      if (typeof key === 'string' && key === u.username && u.username.toLowerCase() !== user.toLowerCase()) {
+        const uName = (u.username || '').toLowerCase();
+        const dName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+        if (uName.includes(q) || dName.includes(q)) {
+          if (!resultsMap.has(uName)) {
+            resultsMap.set(uName, {
+              userId: u.username,
+              username: u.username,
+              displayName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.username,
+              avatarUrl: u.avatarUrl || '',
+              bio: u.bio || '',
+              isOnline: (userSockets.get(u.username)?.size || 0) > 0
+            });
+          }
+        }
+      }
+    }
+    const list = Array.from(resultsMap.values());
+    if (typeof callback === 'function') callback({ users: list });
+    else socket.emit('search_users_result', { users: list });
+  });
+
+  // 0.2. Создание или открытие личного диалога 1-на-1
+  socket.on('create_direct_chat', async ({ targetUserId }, callback) => {
+    if (!targetUserId || targetUserId.toLowerCase() === user.toLowerCase()) {
+      if (typeof callback === 'function') callback({ error: 'Неверный адресат' });
+      return;
+    }
+    const cleanTarget = targetUserId.toLowerCase();
+    const cleanUser = user.toLowerCase();
+
+    // Проверяем, существует ли уже диалог между этими пользователями
+    let existing = null;
+    for (const r of memoryRooms.values()) {
+      if (r.type === 'direct' && r.participants && r.participants.length === 2) {
+        const p1 = r.participants[0].toLowerCase();
+        const p2 = r.participants[1].toLowerCase();
+        if ((p1 === cleanUser && p2 === cleanTarget) || (p1 === cleanTarget && p2 === cleanUser)) {
+          existing = r;
+          break;
+        }
+      }
+    }
+
+    if (existing) {
+      socket.join(existing.id);
+      const targetDoc = memoryUsers.get(cleanTarget);
+      const returnRoom = {
+        ...existing,
+        name: targetDoc ? (`${targetDoc.firstName || ''} ${targetDoc.lastName || ''}`.trim() || targetDoc.username) : existing.name,
+        avatarUrl: targetDoc?.avatarUrl || existing.avatarUrl || ''
+      };
+      if (typeof callback === 'function') callback({ room: returnRoom });
+      socket.emit('room_created', returnRoom);
+      return;
+    }
+
+    // Создаем новый личный чат
+    const targetDoc = memoryUsers.get(cleanTarget);
+    const targetDisplayName = targetDoc ? (`${targetDoc.firstName || ''} ${targetDoc.lastName || ''}`.trim() || targetDoc.username) : cleanTarget;
+    const currentDoc = memoryUsers.get(cleanUser);
+    const currentDisplayName = currentDoc ? (`${currentDoc.firstName || ''} ${currentDoc.lastName || ''}`.trim() || currentDoc.username) : cleanUser;
+
+    const sorted = [cleanUser, cleanTarget].sort();
+    const roomId = `dm-${sorted[0]}-${sorted[1]}`;
+
+    const newRoom = {
+      id: roomId,
+      name: targetDisplayName,
+      type: 'direct',
+      participants: [cleanUser, cleanTarget],
+      avatarUrl: targetDoc?.avatarUrl || ''
+    };
+
+    memoryRooms.set(roomId, newRoom);
+
+    // Подключаем сокеты обоих участников
+    socket.join(roomId);
+    if (userSockets.has(cleanUser)) {
+      userSockets.get(cleanUser).forEach((sId) => io.sockets.sockets.get(sId)?.join(roomId));
+    }
+    if (userSockets.has(cleanTarget)) {
+      userSockets.get(cleanTarget).forEach((sId) => io.sockets.sockets.get(sId)?.join(roomId));
+    }
+
+    // Сохраняем в Supabase в фоне
+    (async () => {
+      try {
+        const u1Uuid = await resolveUserUuid(cleanUser);
+        const u2Uuid = await resolveUserUuid(cleanTarget);
+        if (u1Uuid && u2Uuid) {
+          const { data: dbRoom } = await supabase.from('rooms').insert({
+            name: `${cleanUser} & ${cleanTarget}`,
+            type: 'direct',
+            created_by: u1Uuid
+          }).select().single();
+          if (dbRoom) {
+            newRoom.dbId = dbRoom.id;
+            await supabase.from('room_members').insert([
+              { room_id: dbRoom.id, user_id: u1Uuid, role: 'admin' },
+              { room_id: dbRoom.id, user_id: u2Uuid, role: 'member' }
+            ]);
+          }
+        }
+      } catch (err) {
+        console.warn('[Supabase Direct Room Error]', err.message);
+      }
+    })();
+
+    if (typeof callback === 'function') callback({ room: newRoom });
+    socket.emit('room_created', newRoom);
+
+    // Оповещаем собеседника с отображением имени текущего пользователя
+    const roomForTarget = {
+      ...newRoom,
+      name: currentDisplayName,
+      avatarUrl: currentDoc?.avatarUrl || ''
+    };
+    io.to(cleanTarget).emit('room_created', roomForTarget);
+  });
+
+  // 0.3. Создание группы
+  socket.on('create_group_chat', async ({ name, participantIds, avatarUrl }, callback) => {
+    if (!name || !name.trim()) {
+      if (typeof callback === 'function') callback({ error: 'Укажите название группы' });
+      return;
+    }
+    const cleanMembers = Array.from(new Set([user.toLowerCase(), ...(participantIds || []).map((p) => p.toLowerCase())]));
+    const roomId = `group-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    const newGroup = {
+      id: roomId,
+      name: name.trim(),
+      type: 'group',
+      participants: cleanMembers,
+      avatarUrl: avatarUrl || ''
+    };
+
+    memoryRooms.set(roomId, newGroup);
+
+    cleanMembers.forEach((memberId) => {
+      if (userSockets.has(memberId)) {
+        userSockets.get(memberId).forEach((sId) => io.sockets.sockets.get(sId)?.join(roomId));
+      }
+      io.to(memberId).emit('room_created', newGroup);
+    });
+
+    // Сохранение группы в Supabase
+    (async () => {
+      try {
+        const creatorUuid = await resolveUserUuid(user);
+        if (creatorUuid) {
+          const { data: dbRoom } = await supabase.from('rooms').insert({
+            name: name.trim(),
+            type: 'group',
+            created_by: creatorUuid,
+            avatar_url: avatarUrl || ''
+          }).select().single();
+          if (dbRoom) {
+            newGroup.dbId = dbRoom.id;
+            const memberInserts = [];
+            for (const m of cleanMembers) {
+              const mUuid = await resolveUserUuid(m);
+              if (mUuid) {
+                memberInserts.push({
+                  room_id: dbRoom.id,
+                  user_id: mUuid,
+                  role: m === user.toLowerCase() ? 'admin' : 'member'
+                });
+              }
+            }
+            if (memberInserts.length > 0) {
+              await supabase.from('room_members').insert(memberInserts);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Supabase Group Save Warning]', err.message);
+      }
+    })();
+
+    if (typeof callback === 'function') callback({ room: newGroup });
+  });
+
   // Send message history
   const userHistory = messageHistory.filter((msg) => isRoomAllowedForUser(msg.roomId, user));
   socket.emit('history', userHistory);
+
+  // Send current active stories
+  socket.emit('stories_state', getStoriesState());
 
   // 1. SEND MESSAGE (Synchronized with Supabase)
   socket.on('send_message', async (data) => {
@@ -591,10 +1137,25 @@ io.on('connection', async (socket) => {
       }
     }
 
+    const hasMeaningfulContent = Boolean(
+      (data.text && String(data.text).trim().length > 0) ||
+      data.file ||
+      data.forwardedFrom ||
+      data.poll ||
+      data.sticker
+    );
+    if (!hasMeaningfulContent) return;
+
     let finalFile = data.file;
 
-    // Process file upload if needed
-    if (finalFile && finalFile.data && finalFile.data.startsWith('data:')) {
+    // Process file upload if needed (skip stickers and SVG data URIs)
+    if (
+      finalFile &&
+      finalFile.data &&
+      finalFile.data.startsWith('data:') &&
+      finalFile.type !== 'sticker' &&
+      !finalFile.data.startsWith('data:image/svg+xml')
+    ) {
       try {
         let base64Data = finalFile.data;
         const marker = ';base64,';
@@ -619,7 +1180,13 @@ io.on('connection', async (socket) => {
       }
     }
 
-    const messageId = data.id || Math.random().toString(36).substring(2, 9);
+    const isUuid = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    const messageId = (data.id && isUuid(data.id))
+      ? data.id
+      : (typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).substring(2, 9));
+
     const newMessage = {
       id: messageId,
       roomId: data.roomId,
@@ -629,6 +1196,7 @@ io.on('connection', async (socket) => {
       replyToId: data.replyToId || undefined,
       forwardedFrom: data.forwardedFrom || undefined,
       file: finalFile || undefined,
+      poll: data.poll || undefined,
       readBy: []
     };
 
@@ -647,13 +1215,21 @@ io.on('connection', async (socket) => {
         const roomUuid = await resolveRoomUuid(data.roomId);
 
         if (senderUuid && roomUuid) {
+          const insertPayload = {
+            room_id: roomUuid,
+            sender_id: senderUuid,
+            content: data.text || '',
+          };
+          if (isUuid(messageId)) {
+            insertPayload.id = messageId;
+          }
+          if (data.replyToId && isUuid(data.replyToId)) {
+            insertPayload.reply_to_id = data.replyToId;
+          }
+
           const { data: insertedMsg, error: insErr } = await supabase
             .from('messages')
-            .insert({
-              room_id: roomUuid,
-              sender_id: senderUuid,
-              content: data.text || '',
-            })
+            .insert(insertPayload)
             .select()
             .single();
 
@@ -766,6 +1342,155 @@ io.on('connection', async (socket) => {
     })();
   });
 
+  // 4b. POLL VOTE (In-memory with broadcast)
+  socket.on('vote_poll', ({ messageId, roomId, optionIds }) => {
+    if (!isRoomAllowedForUser(roomId, user)) return;
+    const msg = messageHistory.find((m) => m.id === messageId && m.roomId === roomId);
+    if (!msg || !msg.poll || msg.poll.closed) return;
+    if (!msg.poll.votes) msg.poll.votes = {};
+
+    // In Quiz mode, votes cannot be changed or retracted once submitted
+    const isQuiz = Boolean(msg.poll.quiz);
+    const hasAlreadyVoted = Object.values(msg.poll.votes).some((voters) => voters.includes(user));
+    if (isQuiz && hasAlreadyVoted) return;
+
+    let ids = Array.isArray(optionIds) ? optionIds : [optionIds].filter(Boolean);
+    if ((isQuiz || !msg.poll.multiple) && ids.length > 1) {
+      ids = ids.slice(0, 1);
+    }
+
+    // Remove user from all options first
+    Object.keys(msg.poll.votes).forEach((optId) => {
+      msg.poll.votes[optId] = (msg.poll.votes[optId] || []).filter((voter) => voter !== user);
+      if (msg.poll.votes[optId].length === 0) delete msg.poll.votes[optId];
+    });
+
+    // Apply new votes
+    ids.forEach((optionId) => {
+      if (!msg.poll.options.some((o) => o.id === optionId)) return;
+      if (!msg.poll.votes[optionId]) msg.poll.votes[optionId] = [];
+      if (!msg.poll.votes[optionId].includes(user)) {
+        msg.poll.votes[optionId].push(user);
+      }
+    });
+
+    io.to(roomId).emit('poll_updated', { messageId, roomId, poll: msg.poll });
+  });
+
+  // 4c. POLL CLOSE (author only, broadcast)
+  socket.on('close_poll', ({ messageId, roomId }) => {
+    if (!isRoomAllowedForUser(roomId, user)) return;
+    const msg = messageHistory.find((m) => m.id === messageId && m.roomId === roomId);
+    if (!msg || !msg.poll || msg.poll.closed) return;
+    if (msg.sender !== user) return;
+
+    msg.poll.closed = true;
+    io.to(roomId).emit('poll_updated', { messageId, roomId, poll: msg.poll });
+  });
+
+  // 4d. STORIES HANDLERS (Real-time ephemeral stories with Telegram 3.0 capabilities)
+  socket.on('send_story', (payload) => {
+    if (!payload || !payload.data) return;
+    pruneExpiredStories();
+    const {
+      type = 'text',
+      data,
+      caption,
+      background,
+      fontStyle,
+      textColor,
+      textBgStyle,
+      authorName,
+      durationHours = 24,
+      privacy = 'everyone',
+      isPinned = false,
+      isCloseFriends = false,
+      textOverlays,
+      stickerOverlays,
+      drawingData
+    } = payload;
+
+    const lifetimeMs = Math.max(1, Number(durationHours) || 24) * 60 * 60 * 1000;
+    const storyId = payload.id || ('story-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7));
+
+    const userStories = storiesStore.get(user) || [];
+    // Deduplicate if already present
+    if (userStories.some((s) => s.id === storyId)) {
+      return;
+    }
+
+    const story = {
+      id: storyId,
+      userId: user,
+      authorName: authorName || user,
+      type,
+      data,
+      caption: caption || undefined,
+      background: background || undefined,
+      fontStyle: fontStyle || undefined,
+      textColor: textColor || undefined,
+      textBgStyle: textBgStyle || undefined,
+      timestamp: Date.now(),
+      views: [],
+      reactions: {},
+      durationHours: Number(durationHours) || 24,
+      privacy,
+      isPinned: Boolean(isPinned),
+      isCloseFriends: Boolean(isCloseFriends),
+      textOverlays: Array.isArray(textOverlays) ? textOverlays : undefined,
+      stickerOverlays: Array.isArray(stickerOverlays) ? stickerOverlays : undefined,
+      drawingData: drawingData || undefined,
+      expiresAt: isPinned ? Date.now() + 365 * 24 * 60 * 60 * 1000 : Date.now() + lifetimeMs
+    };
+
+    userStories.push(story);
+    if (userStories.length > 50) userStories.shift();
+    storiesStore.set(user, userStories);
+
+    io.emit('stories_state', getStoriesState());
+  });
+
+  socket.on('delete_story', ({ storyId }) => {
+    if (!storyId) return;
+    const userStories = storiesStore.get(user) || [];
+    const filtered = userStories.filter((s) => s.id !== storyId);
+    if (filtered.length === 0) {
+      storiesStore.delete(user);
+    } else {
+      storiesStore.set(user, filtered);
+    }
+    io.emit('stories_state', getStoriesState());
+  });
+
+  socket.on('view_story', ({ storyId, storyAuthor }) => {
+    if (!storyId || !storyAuthor) return;
+    const authorStories = storiesStore.get(storyAuthor);
+    if (!authorStories) return;
+    const story = authorStories.find((s) => s.id === storyId);
+    if (!story) return;
+    if (!story.views.includes(user)) {
+      story.views.push(user);
+      io.emit('stories_state', getStoriesState());
+    }
+  });
+
+  socket.on('react_story', ({ storyId, storyAuthor, emoji }) => {
+    if (!storyId || !storyAuthor || !emoji) return;
+    const authorStories = storiesStore.get(storyAuthor);
+    if (!authorStories) return;
+    const story = authorStories.find((s) => s.id === storyId);
+    if (!story) return;
+    if (!story.reactions) story.reactions = {};
+    if (!story.reactions[emoji]) story.reactions[emoji] = [];
+    if (!story.reactions[emoji].includes(user)) {
+      story.reactions[emoji].push(user);
+    }
+    if (!story.views.includes(user)) {
+      story.views.push(user);
+    }
+    io.emit('stories_state', getStoriesState());
+  });
+
   // 5. MARK AS READ (Synchronized with Supabase)
   socket.on('mark_read', async ({ roomId, messageIds }) => {
     if (!isRoomAllowedForUser(roomId, user) || !Array.isArray(messageIds)) return;
@@ -850,7 +1575,7 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('call_end', ({ roomId, targetSocketId }) => {
-    if (!allowedRooms.includes(roomId)) return;
+    if (!isRoomAllowedForUser(roomId, user)) return;
     if (targetSocketId) {
       io.to(targetSocketId).emit('call_ended', { roomId });
     } else {
@@ -859,7 +1584,7 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('webrtc_signal', ({ roomId, targetSocketId, signal }) => {
-    if (!allowedRooms.includes(roomId)) return;
+    if (!isRoomAllowedForUser(roomId, user)) return;
     if (targetSocketId) {
       io.to(targetSocketId).emit('webrtc_signal', { signal, senderSocketId: socket.id });
     } else {
@@ -870,6 +1595,9 @@ io.on('connection', async (socket) => {
   socket.on('get_status', () => {
     socket.emit('status_update', getOnlineStatus());
   });
+
+  // Initial stories state emission
+  socket.emit('stories_state', getStoriesState());
 
   // Disconnect Handler
   socket.on('disconnect', () => {
@@ -886,7 +1614,7 @@ io.on('connection', async (socket) => {
   });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`\n======================================================`);
   console.log(`  🚀 Secure Comms Server Active (Supabase Synced):`);

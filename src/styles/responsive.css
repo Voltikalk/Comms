@@ -122,3 +122,24 @@
   align-items: center;
   width: 100%;
 }
+
+/* 8. Desktop App Window Controls Overlay & Standalone Enhancements */
+@media (display-mode: standalone), (display-mode: window-controls-overlay) {
+  body {
+    -webkit-app-region: drag;
+  }
+
+  button, input, select, textarea, [role="button"], a, nav, aside {
+    -webkit-app-region: no-drag;
+  }
+}
+
+/* 9. Mobile Hybrid Safe Area Helpers */
+.safe-area-bottom-nav {
+  padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+}
+
+.safe-area-top-header {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+

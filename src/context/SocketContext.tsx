@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
-import type { Message, UserId, Room, ConnectionStatus, CallSession, UserProfile } from '../types';
+import type { Message, UserId, Room, ConnectionStatus, CallSession, UserProfile, Poll, UserSearchResult } from '../types';
 import { USER_NAMES, KEY_TO_USER, ALL_ROOMS, SERVER_URL, DEFAULT_USER_PROFILES } from '../constants';
 import authService from '../services/auth.service';
 import type { RegisterRequest } from '../types/auth.types';
 import { supabase } from '../lib/supabase/client';
+import { isUserMentionedInText } from '../lib/mentions';
 
 
 interface SocketContextType {
@@ -28,13 +29,31 @@ interface SocketContextType {
   login: (emailOrKey: string, password?: string) => Promise<boolean>;
   register: (payload: RegisterRequest) => Promise<boolean>;
   logout: () => void;
+  searchUsers: (query: string) => Promise<UserSearchResult[]>;
+  createDirectChat: (targetUserId: string) => Promise<Room | null>;
+  createGroupChat: (name: string, participantIds: string[], avatarUrl?: string) => Promise<Room | null>;
   sendMessage: (
     text: string, 
     replyToId?: string,
-    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker'; data: string; size: number; rawBlob?: Blob | File; width?: number; height?: number; orientation?: 'vertical' | 'horizontal' | 'square'; stickerData?: any },
+    filePayload?: { 
+      name: string; 
+      type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker'; 
+      data: string; 
+      size: number; 
+      rawBlob?: Blob | File; 
+      width?: number; 
+      height?: number; 
+      orientation?: 'vertical' | 'horizontal' | 'square'; 
+      stickerData?: any;
+      waveform?: number[];
+      duration?: number;
+    },
     targetRoomId?: string,
-    forwardedFrom?: { sender: UserId; senderName: string; originalMessageId?: string }
+    forwardedFrom?: { sender: UserId; senderName: string; originalMessageId?: string },
+    poll?: Poll
   ) => void;
+  votePoll: (messageId: string, roomId: string, optionIds: string[]) => void;
+  closePoll: (messageId: string, roomId: string) => void;
   forwardMessage: (targetRoomId: string, message: Message) => void;
   editMessage: (messageId: string, newText: string) => void;
   deleteMessage: (messageId: string) => void;
@@ -42,6 +61,8 @@ interface SocketContextType {
   markRoomAsRead: (roomId: string) => void;
   unreadCount: (roomId: string) => number;
   lastMessageOf: (roomId: string) => Message | null;
+  notificationsEnabled: boolean;
+  setNotificationsEnabled: (enabled: boolean) => void;
   typingUsers: Record<string, Record<string, boolean>>;
   sendTypingStatus: (isTyping: boolean) => void;
 
@@ -61,7 +82,19 @@ interface SocketContextType {
   toggleMute: () => void;
   isCameraOff: boolean;
   toggleCamera: () => void;
+  socket: Socket | null;
 }
+
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
@@ -83,11 +116,32 @@ const sanitizeMessage = (msg: Message): Message => {
   }
 
   if (msg.file) {
+    let fileType = msg.file.type;
+    const fName = (msg.file.name || '').toLowerCase();
+    const fData = (msg.file.data || '').toLowerCase();
+    if (
+      fileType === 'sticker' ||
+      fName.startsWith('sticker_') ||
+      fName.endsWith('.tgs') ||
+      fData.endsWith('.tgs') ||
+      fData.includes('/stickers/') ||
+      fData.startsWith('data:image/svg+xml') ||
+      fName.includes('уточка') ||
+      fName.includes('вишенка') ||
+      fName.includes('stonks') ||
+      fName.includes('бокс') ||
+      fName.includes('пепе') ||
+      fName.includes('колобок')
+    ) {
+      fileType = 'sticker';
+    }
+
     return {
       ...msg,
       forwardedFrom,
       file: {
         ...msg.file,
+        type: fileType,
         isUploading: false,
         uploadProgress: undefined,
         data: msg.file.data && msg.file.data.startsWith('/uploads/') ? `${SERVER_URL}${msg.file.data}` : msg.file.data
@@ -110,6 +164,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const [activeRoomId, setActiveRoomId] = useState<string>(() => {
+    // Deep link first: #/chat/{roomId}
+    const hashMatch = window.location.hash.match(/^#\/chat\/(.+)$/);
+    if (hashMatch) {
+      return decodeURIComponent(hashMatch[1]);
+    }
     return localStorage.getItem('chat_active_room_v2') || '';
   });
 
@@ -125,6 +184,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Record<string, Record<string, boolean>>>({});
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [notificationsEnabled, setNotificationsEnabledState] = useState<boolean>(() => {
+    return localStorage.getItem('tg_notifications_enabled') !== 'false';
+  });
+
+  const setNotificationsEnabled = useCallback((enabled: boolean) => {
+    setNotificationsEnabledState(enabled);
+    try {
+      localStorage.setItem('tg_notifications_enabled', String(enabled));
+      if (enabled && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => { /* ignore */ });
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   // WebRTC Call States
   const [callSession, setCallSession] = useState<CallSession | null>(null);
@@ -133,6 +205,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
 
+  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -140,25 +213,39 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const targetSocketIdRef = useRef<string>('');
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
-  // Filter rooms based on participants (including general/family and direct chats for all registered users)
+  // Dynamic server-synced rooms
+  const [serverRooms, setServerRooms] = useState<Room[]>(() => {
+    try {
+      const saved = localStorage.getItem(`chat_server_rooms_${currentUser}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Calculate dynamic rooms for current user
   const rooms = useMemo(() => {
     if (!currentUser) return ALL_ROOMS;
-    const baseRooms = ALL_ROOMS.filter(r => r.participants.includes(currentUser) || r.id === 'family');
-    
-    // For custom registered users, generate direct 1-on-1 channels with default contacts
-    const isCustomUser = !['vlad', 'anya', 'mom', 'dad', 'sister'].includes(currentUser);
-    if (isCustomUser) {
-      const defaultPeers: UserId[] = ['vlad', 'anya', 'mom', 'dad', 'sister'];
-      const customDms: Room[] = defaultPeers.map((peer) => ({
-        id: `dm-${currentUser}-${peer}`,
-        name: USER_NAMES[peer] || peer,
-        type: 'direct' as const,
-        participants: [currentUser, peer]
-      }));
-      return [...baseRooms, ...customDms];
+    const savedRoom: Room = {
+      id: 'saved-messages',
+      name: 'Избранное',
+      type: 'direct',
+      participants: [currentUser]
+    };
+
+    if (serverRooms.length > 0) {
+      const filtered = serverRooms.filter((r) => r.id !== 'saved-messages');
+      return [savedRoom, ...filtered];
     }
-    return baseRooms;
-  }, [currentUser]);
+
+    const isPresetUser = ['vlad', 'anya', 'mom', 'dad', 'sister'].includes(currentUser);
+    if (isPresetUser) {
+      const baseRooms = ALL_ROOMS.filter(r => r.participants.includes(currentUser) || r.id === 'family');
+      return [savedRoom, ...baseRooms];
+    }
+
+    return [savedRoom];
+  }, [currentUser, serverRooms]);
 
   const activeRoom = rooms.find(r => r.id === activeRoomId) || rooms[0] || null;
 
@@ -282,6 +369,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const currentUserRef = useRef<UserId | null>(currentUser);
   const activeRoomIdRef = useRef<string>(activeRoomId);
   const isConnectedRef = useRef<boolean>(isConnected);
+  const notificationsEnabledRef = useRef<boolean>(notificationsEnabled);
+  const userProfilesRef = useRef<Record<UserId, UserProfile>>(userProfiles);
 
   useEffect(() => {
     currentUserRef.current = currentUser;
@@ -294,6 +383,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     isConnectedRef.current = isConnected;
   }, [isConnected]);
+
+  useEffect(() => {
+    notificationsEnabledRef.current = notificationsEnabled;
+  }, [notificationsEnabled]);
+
+  useEffect(() => {
+    userProfilesRef.current = userProfiles;
+  }, [userProfiles]);
 
   // ===== Read Receipts =====
   const markRoomAsRead = useCallback((roomId: string) => {
@@ -337,9 +434,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return roomMessages[roomMessages.length - 1];
   };
 
+  const roomsRef = useRef<Room[]>(rooms);
+  useEffect(() => {
+    roomsRef.current = rooms;
+  }, [rooms]);
+
   // ===== Sound + Browser Notifications =====
+  const navigateToRoomRef = useRef<(id: string) => void>(() => { });
+
   const notifyNewMessage = useCallback((message: Message) => {
-    const room = ALL_ROOMS.find((r) => r.id === message.roomId);
+    const room = roomsRef.current.find((r) => r.id === message.roomId);
     const senderName = USER_NAMES[message.sender] || message.sender;
     const roomName = room ? (room.type === 'group' ? room.name : senderName) : 'Чат';
 
@@ -349,19 +453,42 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
+    if (!notificationsEnabledRef.current) return;
+
+    // Mentions bypass per-chat mute and get an accent notification (Telegram behavior)
+    const me = currentUserRef.current;
+    const myProfile = me ? userProfilesRef.current[me] || DEFAULT_USER_PROFILES[me as UserId] : null;
+    const isMentionOfMe = isUserMentionedInText(message.text, {
+      id: me || undefined,
+      username: myProfile?.username,
+      firstName: myProfile?.firstName
+    });
+
+    // Respect per-chat mute (persisted by ChatScreen in localStorage)
+    if (!isMentionOfMe) {
+      try {
+        const muted: Record<string, boolean> = JSON.parse(localStorage.getItem('tg_muted_rooms') || '{}');
+        if (muted[message.roomId]) return;
+      } catch { /* ignore */ }
+    }
+
     playNotificationSound();
 
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         const preview = message.text || (message.file ? '📎 Вложение' : 'Новое сообщение');
-        const n = new Notification(`${senderName} · ${roomName}`, {
+        const title = isMentionOfMe
+          ? `${senderName} упомянул(а) вас · ${roomName}`
+          : `${senderName} · ${roomName}`;
+        const n = new Notification(title, {
           body: preview,
-          tag: message.roomId,
+          tag: isMentionOfMe ? `mention-${message.id}` : message.roomId,
           icon: '/icon-192.png'
         });
         n.onclick = () => {
           window.focus();
           n.close();
+          navigateToRoomRef.current(message.roomId);
         };
       } catch {
         // Ignore notification errors
@@ -389,6 +516,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
+        setSocketInstance(null);
       }
       setIsConnected(false);
       return;
@@ -398,22 +526,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       auth: {
         token: authKey
       },
+      transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       autoConnect: true
     });
 
     socketRef.current = socket;
+    setSocketInstance(socket);
 
     socket.on('connect', () => {
       setIsConnected(true);
       setError(null);
       console.log('Connected to server as', currentUser);
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().catch((_err) => {
-          // Notification denied or unsupported
-        });
-      }
     });
 
     socket.on('disconnect', () => {
@@ -428,6 +553,32 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.on('auth_error', (data: { message: string }) => {
       setError(data.message);
       logoutRef.current();
+    });
+
+    socket.on('rooms_list', (roomsList: Room[]) => {
+      if (Array.isArray(roomsList)) {
+        setServerRooms(roomsList);
+        if (currentUserRef.current) {
+          try {
+            localStorage.setItem(`chat_server_rooms_${currentUserRef.current}`, JSON.stringify(roomsList));
+          } catch {}
+        }
+      }
+    });
+
+    socket.on('room_created', (newRoom: Room) => {
+      setServerRooms((prev) => {
+        if (prev.some((r) => r.id === newRoom.id)) return prev;
+        const next = [newRoom, ...prev];
+        if (currentUserRef.current) {
+          try {
+            localStorage.setItem(`chat_server_rooms_${currentUserRef.current}`, JSON.stringify(next));
+          } catch {}
+        }
+        return next;
+      });
+      setActiveRoomId(newRoom.id);
+      localStorage.setItem('chat_active_room_v2', newRoom.id);
     });
 
     socket.on('status_update', (status: ConnectionStatus) => {
@@ -468,11 +619,20 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     });
 
+    const isMeaningfulMessage = (m: Message) => Boolean(
+      (m.text && m.text.trim().length > 0) ||
+      m.file ||
+      m.forwardedFrom ||
+      m.poll ||
+      m.sticker
+    );
+
     socket.on('history', (historyMessages: Message[]) => {
-      setMessages(historyMessages.map(sanitizeMessage));
+      setMessages(historyMessages.filter(isMeaningfulMessage).map(sanitizeMessage));
     });
 
     socket.on('receive_message', (message: Message) => {
+      if (!isMeaningfulMessage(message)) return;
       const sanitized = sanitizeMessage(message);
       setMessages((prev) => {
         const existing = prev.find((m) => m.id === sanitized.id);
@@ -507,6 +667,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prev.map((msg) =>
           msg.id === data.messageId && msg.roomId === data.roomId
             ? { ...msg, reactions: data.reactions }
+            : msg
+        )
+      );
+    });
+
+    socket.on('poll_updated', (data: { messageId: string; roomId: string; poll: Poll }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.messageId && msg.roomId === data.roomId
+            ? { ...msg, poll: data.poll }
             : msg
         )
       );
@@ -611,15 +781,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       socket.disconnect();
       socketRef.current = null;
+      setSocketInstance(null);
       setIsConnected(false);
     };
   }, [currentUser, authKey]);
 
   const login = async (emailOrKey: string, password?: string): Promise<boolean> => {
     setError(null);
-    const normalizedInput = emailOrKey.trim();
+    let normalizedInput = emailOrKey.trim();
+    if (normalizedInput.startsWith('@')) {
+      normalizedInput = normalizedInput.slice(1).trim();
+    }
 
-    // 1. If password is provided, perform real API login via JWT & MongoDB
     // 1. If password is provided, perform real API login via JWT & MongoDB + Supabase Auth
     if (password !== undefined && password !== '') {
       try {
@@ -659,14 +832,33 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem('chat_user_v2', uid);
         localStorage.setItem('chat_auth_key_v2', token);
 
-        const userRooms = ALL_ROOMS.filter(r => r.participants.includes(uid) || r.id === 'family');
-        if (userRooms.length > 0) {
-          setActiveRoomId(userRooms[0].id);
-          localStorage.setItem('chat_active_room_v2', userRooms[0].id);
+        const isPreset = ['vlad', 'anya', 'mom', 'dad', 'sister'].includes(uid);
+        if (isPreset) {
+          const userRooms = ALL_ROOMS.filter(r => r.participants.includes(uid) || r.id === 'family');
+          if (userRooms.length > 0) {
+            setActiveRoomId(userRooms[0].id);
+            localStorage.setItem('chat_active_room_v2', userRooms[0].id);
+          }
+        } else {
+          setActiveRoomId('saved-messages');
+          localStorage.setItem('chat_active_room_v2', 'saved-messages');
         }
 
         return true;
       } catch (err: any) {
+        // Fallback for preset testing accounts if API is temporarily unreachable or returned 401
+        const cleanName = normalizedInput.toLowerCase();
+        const mappedUser = KEY_TO_USER[password] || KEY_TO_USER[cleanName] || (['vlad', 'anya', 'mom', 'dad', 'sister'].includes(cleanName) ? cleanName as UserId : null);
+        if (mappedUser) {
+          setCurrentUser(mappedUser);
+          setAuthKey(password || cleanName);
+          localStorage.setItem('chat_user_v2', mappedUser);
+          localStorage.setItem('chat_auth_key_v2', password || cleanName);
+          setActiveRoomId('family');
+          localStorage.setItem('chat_active_room_v2', 'family');
+          return true;
+        }
+
         setError(err.message || 'Ошибка авторизации');
         return false;
       }
@@ -734,11 +926,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem('chat_user_v2', uid);
       localStorage.setItem('chat_auth_key_v2', token);
 
-      const userRooms = ALL_ROOMS.filter(r => r.participants.includes(uid) || r.id === 'family');
-      if (userRooms.length > 0) {
-        setActiveRoomId(userRooms[0].id);
-        localStorage.setItem('chat_active_room_v2', userRooms[0].id);
-      }
+      // New users start with Saved Messages
+      setActiveRoomId('saved-messages');
+      localStorage.setItem('chat_active_room_v2', 'saved-messages');
 
       return true;
     } catch (err: any) {
@@ -746,6 +936,91 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }
   };
+
+  const searchUsers = useCallback(async (query: string): Promise<UserSearchResult[]> => {
+    const q = (query || '').trim();
+    if (!q) return [];
+
+    if (socketRef.current && isConnected) {
+      return new Promise((resolve) => {
+        socketRef.current?.emit('search_users', { query: q }, (response: { users?: UserSearchResult[] }) => {
+          resolve(response?.users || []);
+        });
+        setTimeout(() => resolve([]), 3500);
+      });
+    }
+
+    try {
+      const res = await fetch(`${SERVER_URL}/api/users/search?q=${encodeURIComponent(q)}&currentUserId=${encodeURIComponent(currentUser || '')}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.users || [];
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  }, [isConnected, currentUser]);
+
+  const createDirectChat = useCallback(async (targetUserId: string): Promise<Room | null> => {
+    if (!targetUserId || targetUserId.toLowerCase() === currentUser?.toLowerCase()) return null;
+
+    if (socketRef.current && isConnected) {
+      return new Promise((resolve) => {
+        socketRef.current?.emit('create_direct_chat', { targetUserId }, (response: { room?: Room }) => {
+          if (response?.room) {
+            setServerRooms((prev) => {
+              if (prev.some((r) => r.id === response.room!.id)) return prev;
+              const next = [response.room!, ...prev];
+              if (currentUser) {
+                try {
+                  localStorage.setItem(`chat_server_rooms_${currentUser}`, JSON.stringify(next));
+                } catch {}
+              }
+              return next;
+            });
+            setActiveRoomId(response.room.id);
+            localStorage.setItem('chat_active_room_v2', response.room.id);
+            resolve(response.room);
+          } else {
+            resolve(null);
+          }
+        });
+        setTimeout(() => resolve(null), 5000);
+      });
+    }
+    return null;
+  }, [isConnected, currentUser]);
+
+  const createGroupChat = useCallback(async (name: string, participantIds: string[], avatarUrl?: string): Promise<Room | null> => {
+    if (!name || !name.trim()) return null;
+
+    if (socketRef.current && isConnected) {
+      return new Promise((resolve) => {
+        socketRef.current?.emit('create_group_chat', { name: name.trim(), participantIds, avatarUrl }, (response: { room?: Room }) => {
+          if (response?.room) {
+            setServerRooms((prev) => {
+              if (prev.some((r) => r.id === response.room!.id)) return prev;
+              const next = [response.room!, ...prev];
+              if (currentUser) {
+                try {
+                  localStorage.setItem(`chat_server_rooms_${currentUser}`, JSON.stringify(next));
+                } catch {}
+              }
+              return next;
+            });
+            setActiveRoomId(response.room.id);
+            localStorage.setItem('chat_active_room_v2', response.room.id);
+            resolve(response.room);
+          } else {
+            resolve(null);
+          }
+        });
+        setTimeout(() => resolve(null), 5000);
+      });
+    }
+    return null;
+  }, [isConnected, currentUser]);
 
   const sendTypingStatus = (isTyping: boolean) => {
     if (socketRef.current && isConnected && currentUser && activeRoomId) {
@@ -759,9 +1034,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const sendMessage = async (
     text: string, 
     replyToId?: string,
-    filePayload?: { name: string; type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker'; data: string; size: number; rawBlob?: Blob | File; stickerData?: any },
+    filePayload?: { 
+      name: string; 
+      type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker'; 
+      data: string; 
+      size: number; 
+      rawBlob?: Blob | File; 
+      width?: number;
+      height?: number;
+      orientation?: 'vertical' | 'horizontal' | 'square';
+      stickerData?: any;
+      waveform?: number[];
+      duration?: number;
+    },
     targetRoomId?: string,
-    forwardedFrom?: { sender: UserId; senderName: string; originalMessageId?: string }
+    forwardedFrom?: { sender: UserId; senderName: string; originalMessageId?: string },
+    poll?: Poll
   ) => {
     const effectiveRoomId = targetRoomId || activeRoomId;
     if (!socketRef.current || !isConnected || !currentUser || !effectiveRoomId) {
@@ -769,11 +1057,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const messageId = Math.random().toString(36).substring(2, 9);
+    const hasValidContent = Boolean(
+      (text && text.trim().length > 0) ||
+      filePayload ||
+      forwardedFrom ||
+      poll
+    );
+    if (!hasValidContent) {
+      return;
+    }
+
+    const messageId = generateUUID();
     let finalFilePayload = filePayload ? { ...filePayload } : undefined;
 
     // Optimistic rendering: add text-only messages to UI immediately
-    if (!filePayload && (text.trim() || forwardedFrom)) {
+    if (!filePayload && (text.trim() || forwardedFrom || poll)) {
       const optimisticMessage: Message = {
         id: messageId,
         roomId: effectiveRoomId,
@@ -782,6 +1080,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         timestamp: Date.now(),
         replyToId: replyToId || undefined,
         forwardedFrom: forwardedFrom || undefined,
+        poll: poll ? { ...poll } : undefined,
         pending: true
       };
       setMessages((prev) => [...prev, optimisticMessage]);
@@ -925,7 +1224,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       timestamp: Date.now(),
       replyToId: replyToId || undefined,
       forwardedFrom: forwardedFrom || undefined,
-      file: finalFilePayload || undefined
+      file: finalFilePayload || undefined,
+      poll: poll ? { ...poll } : undefined
     };
 
     socketRef.current.emit('send_message', payload);
@@ -1007,7 +1307,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const messageId = Math.random().toString(36).substring(2, 9);
+    const messageId = generateUUID();
     const originalSender = messageToForward.forwardedFrom?.sender || messageToForward.sender;
     const originalSenderName = messageToForward.forwardedFrom?.senderName || 
       getUserDisplayName(originalSender) || 
@@ -1039,6 +1339,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ...messageToForward.file,
         isUploading: false,
         uploadProgress: undefined
+      } : undefined,
+      poll: messageToForward.poll ? {
+        ...messageToForward.poll,
+        votes: {}
       } : undefined
     };
 
@@ -1230,6 +1534,63 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const votePoll = useCallback((messageId: string, roomId: string, optionIds: string[]) => {
+    if (!currentUser) return;
+
+    // Optimistic local update for instant UI feedback
+    setMessages((prev) =>
+      prev.map((msg) => {
+        if (msg.id !== messageId || !msg.poll || msg.poll.closed) return msg;
+        const newVotes: Record<string, UserId[]> = {};
+        // Clone existing votes excluding current user
+        Object.entries(msg.poll.votes || {}).forEach(([optId, voters]) => {
+          const filtered = voters.filter((v) => v !== currentUser);
+          if (filtered.length > 0) {
+            newVotes[optId] = filtered;
+          }
+        });
+        // Add current user to selected options
+        optionIds.forEach((optId) => {
+          if (!newVotes[optId]) newVotes[optId] = [];
+          if (!newVotes[optId].includes(currentUser)) {
+            newVotes[optId].push(currentUser);
+          }
+        });
+        return {
+          ...msg,
+          poll: {
+            ...msg.poll,
+            votes: newVotes
+          }
+        };
+      })
+    );
+
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('vote_poll', { messageId, roomId, optionIds });
+    }
+  }, [isConnected, currentUser]);
+
+  const closePoll = useCallback((messageId: string, roomId: string) => {
+    // Optimistic local update
+    setMessages((prev) =>
+      prev.map((msg) => {
+        if (msg.id !== messageId || !msg.poll) return msg;
+        return {
+          ...msg,
+          poll: {
+            ...msg.poll,
+            closed: true
+          }
+        };
+      })
+    );
+
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('close_poll', { messageId, roomId });
+    }
+  }, [isConnected]);
+
   const handleSetActiveRoomId = (id: string) => {
     if (socketRef.current && isConnected && currentUser && activeRoomId) {
       socketRef.current.emit('typing', {
@@ -1239,8 +1600,65 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     setActiveRoomId(id);
     localStorage.setItem('chat_active_room_v2', id);
+    // URL sync: #/chat/{roomId} (pushState keeps browser Back working between chats)
+    try {
+      const newHash = `#/chat/${encodeURIComponent(id)}`;
+      if (window.location.hash !== newHash) {
+        window.history.pushState({ chatRoom: id }, '', newHash);
+      }
+    } catch { /* ignore */ }
     setTimeout(() => markRoomAsRead(id), 50);
   };
+
+  // Browser Back/Forward + manual hash edits → switch chat
+  useEffect(() => {
+    const onPopState = () => {
+      const hashMatch = window.location.hash.match(/^#\/chat\/(.+)$/);
+      if (hashMatch) {
+        const targetRoom = decodeURIComponent(hashMatch[1]);
+        setActiveRoomId((prev) => {
+          if (prev === targetRoom) return prev;
+          localStorage.setItem('chat_active_room_v2', targetRoom);
+          setTimeout(() => markRoomAsRead(targetRoom), 50);
+          return targetRoom;
+        });
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('hashchange', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('hashchange', onPopState);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    navigateToRoomRef.current = (id: string) => {
+      handleSetActiveRoomId(id);
+    };
+  });
+
+  // ===== Unread Badge in Browser Tab Title =====
+  const totalUnread = useMemo(() => {
+    if (!currentUser) return 0;
+    return messages.reduce((sum, m) => {
+      if (
+        rooms.some((r) => r.id === m.roomId) &&
+        m.sender !== currentUser &&
+        !m.pending &&
+        !(m.readBy && m.readBy.includes(currentUser))
+      ) {
+        return sum + 1;
+      }
+      return sum;
+    }, 0);
+  }, [messages, currentUser, rooms]);
+
+  useEffect(() => {
+    const baseTitle = 'Telegram Web';
+    document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
+  }, [totalUnread]);
 
   useEffect(() => {
     const handleVisibilityOrFocus = () => {
@@ -1280,14 +1698,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         login,
         register,
         logout,
+        searchUsers,
+        createDirectChat,
+        createGroupChat,
         sendMessage,
         forwardMessage,
         editMessage,
         deleteMessage,
         toggleReaction,
+        votePoll,
+        closePoll,
         markRoomAsRead,
         unreadCount,
         lastMessageOf,
+        notificationsEnabled,
+        setNotificationsEnabled,
         typingUsers,
         sendTypingStatus,
         
@@ -1306,7 +1731,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isMuted,
         toggleMute,
         isCameraOff,
-        toggleCamera
+        toggleCamera,
+        socket: socketInstance
       }}
     >
       {children}

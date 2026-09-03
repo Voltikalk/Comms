@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { MessageArchiveService, type ArchiveStats } from '../services/message-archive.service';
 import { cronScheduler } from '../lib/cron-jobs';
 
-export const AdminArchive: React.FC = () => {
+export interface AdminArchiveProps {
+  onClose?: () => void;
+}
+
+export const AdminArchive: React.FC<AdminArchiveProps> = ({ onClose }) => {
   const [stats, setStats] = useState<ArchiveStats>({
     totalArchived: 0,
     oldestMessageDate: null,
@@ -109,13 +113,24 @@ export const AdminArchive: React.FC = () => {
               Мониторинг долговременного хранилища, политики архивации и восстановление данных
             </p>
           </div>
-          <button
-            onClick={handleRunJob}
-            disabled={isArchiving}
-            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:scale-105 transition-all disabled:opacity-50"
-          >
-            ⚡ Запустить авто-архивацию
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRunJob}
+              disabled={isArchiving}
+              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:scale-105 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              ⚡ Запустить авто-архивацию
+            </button>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition-all cursor-pointer border border-white/10"
+              >
+                ✕ Закрыть
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Top Stats Cards */}

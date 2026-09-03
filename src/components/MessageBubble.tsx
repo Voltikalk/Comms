@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useSocket } from '../context/SocketContext';
 import { USER_NAMES, DEFAULT_USER_PROFILES } from '../constants';
+import { parseAndRenderRichText } from '../lib/markdown-parser';
+import { normalizeWaveform, generateFallbackWaveform } from '../lib/audio-waveform';
 import type { Message, UserId } from '../types';
 import { 
   IconDownload, 
@@ -11,19 +13,21 @@ import {
   IconX,
   IconCheck,
   IconChecks,
-  IconVolume,
-  IconVolumeOff,
   IconTrash,
   IconShare3,
   IconPhoto,
   IconVideo,
   IconMicrophone,
   IconMoodSmile,
-  IconCamera
+  IconCamera,
+  IconChartBar
 } from '@tabler/icons-react';
 import { VideoPlayer } from './VideoPlayer';
+import { PollCard } from './Poll/PollCard';
 import { triggerTelegramDisintegrate } from './effects/disintegrate';
 import { TgsStickerPlayer } from './Stickers/TgsStickerPlayer';
+import { findStickerByTitleOrId } from '../constants/stickers';
+import { TelegramVideoNotePlayer } from './Media/TelegramVideoNotePlayer';
 
 // Telegram author color palette
 const PEER_COLORS: Record<string, string> = {
@@ -107,24 +111,13 @@ interface MessageBubbleProps {
   isSelected?: boolean;
   onToggleSelect?: (messageId: string) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onHashtagClick?: (tag: string) => void;
+  onOpenGallery?: (messageId: string) => void;
+  onVotePoll?: (messageId: string, roomId: string, optionIds: string[]) => void;
+  onClosePoll?: (messageId: string, roomId: string) => void;
+  groupedAbove?: boolean;
+  groupedBelow?: boolean;
 }
-
-const renderHighlightedText = (text: string, query?: string) => {
-  if (!query || !query.trim()) {
-    return text;
-  }
-  const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-  return parts.map((part, i) =>
-    part.toLowerCase() === query.trim().toLowerCase() ? (
-      <mark key={i} className="bg-amber-400/40 text-inherit rounded px-0.5 font-bold">
-        {part}
-      </mark>
-    ) : (
-      part
-    )
-  );
-};
 
 export const MessageBubble = React.memo<MessageBubbleProps>(({ 
   message, 
@@ -143,20 +136,19 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   isSelectMode = false,
   isSelected = false,
   onToggleSelect,
-  onJumpToMessage
+  onJumpToMessage,
+  onHashtagClick,
+  onOpenGallery,
+  onVotePoll,
+  onClosePoll,
+  groupedAbove = false,
+  groupedBelow = false
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editText, setEditText] = useState(message.text);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [isMediaLoading, setIsMediaLoading] = useState(true);
-
-  // Video Note (Кружок) states
-  const [isVideoExpanded, setIsVideoExpanded] = useState(false);
-  const [isVideoNotePlaying, setIsVideoNotePlaying] = useState(false);
-  const [videoNoteDuration, setVideoNoteDuration] = useState(0);
-  const [videoNoteCurrentTime, setVideoNoteCurrentTime] = useState(0);
-  const videoNoteRef = useRef<HTMLVideoElement | null>(null);
 
   // Regular Video states (auto-detecting orientation & ratio)
   const initialOrientation = message.file?.orientation || (
@@ -300,58 +292,50 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
     }
   };
 
-  const changeSpeed = () => {
-    if (!audioRef.current) return;
-    const nextSpeedMap: Record<1 | 1.5 | 2, 1 | 1.5 | 2> = { 1: 1.5, 1.5: 2, 2: 1 };
-    const next = nextSpeedMap[playSpeed];
-    audioRef.current.playbackRate = next;
-    setPlaySpeed(next);
-  };
-
-  // Video Note (Кружок) toggle
-  const toggleVideoNote = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const vid = videoNoteRef.current;
-    if (!vid) return;
-
-    if (vid.paused) {
-      vid.muted = false;
-      vid.currentTime = 0;
-      vid.play().catch(() => {});
-      setIsVideoNotePlaying(true);
-      setIsVideoExpanded(true);
-    } else {
-      if (vid.muted) {
-        vid.muted = false;
-        setIsVideoNotePlaying(true);
-        setIsVideoExpanded(true);
-      } else {
-        vid.pause();
-        vid.muted = true;
-        setIsVideoNotePlaying(false);
-        setIsVideoExpanded(false);
-      }
-    }
-  };
-
-  const formatAudioTime = (seconds: number) => {
-    if (!seconds || isNaN(seconds) || seconds === Infinity) return '0:00';
-    const min = Math.floor(seconds / 60);
-    const sec = Math.floor(seconds % 60);
-    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
-  };
-
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
   const hasFile = !!message.file;
-  const isSticker = (hasFile && (
-    message.file?.type === 'sticker' ||
-    message.file?.name?.startsWith('sticker_') ||
-    !!message.file?.stickerData
-  )) || !!message.sticker;
+
+  const matchedSticker = useMemo(() => {
+    if (message.sticker) return message.sticker;
+    if (!message.file) return null;
+    if (message.file.stickerData) return message.file.stickerData;
+    if (message.file.type === 'sticker') {
+      const found = findStickerByTitleOrId(message.file.name);
+      return found || {
+        id: message.file.name,
+        packId: 'custom',
+        packTitle: 'Стикер',
+        emoji: '✨',
+        title: message.file.name,
+        url: message.file.data
+      };
+    }
+    const fName = (message.file.name || '').toLowerCase();
+    const fData = (message.file.data || '').toLowerCase();
+    if (
+      fName.startsWith('sticker_') || 
+      fName.endsWith('.tgs') || 
+      fData.endsWith('.tgs') || 
+      fData.includes('/stickers/') || 
+      message.file.data?.startsWith('data:image/svg+xml')
+    ) {
+      const found = findStickerByTitleOrId(message.file.name);
+      return found || {
+        id: message.file.name,
+        packId: 'custom',
+        packTitle: 'Стикер',
+        emoji: '✨',
+        title: message.file.name,
+        url: message.file.data
+      };
+    }
+    const matchByTitle = findStickerByTitleOrId(message.file.name);
+    if (matchByTitle) {
+      return matchByTitle;
+    }
+    return null;
+  }, [message.file, message.sticker]);
+
+  const isSticker = !!matchedSticker || (hasFile && message.file?.type === 'sticker');
 
   const isAudioFile = hasFile && !isSticker && (
     message.file?.type === 'audio' ||
@@ -373,6 +357,26 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
     (message.file?.name && /\.(jpg|jpeg|png|gif|webp|svg|heic)$/i.test(message.file.name))
   );
   const isDocumentFile = hasFile && !isSticker && !isAudioFile && !isVideoNote && !isRegularVideo && !isImageFile;
+
+  const changeSpeed = () => {
+    if (!audioRef.current) return;
+    const nextSpeedMap: Record<1 | 1.5 | 2, 1 | 1.5 | 2> = { 1: 1.5, 1.5: 2, 2: 1 };
+    const next = nextSpeedMap[playSpeed];
+    audioRef.current.playbackRate = next;
+    setPlaySpeed(next);
+  };
+
+  const formatAudioTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds) || seconds === Infinity) return '0:00';
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+  };
+
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   const rawCleanText = displayMessageText.trim();
   const isAutoFileNameCaption = hasFile && message.file?.name && (
@@ -402,20 +406,21 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
       ? 'tg-bubble-self' 
       : 'tg-bubble-peer';
 
-  // Generate waveform with realistic voice pattern
-  const generateWaveform = (msgId: string) => {
-    const chars = msgId.split('');
-    const barsCount = 28;
-    const heights = [];
-    for (let i = 0; i < barsCount; i++) {
-      const charCode = chars[i % chars.length]?.charCodeAt(0) || 64;
-      const h = 4 + (charCode % 16);
-      heights.push(h);
-    }
-    return heights;
+  // Telegram-style grouped corner flattening
+  const groupCornerStyle: React.CSSProperties = (isVideoNote || isSticker) ? {} : {
+    borderTopRightRadius: isSelf && groupedAbove ? 6 : undefined,
+    borderBottomRightRadius: isSelf && groupedBelow ? 6 : undefined,
+    borderTopLeftRadius: !isSelf && groupedAbove ? 6 : undefined,
+    borderBottomLeftRadius: !isSelf && groupedBelow ? 6 : undefined
   };
 
-  const waveform = generateWaveform(message.id);
+  // Real audio waveform or deterministic speech fallback
+  const waveform = useMemo(() => {
+    if (message.file?.waveform && Array.isArray(message.file.waveform) && message.file.waveform.length > 0) {
+      return normalizeWaveform(message.file.waveform, 30, 8, 100);
+    }
+    return generateFallbackWaveform(message.id, 30, 8, 100);
+  }, [message.file?.waveform, message.id]);
 
   // Gesture Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -492,9 +497,13 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
     swipeStartXRef.current = null;
     swipeStartYRef.current = null;
     isSwipeLockedRef.current = false;
-    isScrollLockedRef.current = false;
     hasTriggeredSwipeRef.current = false;
   };
+
+  // Prevent rendering empty ghost messages
+  if (!hasText && !hasFile && !isSticker && !isVideoNote && !message.poll && !parentMessage && !forwardedSenderName) {
+    return null;
+  }
 
   return (
     <div 
@@ -574,6 +583,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               onOpenContextMenu(message, { x: e.clientX, y: e.clientY });
             }} 
             className={`${bubbleClass} relative select-none transition-shadow duration-300`}
+            style={groupCornerStyle}
           >
             {/* Separate Forwarded Badge (Telegram Style) */}
             {forwardedSenderName && !isVideoNote && !isSticker && (
@@ -645,6 +655,11 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                     <div className="text-[11px] leading-snug opacity-85 truncate mt-0.5 flex items-center gap-1">
                       {cleanText ? (
                         <span className="truncate">{cleanText}</span>
+                      ) : parentMessage.poll ? (
+                        <span className="truncate flex items-center gap-1">
+                          <IconChartBar size={13} className="shrink-0" />
+                          <span>Опрос: {parentMessage.poll.question}</span>
+                        </span>
                       ) : parentMessage.file ? (
                         parentMessage.file.type === 'sticker' || (parentMessage.file.name && parentMessage.file.name.includes('sticker')) ? (
                           <span className="flex items-center gap-1">
@@ -715,6 +730,26 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               );
             })()}
 
+            {/* POLL - Interactive Live Poll Card (replaces text & media) */}
+            {message.poll && (
+              <div className="px-3 pt-2.5 pb-2">
+                <PollCard
+                  poll={message.poll}
+                  messageId={message.id}
+                  roomId={message.roomId}
+                  currentUser={currentUser}
+                  isOwnPoll={isSelf}
+                  onVote={onVotePoll ?? (() => {})}
+                  onClose={onClosePoll ? (id) => onClosePoll(id, message.roomId) : undefined}
+                  timestamp={message.timestamp}
+                  deliveryStatus={deliveryStatus}
+                  isPending={isPending}
+                  formatTime={formatTime}
+                  getUserDisplayName={getUserDisplayName}
+                />
+              </div>
+            )}
+
             {/* 0. TELEGRAM STICKER - Pure Transparent Sticker with Floating Timestamp */}
             {isSticker && (
               <div className={`relative flex flex-col items-center py-1 select-none ${
@@ -722,11 +757,11 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               }`}>
                 <div 
                   className="relative w-36 h-36 xs:w-44 xs:h-44 sm:w-48 sm:h-48 md:w-52 md:h-52 flex items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                  title={message.file?.name || message.sticker?.title || 'Стикер'}
+                  title={matchedSticker?.title || message.file?.name || message.sticker?.title || 'Стикер'}
                 >
                   <TgsStickerPlayer
-                    src={message.file?.data || message.sticker?.url || ''}
-                    alt={message.file?.name || message.sticker?.title || 'Стикер'}
+                    src={matchedSticker?.url || message.file?.data || message.sticker?.url || ''}
+                    alt={matchedSticker?.title || message.file?.name || message.sticker?.title || 'Стикер'}
                     className="w-full h-full"
                     loop={true}
                     autoplay={true}
@@ -753,70 +788,15 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               </div>
             )}
 
-            {/* 1. TELEGRAM VIDEO NOTE (КРУЖОК) - Pure Circle without Bubble Card */}
+            {/* 1. TELEGRAM VIDEO NOTE (КРУЖОК) - Pure Circle with Optimized Player */}
             {isVideoNote && message.file && (
-              <div className="relative flex flex-col items-center py-1">
-                {/* Circular Frame */}
-                <div 
-                  onClick={toggleVideoNote}
-                  className={`relative rounded-full overflow-hidden bg-black flex items-center justify-center shadow-xl border-2 border-white/20 transition-all duration-300 ease-out cursor-pointer ${
-                    isVideoExpanded 
-                      ? 'w-64 h-64 sm:w-72 sm:h-72' 
-                      : 'w-44 h-44 sm:w-48 sm:h-48'
-                  }`}
-                >
-                  <video
-                    ref={videoNoteRef}
-                    src={message.file.data}
-                    loop
-                    playsInline
-                    autoPlay
-                    muted
-                    onTimeUpdate={(e) => setVideoNoteCurrentTime(e.currentTarget.currentTime)}
-                    onLoadedMetadata={(e) => {
-                      setIsMediaLoading(false);
-                      setVideoNoteDuration(e.currentTarget.duration || 0);
-                    }}
-                    onError={() => setIsMediaLoading(false)}
-                    className="w-full h-full object-cover"
-                  />
-
-                  {/* Uploading progress ring */}
-                  {message.file.isUploading && (message.file.uploadProgress === undefined || message.file.uploadProgress < 100) && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full z-20 pointer-events-none">
-                      <CircularProgress progress={message.file.uploadProgress || 0} />
-                    </div>
-                  )}
-
-                  {/* Volume / Play Indicator */}
-                  {!message.file.isUploading && (
-                    <div className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-black/50 text-white backdrop-blur-xs transition-opacity hover:bg-black/70">
-                      {isVideoNotePlaying ? (
-                        <IconVolume size={14} className="text-[#3390ec]" />
-                      ) : (
-                        <IconVolumeOff size={14} className="text-white/80" />
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Floating Timestamp pill for Video Note */}
-                <div className={`mt-1 px-2.5 py-0.5 rounded-full bg-black/50 text-white backdrop-blur-xs text-[10px] font-mono flex items-center gap-1.5 select-none ${
-                  isSelf ? 'self-end' : 'self-start'
-                }`}>
-                  <span>{formatTime(message.timestamp)}</span>
-                  {videoNoteDuration > 0 && (
-                    <span className="opacity-75 font-sans">
-                      {formatAudioTime(videoNoteDuration - videoNoteCurrentTime)}
-                    </span>
-                  )}
-                  {isSelf && !isPending && (
-                    <span className="text-[#4fae4e] dark:text-[#82b1ff]">
-                      {deliveryStatus === 'read' ? <IconChecks size={14} stroke={2} /> : <IconCheck size={14} stroke={2} />}
-                    </span>
-                  )}
-                </div>
-              </div>
+              <TelegramVideoNotePlayer
+                message={message}
+                isSelf={isSelf}
+                isPending={isPending}
+                deliveryStatus={deliveryStatus}
+                formatTime={formatTime}
+              />
             )}
 
             {/* 2. REGULAR VIDEO PLAYER (Кастомный многофункциональный видеоплеер с авто-определением ориентации) */}
@@ -880,7 +860,11 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   onError={() => setIsMediaLoading(false)}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsImagePreviewOpen(true);
+                    if (onOpenGallery) {
+                      onOpenGallery(message.id);
+                    } else {
+                      setIsImagePreviewOpen(true);
+                    }
                   }}
                   className={`w-full h-auto max-w-[300px] sm:max-w-[360px] max-h-[380px] rounded-xl block object-cover cursor-pointer ${
                     isMediaLoading && !message.file.isUploading ? 'opacity-30' : 'opacity-100'
@@ -987,13 +971,13 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   <div className="flex-1 min-w-0 flex flex-col justify-between h-9">
                     {/* Dynamic Spectrum waveform */}
                     <div 
-                      className="flex items-end gap-[2px] h-4 cursor-pointer select-none overflow-hidden"
+                      className="flex items-end gap-[2px] h-4 cursor-pointer select-none overflow-hidden py-0.5"
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         const clickX = e.clientX - rect.left;
                         const pct = Math.max(0, Math.min(1, clickX / rect.width));
                         if (audioRef.current) {
-                          const dur = audioRef.current.duration;
+                          const dur = audioRef.current.duration || message.file?.duration || 0;
                           if (dur > 0 && dur !== Infinity) {
                             audioRef.current.currentTime = pct * dur;
                             setAudioProgress(pct * 100);
@@ -1016,7 +1000,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                                   ? 'bg-black/20 dark:bg-white/30' 
                                   : 'bg-black/15 dark:bg-white/20'
                             }`}
-                            style={{ height: `${Math.max(3, (h / 20) * 16)}px` }}
+                            style={{ height: `${Math.max(3, (h / 100) * 16)}px` }}
                           />
                         );
                       })}
@@ -1029,7 +1013,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                         <span className="font-mono text-[10.5px]">
                           {isAudioPlaying 
                             ? formatAudioTime(audioCurrentTime) 
-                            : formatAudioTime(audioDuration || 0)}
+                            : formatAudioTime(audioDuration || message.file?.duration || 0)}
                         </span>
                         <button
                           type="button"
@@ -1141,7 +1125,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 ) : (
                   <>
                     {displayMessageText && (
-                      <span className="whitespace-pre-wrap break-words">{renderHighlightedText(displayMessageText, searchQuery)}</span>
+                      <span className="whitespace-pre-wrap break-words">{parseAndRenderRichText(displayMessageText, searchQuery, onHashtagClick)}</span>
                     )}
                     
                     {/* Telegram Inline Timestamp & Double Checkmarks (Baseline-Aligned) */}
@@ -1172,20 +1156,32 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               <div className={`flex flex-wrap gap-1 px-2.5 pb-2 pt-1 ${isSelf ? 'justify-end' : 'justify-start'}`}>
                 {Object.entries(message.reactions || {}).map(([emoji, reactors]) => {
                   const hasReacted = currentUser ? reactors.includes(currentUser) : false;
+                  const reactorNames = reactors.map((id) => (id === currentUser ? 'Вы' : (getUserDisplayName(id) || USER_NAMES[id] || id)));
+                  const previewNames = reactorNames.slice(0, 4).join(', ') + (reactorNames.length > 4 ? ` и ещё ${reactorNames.length - 4}` : '');
                   return (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => toggleReaction(message.id, emoji)}
-                      className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-all hover:scale-110 active:scale-90 cursor-pointer select-none animate-reaction-pop ${
-                        hasReacted 
-                          ? 'bg-[#3390ec]/25 ring-1.5 ring-[#3390ec] shadow-xs'
-                          : 'bg-black/5 dark:bg-white/10 hover:bg-black/10'
-                      }`}
-                    >
-                      <HoverAnimatedEmoji emoji={emoji} size={18} />
-                      <span className="font-bold text-[10px] text-slate-700 dark:text-slate-200">{reactors.length}</span>
-                    </button>
+                    <div key={emoji} className="relative group/reaction">
+                      <button
+                        type="button"
+                        onClick={() => toggleReaction(message.id, emoji)}
+                        className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-all hover:scale-110 active:scale-90 cursor-pointer select-none animate-reaction-pop ${
+                          hasReacted 
+                            ? 'bg-[#3390ec]/25 ring-1.5 ring-[#3390ec] shadow-xs'
+                            : 'bg-black/5 dark:bg-white/10 hover:bg-black/10'
+                        }`}
+                      >
+                        <HoverAnimatedEmoji emoji={emoji} size={18} />
+                        <span className="font-bold text-[10px] text-slate-700 dark:text-slate-200">{reactors.length}</span>
+                      </button>
+
+                      {/* Who Reacted Tooltip (Telegram Style) */}
+                      <div className="pointer-events-none absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 z-50 opacity-0 translate-y-1 group-hover/reaction:opacity-100 group-hover/reaction:translate-y-0 transition-all duration-150">
+                        <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#232e3c] shadow-xl border border-slate-200 dark:border-white/10 whitespace-nowrap max-w-[240px]">
+                          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                            {emoji} {previewNames}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>

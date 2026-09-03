@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { PlatformProvider } from './context/PlatformContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
+import { StoriesProvider } from './context/StoriesContext';
 import { LoginScreen } from './components/LoginScreen';
 import { ChatScreen } from './components/ChatScreen';
+import { KeyboardShortcutsModal } from './components/Desktop/KeyboardShortcutsModal';
+import { AppInstallModal } from './components/Hybrid/AppInstallModal';
 
 const AppContent: React.FC = () => {
   const { currentUser } = useSocket();
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('chat_dark_mode');
-    if (saved !== null) return saved === 'true';
+    try {
+      const saved = localStorage.getItem('chat_dark_mode');
+      if (saved !== null) return saved === 'true';
+    } catch {
+      // ignore
+    }
     return true;
   });
 
@@ -19,7 +27,11 @@ const AppContent: React.FC = () => {
       document.documentElement.classList.remove('dark');
       document.body.classList.remove('dark');
     }
-    localStorage.setItem('chat_dark_mode', String(darkMode));
+    try {
+      localStorage.setItem('chat_dark_mode', String(darkMode));
+    } catch {
+      // ignore
+    }
   }, [darkMode]);
 
   const toggleDarkMode = () => {
@@ -27,17 +39,31 @@ const AppContent: React.FC = () => {
   };
 
   if (!currentUser) {
-    return <LoginScreen darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+    return (
+      <>
+        <LoginScreen darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+        <KeyboardShortcutsModal />
+        <AppInstallModal />
+      </>
+    );
   }
 
-  return <ChatScreen darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+  return (
+    <StoriesProvider>
+      <ChatScreen darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+      <KeyboardShortcutsModal />
+      <AppInstallModal />
+    </StoriesProvider>
+  );
 };
 
 const App: React.FC = () => {
   return (
-    <SocketProvider>
-      <AppContent />
-    </SocketProvider>
+    <PlatformProvider>
+      <SocketProvider>
+        <AppContent />
+      </SocketProvider>
+    </PlatformProvider>
   );
 };
 

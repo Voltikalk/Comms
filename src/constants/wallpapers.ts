@@ -394,6 +394,73 @@ export const CHAT_WALLPAPERS: ChatWallpaper[] = [
     previewColor: '#000000',
     backgroundCssLight: '#ffffff',
     backgroundCssDark: '#000000'
+  },
+
+  // ==========================================
+  // 5. REACT BITS ANIMATED BACKGROUNDS
+  // ==========================================
+  {
+    id: 'rb_squares',
+    title: 'React Bits Squares (Интерактивная сетка)',
+    category: 'animated',
+    animatedType: 'squares',
+    previewColor: '#3390ec',
+    backgroundCssLight: '#f1f5f9',
+    backgroundCssDark: '#0a101d'
+  },
+  {
+    id: 'rb_aurora',
+    title: 'React Bits Aurora (Северное сияние)',
+    category: 'animated',
+    animatedType: 'aurora',
+    previewColor: '#8b5cf6',
+    backgroundCssLight: '#0f172a',
+    backgroundCssDark: '#070a14'
+  },
+  {
+    id: 'rb_particles',
+    title: 'React Bits Particles (Созвездие частиц)',
+    category: 'animated',
+    animatedType: 'particles',
+    previewColor: '#06b6d4',
+    backgroundCssLight: '#f8fafc',
+    backgroundCssDark: '#090d16'
+  },
+  {
+    id: 'rb_glitch',
+    title: 'React Bits Matrix (Кибер-глитч)',
+    category: 'animated',
+    animatedType: 'letter-glitch',
+    previewColor: '#10b981',
+    backgroundCssLight: '#080c10',
+    backgroundCssDark: '#05070a'
+  },
+  {
+    id: 'rb_hyperspeed',
+    title: 'React Bits Hyperspeed (Варп-звёзды)',
+    category: 'animated',
+    animatedType: 'hyperspeed',
+    previewColor: '#3b82f6',
+    backgroundCssLight: '#050811',
+    backgroundCssDark: '#03050a'
+  },
+  {
+    id: 'rb_waves',
+    title: 'React Bits Waves (Волновые ленты)',
+    category: 'animated',
+    animatedType: 'waves',
+    previewColor: '#0ea5e9',
+    backgroundCssLight: '#f0f9ff',
+    backgroundCssDark: '#081120'
+  },
+  {
+    id: 'rb_dither',
+    title: 'React Bits Ambient Dither (Световые волны)',
+    category: 'animated',
+    animatedType: 'dither',
+    previewColor: '#6366f1',
+    backgroundCssLight: '#eef2ff',
+    backgroundCssDark: '#090b14'
   }
 ];
 

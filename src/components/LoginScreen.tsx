@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useSocket } from '../context/SocketContext';
 import { 
-  Sun, 
-  Moon, 
   Eye, 
   EyeOff, 
   ArrowRight, 
@@ -16,6 +14,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import { TelegramRegistrationWizard } from './TelegramRegistrationWizard';
+import { Skiper26ThemeToggle } from './ui/skiper26';
 
 interface LoginScreenProps {
   darkMode: boolean;
@@ -40,6 +39,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [isCapsLockOn, setIsCapsLockOn] = useState<boolean>(false);
+  const [showDevPresets, setShowDevPresets] = useState<boolean>(false);
 
   // QR Code States
   const [qrCodeTimer, setQrCodeTimer] = useState<number>(60);
@@ -172,21 +172,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
       <div className="absolute top-1/4 -right-20 w-80 h-80 rounded-full bg-[#3390ec]/10 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 -left-20 w-80 h-80 rounded-full bg-[#0066FF]/10 blur-[100px] pointer-events-none" />
 
-      {/* Top Bar: Theme toggle */}
+      {/* Top Bar: Skiper 26 Theme Toggle */}
       <div className="fixed top-4 right-4 z-40 pointer-events-auto">
         {toggleDarkMode && (
-          <button
-            type="button"
-            onClick={toggleDarkMode}
-            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
-            title={darkMode ? 'Светлая тема' : 'Ночной режим'}
-          >
-            {darkMode ? (
-              <Sun className="w-5 h-5 text-amber-400" />
-            ) : (
-              <Moon className="w-5 h-5 text-[#3390ec]" />
-            )}
-          </button>
+          <Skiper26ThemeToggle 
+            darkMode={darkMode} 
+            toggleDarkMode={toggleDarkMode}
+            variant="circle"
+            start="top-right"
+          />
         )}
       </div>
 
@@ -219,7 +213,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
           Защищенный мессенджер нового поколения
         </p>
 
-        {/* Tab Switcher: QR-код vs Пароль / Демо */}
+        {/* Tab Switcher: Вход по паролю vs По QR-коду */}
         <div className="flex p-1 rounded-2xl bg-slate-200/70 dark:bg-white/10 w-full mb-6 relative">
           <button
             type="button"
@@ -231,7 +225,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
             }`}
           >
             <KeyRound className="w-3.5 h-3.5" />
-            <span>Логин / Демо</span>
+            <span>Вход по паролю</span>
           </button>
 
           <button
@@ -249,7 +243,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
         </div>
 
         {/* ================================================================= */}
-        {/* MODE 1: PASSWORD & DEMO ACCOUNTS                                  */}
+        {/* MODE 1: PASSWORD LOGIN & CLEAN TELEGRAM AUTH                       */}
         {/* ================================================================= */}
         {authMethod === 'password' && (
           <motion.div
@@ -259,48 +253,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
             transition={{ duration: 0.2 }}
             className="w-full"
           >
-            {/* Quick Demo Accounts */}
-            <div className="w-full mb-5">
-              <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Быстрый вход:</span>
-                <span className="text-[11px] text-[#3390ec] font-medium flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  Демо-аккаунты
-                </span>
-              </div>
-
-              <div className="grid grid-cols-5 gap-2">
-                {PRESET_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    onClick={() => handleSelectPreset(acc)}
-                    disabled={isLoading}
-                    title={`${acc.name} — ${acc.status}`}
-                    className={`flex flex-col items-center justify-center p-2 rounded-2xl border transition-all duration-200 cursor-pointer group ${
-                      selectedAccountId === acc.id
-                        ? 'bg-[#3390ec]/15 border-[#3390ec] shadow-xs scale-105'
-                        : 'bg-white dark:bg-[#17212b] border-slate-200 dark:border-white/10 hover:border-[#3390ec]/50 hover:bg-slate-50 dark:hover:bg-[#1d2a3a]'
-                    }`}
-                  >
-                    <div className={`w-9 h-9 rounded-full bg-gradient-to-tr ${acc.color} text-white flex items-center justify-center text-xs font-bold shadow-xs mb-1.5 group-hover:scale-105 transition-transform`}>
-                      {acc.name.charAt(0)}
-                    </div>
-                    <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate w-full text-center">
-                      {acc.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="relative flex py-1 items-center w-full mb-4">
-              <div className="grow border-t border-slate-200 dark:border-white/10"></div>
-              <span className="shrink mx-3 text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 font-medium">или</span>
-              <div className="grow border-t border-slate-200 dark:border-white/10"></div>
-            </div>
-
             {/* Login Form */}
             <form onSubmit={handleLoginSubmit} className="w-full space-y-3">
               <div className="w-full">
@@ -312,7 +264,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     setSelectedAccountId(null);
                     setError(null);
                   }}
-                  placeholder="Email или Username"
+                  placeholder="Email или @username"
                   disabled={isLoading}
                   className="w-full px-4 py-3.5 rounded-2xl text-base bg-white dark:bg-[#17212b] border border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs"
                 />
@@ -371,7 +323,62 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                   </>
                 )}
               </button>
+
+              {/* Prominent Create Account button */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsRegisterMode(true)}
+                  className="w-full py-3 px-4 rounded-2xl text-xs font-bold text-[#3390ec] dark:text-[#64b5f6] bg-[#3390ec]/10 hover:bg-[#3390ec]/15 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Создать новый аккаунт</span>
+                </button>
+              </div>
             </form>
+
+            {/* Collapsible Dev Mode Presets */}
+            <div className="w-full mt-6 pt-4 border-t border-slate-200/60 dark:border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowDevPresets(!showDevPresets)}
+                className="mx-auto text-[11px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1.5 cursor-pointer py-1 px-3 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              >
+                <span>🧪 Тестовые профили (Dev Mode)</span>
+                <span className="text-[9px]">{showDevPresets ? '▲' : '▼'}</span>
+              </button>
+
+              {showDevPresets && (
+                <div className="mt-3">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-2">
+                    Быстрый вход для тестирования функций:
+                  </p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {PRESET_ACCOUNTS.map((acc) => (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => handleSelectPreset(acc)}
+                        disabled={isLoading}
+                        title={`${acc.name} — ${acc.status}`}
+                        className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all cursor-pointer ${
+                          selectedAccountId === acc.id
+                            ? 'bg-[#3390ec]/15 border-[#3390ec]'
+                            : 'bg-white dark:bg-[#17212b] border-slate-200 dark:border-white/10 hover:border-[#3390ec]/50 hover:bg-slate-50 dark:hover:bg-[#1d2a3a]'
+                        }`}
+                      >
+                        <div className={`w-7 h-7 rounded-full bg-gradient-to-tr ${acc.color} text-white flex items-center justify-center text-[11px] font-bold mb-1 shadow-xs`}>
+                          {acc.name.charAt(0)}
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-800 dark:text-slate-200 truncate w-full text-center">
+                          {acc.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
 
@@ -475,16 +482,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
           </motion.div>
         )}
 
-        {/* Switch to Registration */}
-        <div className="mt-7">
-          <button
-            type="button"
-            onClick={() => setIsRegisterMode(true)}
-            className="text-xs font-semibold text-[#3390ec] hover:underline cursor-pointer"
-          >
-            Нет аккаунта? Зарегистрироваться
-          </button>
-        </div>
+        {/* Switch to Registration (for QR mode) */}
+        {authMethod === 'qr' && (
+          <div className="mt-7">
+            <button
+              type="button"
+              onClick={() => setIsRegisterMode(true)}
+              className="text-xs font-semibold text-[#3390ec] hover:underline cursor-pointer"
+            >
+              Нет аккаунта? Зарегистрироваться
+            </button>
+          </div>
+        )}
 
         {/* Security Footer Note */}
         <div className="mt-6 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">

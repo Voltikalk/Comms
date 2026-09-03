@@ -14,6 +14,7 @@ import {
   IconTrash
 } from '@tabler/icons-react';
 import { compressImage } from '../../lib/image-compression';
+import { Squares, Aurora, Particles, LetterGlitch, Hyperspeed, Waves, Dither } from '../Backgrounds';
 
 interface ThemeSettingsModalProps {
   currentConfig: ChatThemeConfig;
@@ -54,14 +55,16 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     return CHAT_WALLPAPERS.filter((w) => w.category === activeTab);
   }, [activeTab]);
 
-  const isPhoto = selectedWallpaperId === 'custom' || Boolean(activeWallpaper.imageUrl);
+  const isPhoto = true; // Support blur & dimming on all wallpapers (photos, patterns, gradients, custom)
 
   const handleSelectWallpaper = (id: string) => {
     setSelectedWallpaperId(id);
     const wp = getWallpaperById(id);
-    if (wp.imageUrl) {
-      setDimming(wp.dimming ?? 20);
-      setBlur(wp.blur ?? 0);
+    if (wp.dimming !== undefined) {
+      setDimming(wp.dimming);
+    }
+    if (wp.blur !== undefined) {
+      setBlur(wp.blur);
     }
   };
 
@@ -118,13 +121,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     const newConfig: ChatThemeConfig = {
       wallpaperId: selectedWallpaperId,
       accentColorId: selectedAccentId,
-      customWallpaper: selectedWallpaperId === 'custom' && customWallpaper
-        ? {
-            imageUrl: customWallpaper.imageUrl,
-            blur,
-            dimming
-          }
-        : customWallpaper
+      customWallpaper: {
+        imageUrl: selectedWallpaperId === 'custom' ? customWallpaper?.imageUrl : undefined,
+        blur,
+        dimming
+      }
     };
     onSave(newConfig);
     onClose();
@@ -140,14 +141,17 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
   // Compute live preview background style
   const getPreviewBackgroundStyle = (): React.CSSProperties => {
+    const filterStyle = blur > 0 ? `blur(${blur}px)` : undefined;
+    const transformStyle = blur > 0 ? 'scale(1.12)' : undefined;
+
     if (selectedWallpaperId === 'custom' && customWallpaper?.imageUrl) {
       return {
         backgroundImage: `url(${customWallpaper.imageUrl})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        filter: blur > 0 ? `blur(${blur}px)` : undefined,
-        transform: blur > 0 ? 'scale(1.08)' : undefined
+        filter: filterStyle,
+        transform: transformStyle
       };
     }
 
@@ -157,8 +161,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        filter: blur > 0 ? `blur(${blur}px)` : undefined,
-        transform: blur > 0 ? 'scale(1.08)' : undefined
+        filter: filterStyle,
+        transform: transformStyle
       };
     }
 
@@ -169,13 +173,17 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
       return {
         backgroundImage: `${pattern}, ${bgCss}`,
         backgroundSize: '100px 100px, 100% 100%',
-        backgroundRepeat: 'repeat, no-repeat'
+        backgroundRepeat: 'repeat, no-repeat',
+        filter: filterStyle,
+        transform: transformStyle
       };
     }
 
     return {
       backgroundImage: bgCss,
-      backgroundSize: '100% 100%'
+      backgroundSize: '100% 100%',
+      filter: filterStyle,
+      transform: transformStyle
     };
   };
 
@@ -207,10 +215,40 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
           {/* 1. Compact Live Chat Preview (See real-time Blur & Dimming) */}
           <div className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-inner flex flex-col justify-end p-2.5 select-none">
             {/* Background Canvas Layer */}
-            <div
-              className="absolute inset-0 transition-all duration-300 pointer-events-none"
-              style={getPreviewBackgroundStyle()}
-            />
+            {activeWallpaper.animatedType === 'squares' ? (
+              <div className="absolute inset-0 pointer-events-none">
+                <Squares speed={0.4} borderColor={isDark ? '#3390ec22' : '#3390ec33'} />
+              </div>
+            ) : activeWallpaper.animatedType === 'aurora' ? (
+              <div className="absolute inset-0 pointer-events-none">
+                <Aurora />
+              </div>
+            ) : activeWallpaper.animatedType === 'particles' ? (
+              <div className="absolute inset-0 pointer-events-none">
+                <Particles particleCount={25} particleColor={isDark ? '#3390ec' : '#2563eb'} />
+              </div>
+            ) : activeWallpaper.animatedType === 'letter-glitch' ? (
+              <div className="absolute inset-0 pointer-events-none">
+                <LetterGlitch glitchSpeed={60} />
+              </div>
+            ) : activeWallpaper.animatedType === 'hyperspeed' ? (
+              <div className="absolute inset-0 pointer-events-none">
+                <Hyperspeed speed={10} starCount={150} />
+              </div>
+            ) : activeWallpaper.animatedType === 'waves' ? (
+              <div className="absolute inset-0 pointer-events-none">
+                <Waves waveAmpX={20} waveAmpY={15} />
+              </div>
+            ) : activeWallpaper.animatedType === 'dither' ? (
+              <div className="absolute inset-0 pointer-events-none">
+                <Dither colorA={isDark ? '#080d1a' : '#e0e7ff'} colorB={isDark ? '#3390ec' : '#6366f1'} />
+              </div>
+            ) : (
+              <div
+                className="absolute inset-0 transition-all duration-300 pointer-events-none"
+                style={getPreviewBackgroundStyle()}
+              />
+            )}
 
             {/* Dimming overlay layer */}
             {isPhoto && (
@@ -273,9 +311,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
             {[
               { id: 'all', label: 'Все' },
+              { id: 'animated', label: '✨ React Bits' },
               { id: 'photo', label: 'Фото' },
               { id: 'pattern', label: 'Узоры' },
-              { id: 'gradient', label: 'Градиенты' }
+              { id: 'gradient', label: 'Градиенты' },
+              { id: 'minimal', label: 'Минимал' }
             ].map((tab) => (
               <button
                 key={tab.id}

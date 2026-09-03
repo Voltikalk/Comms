@@ -1,21 +1,54 @@
 {
+  "id": "com.securecomms.app",
   "short_name": "Secure Comms",
-  "name": "Secure Comms - Private Console",
+  "name": "Secure Comms — Hybrid Messenger",
+  "description": "Ultra-Premium Real-Time Hybrid Messenger for Desktop & Mobile",
   "icons": [
     {
       "src": "icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "icon-512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "scope": "/",
+  "background_color": "#0e1621",
+  "theme_color": "#17212b",
   "display": "standalone",
-  "orientation": "portrait"
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "orientation": "any",
+  "categories": [
+    "social",
+    "productivity",
+    "communication",
+    "utilities"
+  ],
+  "shortcuts": [
+    {
+      "name": "Поиск сообщений",
+      "short_name": "Поиск",
+      "description": "Глобальный полнотекстовый поиск по сообщениям",
+      "url": "/?action=search",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Истории",
+      "short_name": "Stories",
+      "description": "Просмотр и публикация историй Telegram 2.0",
+      "url": "/?action=stories",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
 }

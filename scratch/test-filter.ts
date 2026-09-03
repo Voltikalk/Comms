@@ -1,12 +1,8 @@
 import {
   applyFilters,
-  sortMessages,
   validateFilters,
   getCommonFilters,
   buildFilterQuery,
-  exportFilteredMessagesToJSON,
-  exportFilteredMessagesToCSV,
-  type FilterOptions,
 } from '../src/lib/filter-utils';
 
 console.log('--- Testing filter-utils ---');

@@ -3,34 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/icon-192.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Secure Comms</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Secure Comms — Hybrid Desktop & Mobile</title>
+    
+    <script>
+      // Auto-redirect from HTTPS to HTTP on local dev to prevent ERR_SSL_PROTOCOL_ERROR
+      if (window.location.protocol === 'https:' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))) {
+        window.location.href = window.location.href.replace('https:', 'http:');
+      }
+    </script>
     
     <!-- Google Fonts: Montserrat (Headings) & Inter (Body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-    <!-- PWA Meta Tags -->
+    <!-- PWA & Hybrid App Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#09090b" />
+    <meta name="theme-color" content="#17212b" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Secure Comms" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Automatically unregister service workers to prevent stale asset caching
+      // Service Worker: Only register in production build (skip during Vite dev server to prevent white screen)
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(registrations => {
-          for (let registration of registrations) {
-            registration.unregister().then(() => {
-              console.log('Stale Service Worker removed.');
+        const isDev = window.location.port === '5173' || window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168.');
+        if (isDev) {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const registration of registrations) {
+              registration.unregister();
+            }
+          });
+        } else {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch((err) => {
+              console.warn('[SW] Registration failed:', err);
             });
-          }
-        });
+          });
+        }
       }
     </script>
   </body>

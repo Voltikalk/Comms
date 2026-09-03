@@ -26,3 +26,7 @@ dist-ssr
 # Uploads
 uploads/*
 !uploads/.gitkeep
+
+# Scratch and agent local artifacts
+scratch/
+.agents/

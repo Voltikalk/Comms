@@ -639,11 +639,23 @@ export const findStickersByEmoji = (emoji: string): Sticker[] => {
 export const searchStickers = (query: string): Sticker[] => {
   if (!query || !query.trim()) return ALL_STICKERS;
   const q = query.trim().toLowerCase();
-  return ALL_STICKERS.filter(s => 
+  return ALL_STICKERS.filter(s =>
     s.title.toLowerCase().includes(q) ||
     s.packTitle.toLowerCase().includes(q) ||
     s.emoji.includes(q) ||
     s.tags?.some(t => t.toLowerCase().includes(q))
+  );
+};
+
+// Find sticker by ID, title or filename
+export const findStickerByTitleOrId = (titleOrId?: string): Sticker | undefined => {
+  if (!titleOrId) return undefined;
+  const clean = titleOrId.trim().toLowerCase();
+  return ALL_STICKERS.find(s =>
+    s.id.toLowerCase() === clean ||
+    s.title.toLowerCase() === clean ||
+    clean.startsWith(`sticker_${s.id.toLowerCase()}`) ||
+    clean === s.title.toLowerCase()
   );
 };
 

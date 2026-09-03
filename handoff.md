@@ -1,7 +1,7 @@
 # 🚀 Secure Comms — Architecture & Design System Master Guide
 
 > **Telegram Web Replica / Ultra-Premium Real-Time Messenger**  
-> Стек: **React 19 / Vite**, **TypeScript**, **Tailwind CSS**, **Ultra-Fast Full-Text Search UI Suite (FTS / Debounced SearchBar / Advanced Filters / Animated Cards / History / Stats)**, **Framer Motion, GSAP, AOS & Lottie**, **Storybook**, **Node.js / Express**, **Socket.io / WebSocket**, **WebRTC**, **JWT & Bcrypt**.
+> Стек: **React 19 / Vite**, **TypeScript**, **Tailwind CSS**, **Telegram Rich Text (Spoilers ||text|| / Markdown / CodeBlocks with Copy / Floating Toolbar / Hotkeys)**, **Telegram Media Lightbox & Gallery Suite (Fullscreen / Zoom & Pan / Rotation / Navigation / Carousel)**, **Master Navigation Suite (Command Palette Spotlight Ctrl+K / Chat Folder Tabs / Mobile Bottom Nav / Desktop Breadcrumbs / Power-User Hotkeys)**, **Hybrid Desktop & Mobile Suite (PWA / Window Controls Overlay / Edge Gestures / Latency Ping)**, **Stories 2.0 & Polls/Quizzes Suite**, **Voice & Video Notes 2.0 (Waveform & Circular 60 FPS Player)**, **Telegram .TGS Stickers (60 FPS Lottie/Canvas)**, **Full-Text Search UI Suite (FTS / Debounced SearchBar / Advanced Filters / Animated Cards / History / Stats)**, **Custom Video Player (4K/60FPS/PiP/Settings)**, **Skiper UI 26 View Transitions & Skiper 4 Morphing Theme Switcher**, **Chat Wallpapers Suite (Live Blur & Dimming)**, **Framer Motion, GSAP, AOS & Lottie**, **Storybook**, **Node.js / Express**, **Socket.io / WebSocket**, **WebRTC**, **JWT & Bcrypt**, **Supabase (PostgreSQL + Auth + Storage + Realtime)**, **Vitest (107/107 Tests Passing)**.
 
 ---
 
@@ -31,20 +31,17 @@ cp .env.example .env
 
 ### 4. Запуск приложения в режиме разработки
 ```bash
-# Терминал 1: Запуск Backend сервера Express + Socket.io (порт 3001)
+# Терминал 1: Запуск Backend сервера Express + Socket.io (порт 3000)
 npm run server
 
 # Терминал 2: Запуск Frontend клиента Vite + React 19 (порт 5173)
 npm run dev
 ```
 
-### 5. Миграции базы данных и тестирование
+### 5. Тестирование, проверка качества и сборка
 ```bash
-# Применение всех миграций схемы Supabase / PostgreSQL
-npm run migrate:up
-
-# Проверка статуса миграций
-npm run migrate:status
+# Запуск юнит-тестов Vitest (107/107 тестов)
+npm test
 
 # Линтинг кодовой базы (Oxlint)
 npm run lint
@@ -54,46 +51,74 @@ npm run build
 
 # Запуск изолированной песочницы компонентов Storybook (порт 6006)
 npm run storybook
+
+# Применение миграций схемы Supabase / PostgreSQL
+npm run migrate:up
+
+# Проверка статуса миграций
+npm run migrate:status
 ```
 
 ---
 
 ## 📋 Содержание
 1. [Getting Started & Быстрый старт](#-getting-started--быстрый-старт)
-2. [Обзор проекта и текущая стадия](#-обзор-проекта-и-текущая-стадия)
-2. [Структура репозитория и файлов](#-структура-репозитория-и-файлов)
-3. [UI Компоненты полнотекстового поиска (Search UI Suite)](#-ui-компоненты-полнотекстового-поиска-search-ui-suite)
-4. [Система архивирования и управления жизненным циклом данных](#-система-архивирования-и-управления-жизненным-циклом-данных)
-5. [Управление историей сообщений и виртуальный скроллинг](#-управление-историей-сообщений-и-виртуальный-скроллинг)
-6. [Комплексный сервис поиска (Message Search Service & Utilities)](#-комплексный-сервис-поиска-message-search-service--utilities)
-7. [Полнотекстовый поиск (Full-Text Search & Multilingual Stemming)](#-полнотекстовый-поиск-full-text-search--multilingual-stemming)
-8. [React UI Компоненты на базе Supabase](#-react-ui-компоненты-на-базе-supabase)
-9. [Архитектура Socket.io сервера и синхронизация с Supabase](#-архитектура-socketio-сервера-и-синхронизация-с-supabase)
-10. [Система миграций базы данных (Schema Migrations & CLI)](#-система-миграций-базы-данных-schema-migrations--cli)
-11. [Supabase Storage & Компрессия медиа](#-supabase-storage--компрессия-медиа)
-12. [Система Real-time подписок (WebSockets & Presence)](#-система-real-time-подписок-websockets--presence)
-13. [Сервисный слой данных (Rooms, Messages, Reactions, Receipts, Attachments)](#-сервисный-слой-данных-rooms-messages-reactions-receipts-attachments)
-14. [Supabase Authentication & Управление сессиями](#-supabase-authentication--управление-сессиями)
-15. [Supabase & PostgreSQL Tooling Suite (Client, Queries, Cache, Hooks)](#-supabase--postgresql-tooling-suite-client-queries-cache-hooks)
-16. [Дизайн-гайдлайны и правила стилизации](#-дизайн-гайдлайны-и-правила-стилизации)
-17. [Дизайн-токены (Design Tokens & Color Harmonies)](#-дизайн-токены-design-tokens--color-harmonies)
-18. [Документация компонентов (UI Component Library)](#-документация-компонентов-ui-component-library)
-19. [Анимационный движок & Гайдлайн по физике движения](#-анимационный-движок--гайдлайн-по-физике-движения)
-20. [Мобильная оптимизация & Тач-взаимодействия](#-мобильная-оптимизация--тач-взаимодействия)
-21. [Руководство для контрибьюторов (Contributing & Review Guide)](#-руководство-для-контрибьюторов-contributing--review-guide)
-22. [Запуск, сборка и Storybook](#-запуск-сборка-и-storybook)
-23. [Журнал изменений (Changelog)](#-журнал-изменений-changelog)
+2. [Обзор проекта и текущая архитектурная стадия](#-обзор-проекта-и-текущая-архитектурная-стадия)
+3. [Структура репозитория и файлов](#-структура-репозитория-и-файлов)
+4. [Ключевые подсистемы и мастер-сьюты](#-ключевые-подсистемы-и-мастер-сьюты)
+   * 4.1. [Telegram Stories 2.0 (24h TTL, Reactions, Captions & Gradients)](#41-telegram-stories-20)
+   * 4.2. [Интерактивные опросы и викторины (Live Polls & Quizzes)](#42-интерактивные-опросы-и-викторины-live-polls--quizzes)
+   * 4.3. [Голосовые сообщения 2.0 и видео-кружки (Waveform & 60 FPS Player)](#43-голосовые-сообщения-20-и-видео-кружки)
+   * 4.4. [Анимированные стикеры .TGS и Lottie-движок](#44-анимированные-стикеры-tgs-и-lottie-движок)
+   * 4.5. [Полнотекстовый поиск и фильтрация (Search UI Suite & FTS)](#45-полнотекстовый-поиск-и-фильтрация)
+   * 4.6. [Кастомный видеоплеер (Custom Video Player Suite)](#46-кастомный-видеоплеер-custom-video-player-suite)
+   * 4.7. [Движок тем Skiper UI, обоев, размытия и затемнения](#47-движок-тем-skiper-ui-обоев-размытия-и-затемнения)
+   * 4.8. [Эффект распада сообщений Таноса (Thanos Snap Disintegration)](#48-эффект-распада-сообщений-таноса)
+   * 4.9. [Кроссплатформенный гибридный мастер-сьют для ПК и смартфонов (Comms Hybrid Suite)](#49-кроссплатформенный-гибридный-мастер-сьют-для-пк-и-смартфонов)
+   * 4.10. [Форматирование текста, спойлеры и блоки кода (Rich Text & Telegram Spoilers Suite)](#410-форматирование-текста-спойлеры-и-блоки-кода)
+   * 4.11. [Полноэкранная медиа-галерея (Telegram Media Lightbox & Gallery Suite)](#411-полноэкранная-медиа-галерея-telegram-media-lightbox--gallery-suite)
+   * 4.12. [Анимированные фоны React Bits (React Bits Backgrounds Suite)](#412-анимированные-фоны-react-bits-react-bits-backgrounds-suite)
+   * 4.13. [Мастер-сьют навигации (Command Palette Spotlight, Chat Folders & Power-User Hotkeys)](#413-мастер-сьют-навигации-master-navigation-suite)
+5. [Серверная архитектура, сокеты и Supabase](#-серверная-архитектура-сокеты-и-supabase)
+6. [Тестирование и контроль качества (Vitest, Oxlint, CI/CD)](#-тестирование-и-контроль-качества-vitest-oxlint-cicd)
+7. [Дизайн-система, токены и анимационный движок](#-дизайн-система-токены-и-анимационный-движок)
+8. [Запуск, сборка и Storybook](#-запуск-сборка-и-storybook)
+9. [Журнал изменений (Changelog)](#-журнал-изменений-changelog)
 
 ---
 
-## 🌟 Обзор проекта и текущая стадия
+## 🌟 Обзор проекта и текущая архитектурная стадия
 
-**Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Supabase Real-time подписок** и **премиальным набором UI-компонентов полнотекстового поиска с горячими клавишами, фильтрацией и историей**.
+**Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 37 — Telegram Rich Chat List Snippets & Delivery Indicators):
-* ✅ **Telegram Chat List Snippets Suite (NEW)**:
-  * [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) — векторные иконки вложений вместо битых эмодзи, галочки статуса доставки сообщений (`✓`/`✓✓`), анимированный индикатор набора текста и статусы онлайна.
-  * [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) — живые миниатюры медиа (фото/видео/стикеры), персональная палитра цветов авторов и импульсная подсветка.
+### 📌 Текущая стадия разработки (Status: Phase 50 — Modular Architecture, God-Component Decomposition & Clean Repository [v3.19.0]):
+* ✅ **Распил "God-компонента" `ChatScreen.tsx` (декомпозиция монолита 4 478 строк / 192 КБ)**:
+  * Создана модульная архитектура субкомпонентов в каталоге `src/components/Chat/`:
+    * [`ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx) (511 строк) — изолированный сайдбар: гамбургер-меню, профиль пользователя, быстрый поиск диалогов, блок историй `<StoriesBar />`, вкладки папок `<ChatFolderTabs />`, список комнат со счетчиками и превью черновиков, кнопка архива сообщений (Admin), плавный drag-to-resize разделитель и мобильная панель `<MobileBottomNav />`.
+    * [`ChatHeader.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Header/ChatHeader.tsx) (508 строк) — шапка чата: индикатор статуса "в сети", аватары, капсула поиска внутри чата (iOS/Telegram capsule) с навигацией по совпадениям (Next/Prev), фильтрами по дате/типу и панелью мультивыделения сообщений (`isSelectMode`).
+    * [`ChatMessageFeed.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Feed/ChatMessageFeed.tsx) (228 строк) — скроллируемый поток сообщений: плашка закрепленного сообщения с переходом, баннер оффлайн-статуса, разделители дат ("Сегодня", "Вчера", календарные дни), визуальная дропзона Drag & Drop, плавающая кнопка скролла вниз со счетчиком непрочитанных.
+    * [`ChatInputBar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Input/ChatInputBar.tsx) (491 строк) — расширенная нижняя панель ввода: плашки ответов и редактирования, предпросмотр медиа и документов, выпадающий автокомплит @упоминаний (`ActiveToken`, `MentionCandidate`), быстрые подсказки стикеров, попап эмодзи, диктофон `<VoiceRecorderHUD />` с живым спектром звука, плеер превью `<VoicePreviewPlayer />` и тулбар форматирования `<FormattingToolbar />`.
+    * [`ChatUserInfoPanel.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/UserInfo/ChatUserInfoPanel.tsx) (190 строк) — правая панель деталей пользователя и группы: переключатель беззвучного режима, телефон, био, галерея общих медиафайлов.
+    * [`ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx) (834 строк) — централизованный хост модальных окон: `ProfileEditModal`, `PollCreateModal`, `SearchPage`, `AdvancedSearchModal`, `ThemeSettingsModal`, `StoryViewer`, `StoryCreateModal`, `MediaGalleryModal`, `CommandPaletteModal`, `TelegramContextMenuModal`, оверлей WebRTC-звонков, модалка видео-сообщений, QR-код профиля, нижняя панель действий выбора и тосты.
+    * [`ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx) — сокращен с 4 478 до 2 609 строк (~50% сокращение объема файла!), преобразован в чистый координатор состояний, эффектов и доменной логики.
+* ✅ **Подключение неиспользуемых страниц и очистка Git-репозитория**:
+  * [`AdminArchive.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/pages/AdminArchive.tsx) подключен к пользовательскому интерфейсу: добавлен проп `onClose` с кнопкой «✕ Закрыть», доступен из бокового меню сайдбара, через горячую команду в `CommandPaletteModal` (поиск по словам: *архив, archive, бд, хранилище, admin*) и через модальный хост `ChatModalsHost`.
+  * Удалены неиспользуемые страницы-дубликаты (`src/pages/RegisterPage.tsx`, `src/pages/ResetPasswordPage.tsx`).
+  * Зафиксировано удаление более 30 устаревших файлов в Git (`src/components/ChatRoom/*`, `src/services/*`, `src/hooks/*`), висевших в несинхронизированном состоянии.
+* ✅ **Контроль качества, линтинг и тесты**:
+  * `npm test` (vitest): 112/112 юнит-тестов проходят (10 suites).
+  * `npx oxlint`: 0 ошибок линтинга.
+  * `npm run build`: сборка TypeScript и Vite завершается за 1.18s с exit code 0.
+
+### 📌 Предыдущая стадия разработки (Phase 49 — Server Resilience, WebRTC Signaling & Socket Unification Suite [v3.18.0]):
+* ✅ **Серверная стабильность и устранение синтаксической ошибки (`server.js`)**:
+  * Исправлено фатальное повторное объявление `const userStories` в блоке `send_story`, предотвращавшее запуск Node.js-сервера.
+  * Исправлен WebRTC сигналинг: в обработчиках `call_end` и `webrtc_signal` проверка комнат переведена с `allowedRooms.includes(roomId)` на `isRoomAllowedForUser(roomId, user)`, благодаря чему личные звонки (`dm-*`) корректно обмениваются ICE-кандидатами/SDP и завершаются без подвисаний.
+  * Синхронизированы UUID сообщений с PostgreSQL Supabase: при сохранении сообщений генерируются и сохраняются валидные UUID (`crypto.randomUUID`), гарантируя корректность реакций и меток прочтения в базе данных.
+* ✅ **Клиентская оптимизация и унификация сокетов**:
+  * В `SocketContext.tsx` добавлен экспортируемый экземпляр `socket: Socket | null`.
+  * В `StoriesContext.tsx` полностью удален избыточный второй сокет `io(SERVER_URL)` — подписка на `stories_state` и отправка историй переведены на единый общий сокет из `SocketContext`.
+  * В `ChatFolderTabs.tsx` массив вкладок `tabs` вынесен в константу `FOLDER_TABS` за пределы компонента, устранив бесконечную переподписку слушателей событий скролла и ресайза (`exhaustive-deps`).
 
 ---
 
@@ -110,113 +135,278 @@ Comms/
 │       └── 005_add_message_archive.sql        # Долговременный архив и процедуры
 ├── scripts/
 │   └── migrate.js                             # CLI миграций (up, down, status, create)
-├── .supabaserc                                # Конфигурация Supabase CLI и миграций
-├── .env.local                                 # Ключи и URL Supabase
-├── server.js                                  # Node.js + Express + Socket.io + Supabase v2 Server
-├── package.json                               # Зависимости и npm-скрипты
+├── .github/
+│   ├── workflows/ci.yml                       # CI пайплайн (Oxlint + Typecheck & Build)
+│   ├── PULL_REQUEST_TEMPLATE.md               # Шаблон Pull Request
+│   └── ISSUE_TEMPLATE/bug_report.md           # Шаблон отчета об ошибке
+├── docs/
+│   ├── RUNBOOK.md                             # Руководство по эксплуатации и траблшутингу
+│   └── SECURITY.md                            # Политика безопасности и сообщений об уязвимостях
+├── public/
+│   ├── sw.js                                  # PWA Service Worker (Cache-first + Stale-while-revalidate)
+│   ├── manifest.json                          # PWA Web App Manifest
+│   └── stickers/                              # Стикеры (.tgs, Lottie, JSON, webp)
+├── .vscode/
+│   └── mcp.json                               # Конфигурация MCP-серверов (shadcn / React Bits)
+├── .agents/
+│   └── mcp_config.json                        # Конфигурация MCP для Antigravity агентов
+├── components.json                             # Конфигурация UI компонентов и реестра @react-bits
+├── server.js                                  # Node.js + Express + Socket.io Server (порт 3000)
+├── package.json                               # Зависимости, скрипты и конфигурация
 ├── vite.config.ts                             # Конфигурация сборщика Vite
 ├── index.html                                 # Точка входа HTML (Montserrat, Inter, PWA)
-├── handoff.md                                 # Этот документ (Генеральный архитектурный гайд)
+├── handoff.md                                 # Генеральный архитектурный гайд проекта
 └── src/
     ├── main.tsx                               # Точка входа React 19
-    ├── App.tsx                                # Корневой компонент
-    ├── index.css                              # Глобальные стили, темы, импорты шрифтов
-    ├── types.ts                               # Базовые типы чата, сообщений, UserId и звонков
-    ├── constants.ts                           # Константы, дефолтные профили, эмодзи, URL
+    ├── App.tsx                                # Корневой компонент приложения
+    ├── index.css                              # Глобальные стили, темы, анимации, скроллбары
+    ├── types.ts                               # Базовые типы чата, сообщений, опросов, реакций
+    ├── constants.ts                           # Дефолтные профили, аватары, эмодзи, URL
     ├── tokens/
     │   └── design-tokens.json                 # Экспортируемые токены (Colors, Typography, Spacing)
-    ├── jobs/
-    │   └── archive-messages.job.ts            # Фоновое задание автоматической архивации
-    ├── lib/
-    │   ├── filter-utils.ts                    # Утилиты фильтрации, сортировки, валидации и экспорта
-    │   ├── cron-jobs.ts                       # Планировщик фоновых задач CronScheduler
-    │   ├── image-compression.ts               # Canvas утилита сжатия картинок и аватаров
-    │   ├── supabase/
-    │   │   ├── search-utils.ts                # Санитизация, контекст ±50 симв, Rate Limiter
-    │   │   ├── search-config.ts               # Полнотекстовый поиск, нормализатор и подсветка
-    │   │   ├── client.ts                      # Singleton клиент с retry-логикой
-    │   │   ├── types.ts                       # Полная TypeScript типизация БД и RPC
-    │   │   ├── config.ts                      # Таймауты, бакеты и лимиты
-    │   │   ├── queries.ts                     # Типобезопасные Query Builders
-    │   │   └── cache.ts                       # TTL кеш-менеджер с инвалидацией
-    │   ├── colors.ts                          # Цветовые токены Coolors/Adobe Color
-    │   └── animations.ts                      # Framer Motion, GSAP, AOS и Lottie
-    ├── context/
-    │   ├── AuthContext.tsx                    # Supabase Auth Context
-    │   └── SocketContext.tsx                  # Real-time сокеты, WebRTC звонки, Supabase sync
-    ├── services/
-    │   ├── message-filter.service.ts          # Сервис фильтрации, сортировки, кэширования и пресетов
-    │   ├── message-archive.service.ts         # Управление архивом, очистка файлов, восстановление
-    │   ├── message-history.service.ts         # Управление историей, контекстом и экспортом
-    │   ├── message-search.service.ts          # Комплексный движок поиска сообщений
-    │   ├── storage.service.ts                 # Загрузка и удаление файлов в Storage
-    │   ├── realtime.service.ts                # Менеджер Real-time WebSockets & Presence
-    │   ├── room.service.ts                    # Сервис комнат, участников и ролей
-    │   ├── message.service.ts                 # Сервис отправки, пагинации, поиска
-    │   ├── reaction.service.ts                # Сервис эмодзи-реакций
-    │   ├── read-receipt.service.ts            # Сервис статусов прочитанности
-    │   ├── attachment.service.ts              # Сервис загрузки медиа
-    │   ├── supabase-auth.service.ts           # Сервис Supabase Auth
-    │   └── auth.service.ts                    # Клиентский REST API сервис
-    ├── hooks/
-    │   ├── useMessageFilter.ts                # Реактивный хук фильтрации, пресетов и экспорта
-    │   ├── useSearchMessages.ts               # Высокоуровневый хук поиска с таймингом
-    │   ├── useVirtualScroll.ts                # Хук расчета виртуального окна
-    │   ├── useInfiniteMessageHistory.ts       # Хук двунаправленной подгрузки истории
-    │   ├── useMessageSearch.ts                # Хук поиска с debounce, фильтрами и историей
-    │   ├── useFileUpload.ts                   # Хук загрузки файлов
-    │   ├── useRealtimeSubscription.ts         # Хук управления каналом Realtime
-    │   ├── useRoomMessages.ts                 # Реактивный хук живых сообщений
-    │   ├── useUserStatus.ts                   # Хук онлайн-статусов
-    │   ├── useMessageReactions.ts             # Хук живых эмодзи-реакций
-    │   ├── useAuth.ts                         # Хук доступа к AuthContext
-    │   ├── useSupabase.ts                     # Хук работы с БД
-    │   ├── useMediaQuery.ts                   # Хуки брейкпоинтов
-    │   └── useTouchInteractions.ts            # Хуки свайп-навигации
-    ├── lib/
-    │   ├── tgs-loader.ts                      # Загрузчик и GZIP-декомпрессор Telegram .TGS стикеров
-    │   └── filter-utils.ts                    # Утилиты фильтрации
-    ├── constants/
-    │   └── stickers.ts                        # Коллекция стикер-паков (ICQ Колобки, Сеня, Пепе, Котики, Доге, 3D)
-    ├── components/
-    │   ├── Stickers/
-    │   │   ├── StickerPicker.tsx              # Telegram Стикер-пикер (поиск, паки, избранное, недавние)
-    │   │   └── TgsStickerPlayer.tsx           # 60 FPS Lottie/.TGS плеер векторных анимаций стикеров
-    │   ├── Search/
-    │   │   ├── FilterPanel.tsx                # Расширенная панель фильтрации и пресетов
-    │   │   ├── DateRangePicker.tsx            # Компонент выбора периода дат с валидацией
-    │   │   ├── SearchBar.tsx                  # Поисковая строка с хоткеем Ctrl+F
-    │   │   ├── SearchFilters.tsx              # Панель быстрых фильтров
-    │   │   ├── SearchResultCard.tsx           # Карточка найденного сообщения
-    │   │   ├── SearchResults.tsx              # Лента результатов и NoSearchResults
-    │   │   ├── SearchHistory.tsx              # Чипсы недавних поисковых запросов
-    │   │   ├── SearchStats.tsx                # Счетчик, время ответа и сортировка
-    │   │   └── AdvancedSearchModal.tsx        # Модальное окно расширенных фильтров
-    │   ├── ChatRoom/
-    │   │   ├── MessageVirtualizer.tsx         # Панель фильтров, экспорт JSON/CSV, виртуализатор
-    │   │   ├── VirtualMessageList.tsx         # Виртуальная лента сообщений с разделителем
-    │   │   ├── ChatRoom.tsx                   # Контейнер чата, лента сообщений и инпут
-    │   │   ├── MessageList.tsx                # Лента сообщений
-    │   │   └── SendMessage.tsx                # Инпут отправки с загрузкой вложений
-    │   ├── RoomList/                          # Список диалогов с поиском
-    │   │   ├── UserProfile/                       # Редактирование профиля и аватарки
-    │   ├── RoomMembers/                       # Список участников комнаты и роли
-    │   ├── FileUploadInput.tsx                # Drag-and-drop компонент загрузки
-    │   ├── ui/                                # Button, Input, Card, LoadingSpinner
-    │   ├── ChatScreen.tsx                     # Главный экран чата Telegram
-    │   ├── MessageBubble.tsx                  # Пузырь сообщения (текст, стикеры .tgs, медиа, аудио, кружки)
-    │   ├── ProfileEditModal.tsx               # Модальное окно редактирования профиля Telegram
-    │   ├── TelegramContextMenuModal.tsx       # Контекстное меню сообщения
-    │   ├── TelegramEmojiPickerModal.tsx       # Палитра эмодзи и вкладка стикеров Telegram
-    │   ├── LoginScreen.tsx                    # Экран входа и регистрации
-    │   └── VideoCallModal.tsx                 # Модальное окно аудио/видео звонка WebRTC
-    └── pages/
-        ├── SearchPage.tsx                     # Главный экран поиска и фильтрации сообщений
-        ├── AdminArchive.tsx                   # Панель управления архивацией сообщений
-        ├── LoginPage.tsx                      # Страница входа с поддержкой пресетов
-        ├── RegisterPage.tsx                   # Страница регистрации аккаунта
-        └── ResetPasswordPage.tsx              # Страница сброса пароля
+    ├── types/
+│   ├── platform.types.ts                  # Типы платформ (OS, DeviceType, HybridViewMode, Haptic)
+│   ├── story.types.ts                     # Типы историй (Story, StoryGradient, StoryReaction)
+│   ├── sticker.types.ts                   # Типы стикеров и стикер-паков (StickerPack, TgsSticker)
+│   ├── theme.types.ts                     # Типы тем, размытия, затемнения и обоев
+│   ├── video-player.types.ts              # Типизация кастомного 4K видеоплеера
+│   └── auth.types.ts                      # Типы аутентификации, сессий и регистрации
+├── constants/
+│   ├── stickers.ts                        # Коллекция стикер-паков (8 паков: Сеня, Пепе, Котики, Доге, 3D)
+│   ├── duck_stickers.ts                   # 60 FPS векторные анимации Уточки Сени (29 стикеров)
+│   ├── cherry_stickers.ts                 # 60 FPS стикеры Вишенки Hot Cherry
+│   ├── corgi_stickers.ts                  # Стикеры Корги
+│   ├── kolobki.ts                         # 50 оригинальных 60 FPS анимаций ICQ Колобков
+│   └── wallpapers.ts                      # Коллекция обоев чата (фото, градиенты, паттерны)
+├── context/
+│   ├── PlatformContext.tsx                # Единый контекст гибридной платформы (ОС, PWA, Ping, Haptic)
+│   ├── AuthContext.tsx                    # Supabase Auth Context и сессии
+│   ├── SocketContext.tsx                  # Real-time сокеты, сообщения, опросы, WebRTC звонки
+│   └── StoriesContext.tsx                 # Изолированный контекст управления историями
+├── lib/
+│   ├── platform.test.ts                   # 5 юнит-тестов гибридной платформы и виброотклика
+│   ├── audio-waveform.ts                  # Анализ спектра Web Audio API, RMS нормализация в 30 баров
+│   ├── audio-waveform.test.ts             # 8 юнит-тестов нормализации звукового спектра
+│   ├── mentions.ts                        # Парсер токенов @упоминаний и #хештегов с автодополнением
+│   ├── mentions.test.ts                   # 26 юнит-тестов упоминаний и хештегов
+│   ├── poll.test.ts                       # 15 юнит-тестов опросов, викторин и подсчета голосов
+│   ├── stories.test.ts                    # 6 юнит-тестов 24-часового TTL и реакций историй
+│   ├── filter-utils.ts                    # Утилиты фильтрации, сортировки, валидации и экспорта
+│   ├── filter-utils.test.ts               # 23 юнит-теста фильтров сообщений
+│   ├── tgs-loader.ts                      # Парсер и GZIP-декомпрессор Telegram .TGS файлов (Pako)
+│   ├── image-compression.ts               # Canvas сжатие картинок и аватаров перед отправкой
+│   ├── colors.ts                          # Цветовые палитры и токены
+│   ├── animations.ts                      # Пресеты Framer Motion, GSAP, AOS и Lottie
+│   └── supabase/                          # Клиент Supabase, кеш, запросы и типизация
+├── hooks/
+│   ├── useSearchMessages.ts               # Хук быстрого поиска с таймингом и подсветкой
+│   ├── useVideoPlayer.ts                  # Хук управления воспроизведением видеоплеера
+│   ├── useAuth.ts                         # Хук доступа к AuthContext
+│   ├── useMediaQuery.ts                   # Хуки брейкпоинтов
+│   └── useTouchInteractions.ts            # Хуки свайп-навигации
+├── components/
+│   ├── ChatScreen.tsx                     # Главный экран мессенджера (сайдбар, чат, рекордеры, drag&drop)
+│   ├── MessageBubble.tsx                  # Пузырь сообщения (текст, стикеры, медиа, аудио, кружки, цитаты)
+│   ├── LoginScreen.tsx                    # Экран входа в стиле Telegram Web K (QR-логин, демо-аккаунты)
+│   ├── TelegramRegistrationWizard.tsx     # 4-шаговый мастер регистрации с обрезкой аватара и кодом
+│   ├── ProfileEditModal.tsx               # Модальное окно редактирования профиля Telegram
+│   ├── TelegramContextMenuModal.tsx       # Контекстное меню сообщения с быстрыми реакциями
+│   ├── TelegramEmojiPickerModal.tsx       # Палитра эмодзи и вкладка стикеров Telegram
+│   ├── VideoCallModal.tsx                 # Модальное окно аудио/видео звонков WebRTC
+│   ├── ErrorBoundary.tsx                  # Граница ошибок с красивым фоллбэк UI
+│   ├── FileUploadInput.tsx                # Drag-and-drop компонент загрузки файлов
+│   ├── Desktop/
+│   │   ├── DesktopTitleBar.tsx            # Фирменный заголовок окна Telegram Desktop с пингом и хоткеями
+│   │   └── KeyboardShortcutsModal.tsx     # Интерактивная шпаргалка горячих клавиш (Ctrl+K/1-9/Esc/,/)
+│   ├── Mobile/
+│   │   └── MobileBottomNav.tsx            # Нативная нижняя навигация смартфонов (Чаты, Истории, Поиск, Комнаты, Настройки)
+│   ├── Hybrid/
+│   │   └── AppInstallModal.tsx            # Модальное окно быстрой PWA-установки на ПК, Android и iOS
+│   ├── Media/
+│   │   └── TelegramVideoNotePlayer.tsx    # 60 FPS GPU-плеер видео-кружков с IntersectionObserver
+│   ├── Poll/
+│   │   ├── PollCard.tsx                   # Карточка интерактивного опроса / викторины с анимацией
+│   │   └── PollCreateModal.tsx            # Создание опросов и викторин с правильным ответом
+│   ├── Stories/
+│   │   ├── StoriesBar.tsx                 # Строка аватаров историй с градиентными кольцами
+│   │   ├── StoryViewer.tsx                # Полноэкранный плеер историй (реакции, ответы, просмотры)
+│   │   └── StoryCreateModal.tsx           # Создание текстовых/фото историй на градиентах
+│   ├── Stickers/
+│   │   ├── StickerPicker.tsx              # Стикер-пикер с поиском, паками, избранным и недавними
+│   │   └── TgsStickerPlayer.tsx           # 60 FPS Lottie/Canvas плеер векторных .TGS анимаций
+│   ├── Search/
+│   │   ├── SearchBar.tsx                  # Поисковая строка с хоткеем Ctrl+F
+│   │   ├── SearchResultCard.tsx           # Карточка найденного сообщения с подсветкой
+│   │   ├── SearchResults.tsx              # Лента результатов и пустое состояние
+│   │   ├── SearchHistory.tsx              # Чипсы недавних поисковых запросов
+│   │   ├── SearchStats.tsx                # Счетчик совпадений, время ответа и сортировка
+│   │   └── AdvancedSearchModal.tsx        # Модальное окно расширенных фильтров
+│   ├── Theme/
+│   │   └── ThemeSettingsModal.tsx         # Настройки тем, размытия (0-20px) и затемнения (0-80%)
+│   ├── VideoPlayer/
+│   │   ├── VideoPlayer.tsx                # Кастомный видеоплеер Telegram Web
+│   │   ├── VideoPlayerContext.tsx         # Контекст состояния и горячих клавиш плеера
+│   │   └── Controls/                      # PlayPause, ProgressBar, Volume, Fullscreen, Settings
+│   ├── effects/
+│   │   ├── disintegrate.ts                # Canvas движок распада сообщений на частицы Таноса
+│   │   ├── AnimatedBorder.tsx             # Анимированные градиентные рамки
+│   │   ├── AnimatedIcons.tsx              # Анимированные векторные иконки
+│   │   ├── GradientBackground.tsx         # Фоновые градиенты
+│   │   └── ParticleBackground.tsx         # Интерактивные фоновые частицы
+│   └── ui/
+│       ├── skiper26.tsx                   # View Transitions API радиальное раскрытие темы
+│       ├── skiper4.tsx                    # Framer Motion морфинг-переключатель темы Солнце/Луна
+│       ├── Button.tsx                     # Кнопки дизайн-системы с вариантами и ripple
+│       ├── Input.tsx                      # Поля ввода с плавающей меткой
+│       ├── Card.tsx                       # Glassmorphism карточки
+│       └── LoadingSpinner.tsx             # Индикаторы загрузки
+└── pages/
+    ├── SearchPage.tsx                     # Главный экран глобального FTS поиска сообщений
+    ├── AdminArchive.tsx                   # Панель управления долговременной архивацией
+    ├── LoginPage.tsx                      # Страница входа
+    ├── RegisterPage.tsx                   # Страница регистрации
+    └── ResetPasswordPage.tsx              # Страница восстановления пароля
 ```
+
+---
+
+## 🧩 Ключевые подсистемы и мастер-сьюты
+
+### 4.1. Telegram Stories 3.0 Master Suite («Как в TG»)
+* **Хранилище и синхронизация**: бэкенд [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) поддерживает in-memory хранилище историй с автоочисткой по кастомному TTL (6, 12, 24, 48 часов или бессрочно при закреплении в профиле `isPinned`) и сокет-событиями `send_story`, `delete_story`, `view_story`, `react_story`.
+* **Строка историй ([`src/components/Stories/StoriesBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoriesBar.tsx))**:
+  * **Сегментированные SVG-кольца (`SegmentedStoryRing`)**: кольцо вокруг аватарки динамически разделяется на количество дуг, равное числу историй пользователя с разделителями.
+  * **Статусы сегментов**: просмотренные истории окрашиваются в серый цвет, непросмотренные — в фирменный градиент Telegram (`#3390ec` ➔ `#ac8bdd` ➔ `#e6604c`), а для «Близких друзей» — в ярко-зеленый градиент (`#00c853` ➔ `#aeea00`).
+  * **Быстрое создание**: кнопка «+» на своей аватарке, горизонтальный скролл колесом мыши и drag-to-scroll.
+* **Просмотрщик ([`src/components/Stories/StoryViewer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryViewer.tsx))**:
+  * **Управление и жесты**: удержание пальцем/мышью (Hold to pause & Hide UI) мгновенно останавливает таймер и плавно скрывает весь интерфейс для чистого просмотра контента; свайп/драг вниз с пружинящей физикой для закрытия; двойной тап для лайка ❤️; горячие клавиши (`←`/`→`, `↑`/`↓`, `Space`, `M`, `Esc`).
+  * **Реакции и ответы**: плавающая панель реакций TG с летающими физическими частицами эмодзи, автоотправка реакции в чат, форма прямого ответа на историю автору с прикреплением цитаты.
+  * **Шторка зрителей (Viewers Drawer)**: детальный список посмотревших пользователей с аватарками, поиском, временными метками и бейджами реакций.
+  * **Опции**: меню (⋯) с возможностью сохранения/скачивания медиа, копирования ссылки и удаления истории.
+* **Студия создания историй ([`src/components/Stories/StoryCreateModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryCreateModal.tsx))**:
+  * **Режимы медиа**: фото/видео загрузка (JPG, PNG, WebP, MP4, WebM, MOV), **живая съемка с веб-камеры / камеры смартфона** (моментальное фото или запись видео до 60с) и текстовые истории на 12 градиентах с 6 шрифтами (`Classic`, `Neon`, `Bold`, `Serif`, `Mono`, `Script`).
+  * **Художественные инструменты**: интерактивное рисование кистью (Doodle Canvas) с палитрой цветов и толщиной, наложение стикеров и эмодзи на фото.
+  * **Telegram 2.0 настройки**: выбор срока жизни (6ч, 12ч, 24ч, 48ч), уровни приватности (*«Все»*, *«Контакты»*, *«Близкие друзья»*, *«Только я»*) и чекбокс *«Сохранить в профиле» (Pinned Highlights)*.
+
+### 4.2. Интерактивные опросы и викторины (Live Polls & Quizzes)
+* **Режимы опросов**: одиночный выбор (радиокнопки), множественный выбор (квадратные чекбоксы с переключением toggle) и **Режим викторины (Quiz Mode)** с выбором правильного ответа и карточкой объяснения 💡.
+* **Интерактивная карточка ([`src/components/Poll/PollCard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Poll/PollCard.tsx))**: анимированные цветные полосы результатов, расчет процентов в реальном времени, всплывающий список проголосовавших в публичных опросах, возможность отзыва голоса и кнопка завершения опроса автором.
+* **Синхронизация**: трансляция через сокеты (`vote_poll`, `close_poll`), оптимистичное обновление локального состояния, индексация вопросов и вариантов в глобальном поиске.
+
+### 4.3. Голосовые сообщения 2.0 и видео-кружки
+* **Анализ спектра звука ([`src/lib/audio-waveform.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/audio-waveform.ts))**: Web Audio API захват амплитуд через `AnalyserNode`, RMS нормализация в массив из 30 баров (`0–100`) и генератор детерминированного фоллбэка.
+* **Продвинутый UX записи голосовых сообщений (Slide-to-Cancel & Hands-Free Lock Suite)**:
+  * **Плавающий HUD записи ([`src/components/Audio/VoiceRecorderHUD.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Audio/VoiceRecorderHUD.tsx))**:
+    * **Свайп влево для отмены (Slide-to-Cancel)**: подсказка `‹ ‹ ‹ Проведите влево для отмены` со смещением пальцем/мышью, анимация открывающейся корзины 🗑️ и виброотклик `triggerHaptic('warning')` при превышении порога (>80px).
+    * **Свайп вверх для фиксации (Swipe-Up Lock)**: всплывающая капсула 🔒 над кнопкой микрофона. Свайп вверх (>55px) переводит рекордер в режим «без удержания» (Hands-Free).
+    * **Панель Hands-Free**: пульсирующий красный индикатор, таймер записи, живой колеблющийся спектр звука, пауза ⏸️ / возобновление ▶️ (`MediaRecorder.pause()`), отмена 🗑️, остановка для прослушивания ⏹️ и быстрая отправка 🚀.
+  * **Предпросмотр перед отправкой ([`src/components/Audio/VoicePreviewPlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Audio/VoicePreviewPlayer.tsx))**:
+    * Интерактивный мини-плеер: воспроизведение/пауза ▶️ / ⏸️, 30-полосная диаграмма спектра с интерактивным скраббером по клику, счетчик времени (`0:03 / 0:14`), удаление 🗑️ и отправка 🚀.
+* **Плеер голосовых в ленте ([`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx))**: интерактивный скраббер по реальным полоскам спектра звука, переключатель скорости `1x` / `1.5x` / `2x` и точный тайминг.
+* **Мастер-сьют видео-кружков 2.0 ([`src/components/Media/TelegramVideoNotePlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Media/TelegramVideoNotePlayer.tsx))**:
+  * Изолированный мемоизированный плеер (0 лишних ререндеров ленты).
+  * `IntersectionObserver` для автоматической паузы и остановки RAF при скролле за экран (100% экономия CPU).
+  * Аппаратное GPU-масштабирование `transform: scale(1.28)` и `preload="auto"` (запуск 60/120 FPS без layout reflow).
+  * Тонкий полупрозрачный белый контур Telegram (`rgba(255, 255, 255, 0.88)` толщиной `2.2px`).
+  * 360° круговой скраббер перемотки с защитным порогом сдвига (>7px), тап для звука, закрытие по `Escape` или клику вне кружка.
+* **Рекордер кружков в [`ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx)**: переключение Микрофон 🎙️ ⟷ Камера 📹, круговой SVG-таймер до 60 сек, битрейт 1.2 Mbps, шумоподавление и эхокомпенсация.
+
+### 4.4. Анимированные стикеры .TGS и Lottie-движок
+* **Декомпрессор ([`src/lib/tgs-loader.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/tgs-loader.ts))**: распаковка сжатых gzip-контейнеров `.tgs` с помощью `pako` в JSON-структуру Lottie с in-memory кешированием и дедупликацией сетевых запросов.
+* **Векторный плеер ([`src/components/Stickers/TgsStickerPlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/TgsStickerPlayer.tsx))**: 60 FPS рендеринг через Lottie Canvas с аппаратным ускорением, `IntersectionObserver` для отсечения внеэкранных стикеров и фиксированным `aspect-ratio: 1/1`.
+* **Стикер-паки ([`src/constants/stickers.ts`](https://github.com/Voltikalk/Comms/blob/main/src/constants/stickers.ts))**: 8 паков, включая 50 оригинальных анимированных ICQ Колобков, Уточку Сеню (29 стикеров), Вишенку Hot Cherry, Пепе, Мемных Котиков, Доге и 3D-стикеры.
+* **Стикер-пикер ([`src/components/Stickers/StickerPicker.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/StickerPicker.tsx))**: поиск по эмодзи/тегам, избранное (❤️), недавние стикеры (🕒), предиктивные подсказки при вводе эмодзи в поле набора.
+
+### 4.5. Полнотекстовый поиск и фильтрация
+* **Глобальный поиск ([`src/pages/SearchPage.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/pages/SearchPage.tsx))**: полнотекстовый поиск по всем сообщениям, авторам, файлам и опросам с подсветкой совпадений, историей запросов и фильтрами по датам и типам медиа.
+* **Мгновенный переход к сообщению**: переход в нужный чат (`setMobileView('chat')`, `handleSetActiveRoomId`), расширение среза видимых сообщений и плавная подсветка целевого облачка (`jumpToMessage`).
+* **Поиск по #хештегам**: клик по любому `#тегу` в чате мгновенно открывает глобальный поиск с предзаполненным запросом.
+
+### 4.6. Кастомный видеоплеер (Custom Video Player Suite)
+* **Архитектура ([`src/components/VideoPlayer/`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/))**: кастомный HTML5-плеер в стилистике Telegram Web с поддержкой авто-определения ориентации (вертикальные 9:16 Reels / горизонтальные 16:9), управления скоростью (`0.5x`–`2x`), слайдером громкости, хоткеями (Space/K/F/M/P/ArrowLeft/ArrowRight), Picture-in-Picture и полноэкранным режимом.
+
+### 4.7. Движок тем Skiper UI, обоев, размытия и затемнения
+* **Skiper UI 26 ([`src/components/ui/skiper26.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper26.tsx))**: круговое радиальное раскрытие темы через View Transitions API (`document.startViewTransition`) из координат клика.
+* **Skiper 4 ([`src/components/ui/skiper4.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper4.tsx))**: переключатель тем с морфингом полумесяца и лучей солнца (Framer Motion).
+* **Обои чата ([`src/components/Theme/ThemeSettingsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Theme/ThemeSettingsModal.tsx))**: коллекция фото-обоев, градиентов и паттернов с независимыми ползунками размытия `blur` (0–20px) и затемнения `dimming` (0–80%) с компенсацией масштабирования `scale(1.12)`.
+
+### 4.8. Эффект распада сообщений Таноса
+* **Canvas физика ([`src/components/effects/disintegrate.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/effects/disintegrate.ts))**: аутентичный волновой фронт распада сообщения на тысячи мерцающих частиц звездной пыли с вихревым потоком, звуковым сопровождением и плавным схлопыванием высоты строки.
+
+### 4.9. Кроссплатформенный гибридный мастер-сьют для ПК и смартфонов (Comms Hybrid Suite)
+* **Ядро платформы и детектор ([`src/context/PlatformContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/PlatformContext.tsx))**:
+  * Автоматическое распознавание ОС (`windows`, `macos`, `linux`, `ios`, `android`, `web`), типа устройства (`desktop`, `mobile`, `tablet`) и автономного режима PWA (`isStandalone`).
+  * Непрерывный мониторинг качества сети с замером задержки ping (ms) и индикацией 🟢 Онлайн / 🟡 Подключение / 📴 Офлайн.
+  * Управление режимами интерфейса (`auto` / `desktop` / `mobile`), позволяющее тестировать или принудительно включать режим ПК (2 колонки) либо телефона.
+  * Тактильный отклик (`triggerHaptic` с 6 паттернами вибрации `light`, `medium`, `heavy`, `success`, `warning`, `selection`).
+  * Перехват события `beforeinstallprompt` для PWA-установки в 1 клик.
+* **Мастер-сьют для ПК (Desktop Experience)**:
+  * **Заголовок окна Telegram Desktop ([`src/components/Desktop/DesktopTitleBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Desktop/DesktopTitleBar.tsx))**: стилизованная панель окна с бейджем ОС, сетевым пингом, быстрым поиском (`Ctrl+K`), переключателем адаптивных режимов, кнопкой хоткеев, кнопкой установки PWA и полноэкранным режимом F11.
+  * **Горячие клавиши ([`src/components/Desktop/KeyboardShortcutsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Desktop/KeyboardShortcutsModal.tsx))**: глобальный перехват `Ctrl+K` (поиск), `Ctrl+1..9` (быстрая смена чата), `Ctrl+,` (настройки), `Ctrl+/` (шпаргалка клавиш), `Esc` (отмена/назад).
+* **Мастер-сьют для смартфонов (Mobile Native Experience)**:
+  * **Нижняя панель навигации ([`src/components/Mobile/MobileBottomNav.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Mobile/MobileBottomNav.tsx))**: 5 разделов (💬 Чаты, 🌟 Истории, 🔍 Поиск, 👥 Комнаты, ⚙️ Настройки) с динамическими бейджами непрочитанных сообщений.
+  * **Тач-жесты возврата (Edge Swipe)**: свайп пальцем от левого края экрана (<48px) плавно закрывает активный чат и возвращает пользователя к списку диалогов с виброоткликом.
+  * **Безопасные зоны**: стили `safe-area-inset` для экранов с вырезами (iPhone Notch, Dynamic Island) и домашней полосой жестов Android/iOS.
+* **Модальное окно установки ([`src/components/Hybrid/AppInstallModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Hybrid/AppInstallModal.tsx))**:
+  * PWA-инсталляция в 1 клик для браузеров Chrome / Edge / Android.
+  * Интерактивная 3-шаговая иллюстрированная инструкция для Safari на iOS («Поделиться -> На экран "Домой"`).
+
+### 4.10. Форматирование текста, спойлеры и блоки кода (Rich Text & Telegram Spoilers Suite)
+* **Токенизатор и рендерер ([`src/lib/markdown-parser.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/lib/markdown-parser.tsx))**:
+  * **Интерактивные спойлеры `||текст||` (`<TelegramSpoiler />`)**: мерцающий шумовой слой частиц на Canvas, предотвращающий прочтение и копирование в скрытом состоянии, с плавной волновой анимацией раскрытия (`@keyframes tgSpoilerBurst`) при клике/тапе.
+  * **Блоки кода ```` ```[lang]\n[code]\n``` ```` (`<CodeBlock />`)**: оформление в стиле Telegram Web, верхняя плашка с бейджем языка, моноширинный шрифт, номера строк и 1-click кнопка «Копировать» с анимацией подтверждения `IconCheck`.
+  * **Инлайн-форматирование**: жирный (`**`), курсив (`*`), подчеркнутый (`__`), зачеркнутый (`~~`), моноширинный код (`` ` ``).
+  * **Автораспознавание ссылок**: автоматическое превращение `http/https` в безопасные кликабельные ссылки.
+  * **Подсветка поиска**: интеграция с `searchQuery` (`renderHighlightedText`).
+* **Всплывающая панель инструментов HUD ([`src/components/Chat/FormattingToolbar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/FormattingToolbar.tsx))**:
+  * Автоматическое появление над выделенным текстом в поле ввода в виде плавающего премиум-HUD с нижним указателем-стрелкой, глубокой тенью и стеклянным блюром (`backdrop-blur-xl`).
+  * Кнопки стилей (**B**, *I*, <u>U</u>, ~~S~~, `</>`), градиентная капсула ✨ «Спойлер», вставка ссылок 🔗 и кнопка закрытия ✕.
+  * **Горячие клавиши ввода**: `Ctrl+B` (жирный), `Ctrl+I` (курсив), `Ctrl+U` (подчеркнутый), `Ctrl+Shift+X` (зачеркнутый), `Ctrl+Shift+P` (спойлер), `Ctrl+Shift+M` (код).
+* **Стилизованная панель редактирования сообщения ([`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx))**:
+  * Фирменная плашка Telegram над полем ввода с круглой иконкой карандаша в акцентном цвете `#3390ec`, предпросмотром оригинального текста и отменой по `Esc`.
+  * Превращение кнопки отправки в зеленую/синюю галочку `IconCheck` («Сохранить изменения (Enter)») в режиме редактирования.
+
+### 4.11. Полноэкранная медиа-галерея (Telegram Media Lightbox & Gallery Suite)
+* **Полноэкранный плеер и галерея ([`src/components/Media/MediaGalleryModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Media/MediaGalleryModal.tsx))**:
+  * Просмотр всех фотографий и видеозаписей активного чата в едином полноэкранном окне (React Portal).
+  * **Навигация**: кнопки влево/вправо, клавиши `ArrowLeft` / `ArrowRight`, свайпы на мобильных устройствах.
+  * **Интерактивный зум и панорамирование (Zoom & Pan)**: масштабирование колесом мыши (`1.0x`–`4.0x`), двойной клик 1x ⟷ 2.5x, плавное перетаскивание курсором/пальцем при увеличении.
+  * **Поворот на 90°**: кнопка поворота картинки по часовой стрелке (`R`).
+  * **Верхняя панель**: аватар и имя отправителя, дата и время отправки, счетчик «N из M», скачивание файла и копирование ссылки.
+  * **Нижняя карусель миниатюр (Thumbnail Strip)**: горизонтальная лента превью всех медиа диалога с автоскроллом к активному элементу.
+### 4.12. Анимированные фоны React Bits (React Bits Backgrounds Suite)
+* **Коллекция живых фонов ([`src/components/Backgrounds/`](https://github.com/Voltikalk/Comms/tree/main/src/components/Backgrounds))**:
+  * **React Bits Squares ([`Squares.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Backgrounds/Squares.tsx))**: интерактивная бесконечная сетка светящихся квадратов с постоянным диагональным дрейфом и подсветкой тайла под курсором мыши.
+  * **React Bits Aurora ([`Aurora.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Backgrounds/Aurora.tsx))**: плавные переливающиеся градиентные волны северного сияния с атмосферным размытием и световой динамикой.
+  * **React Bits Particles ([`Particles.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Backgrounds/Particles.tsx))**: физическая сеть летающих частиц с соединительными линиями созвездий и эффектом отталкивания от курсора.
+  * **React Bits Matrix / LetterGlitch ([`LetterGlitch.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Backgrounds/LetterGlitch.tsx))**: киберпанк-матрица случайных цифровых символов с настраиваемым темпом глитча и виньеткой.
+  * **React Bits Hyperspeed ([`Hyperspeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Backgrounds/Hyperspeed.tsx))**: гиперпространственный туннель звезд со световыми шлейфами и эффектом варп-скорости.
+  * **React Bits Waves ([`Waves.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Backgrounds/Waves.tsx))**: плавные синусоидальные волновые ленты с гармонической интерполяцией и динамической фазой.
+  * **React Bits Ambient Dither ([`Dither.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Backgrounds/Dither.tsx))**: световые размытые градиентные волны с эффектом диффузного свечения.
+### 4.13. Мастер-сьют навигации (Master Navigation Suite)
+* **Палитра команд Spotlight ([`src/components/Navigation/CommandPaletteModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Navigation/CommandPaletteModal.tsx))**:
+  * Быстрый вызов через `Ctrl+K` / `Cmd+K` или кнопку поиска в заголовке окна.
+  * Фильтрация по категориям (*Все, Чаты, Действия, Настройки*), умный нечеткий поиск (Fuzzy Match) по названиям комнат, именам контактов и ключевым словам действий.
+  * Полное управление стрелками `ArrowUp`/`ArrowDown`, переход по `Enter`, закрытие по `Escape`.
+  * Быстрый доступ к созданию опросов, историй, переключению темы, муту чата, PWA установке, QR-коду и профилю.
+* **Вкладки папок чатов Telegram ([`src/components/Navigation/ChatFolderTabs.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Navigation/ChatFolderTabs.tsx))**:
+  * 5 предопределенных папок: **«Все»**, **«Личные»**, **«Группы»**, **«Непрочитанные»**, **«Избранное»**.
+  * **Плавное горизонтальное листание**:
+    * Автоматическая конвертация вертикального колесика мыши в горизонтальный скролл (`onWheel`).
+    * Жест перетаскивания мышью и пальцем (Drag / Pan to scroll) с защитой от случайных кликов.
+    * Интерактивные круглые кнопки-стрелки (`IconChevronLeft` / `IconChevronRight`) и градиентные маски по краям при переполнении.
+    * Автоматическое центрирование выбранной вкладки (`scrollIntoView({ inline: 'center' })`).
+  * Динамический подсчет количества комнат и бейджей непрочитанных сообщений в реальном времени.
+  * Горячие клавиши `Alt+1`..`Alt+5`.
+* **Мобильная навигация и жесты ([`src/components/Mobile/MobileBottomNav.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Mobile/MobileBottomNav.tsx))**:
+  * Плавающая стеклянная панель с размытием `backdrop-blur-xl`, активной световой капсулой и поддержкой безопасных зон (Safe Area).
+  * Интерактивный виброотклик Haptic Feedback при переключении вкладок.
+* **Десктопные хлебные крошки и горячие клавиши ([`src/components/Desktop/DesktopTitleBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Desktop/DesktopTitleBar.tsx), [`src/components/Desktop/KeyboardShortcutsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Desktop/KeyboardShortcutsModal.tsx))**:
+  * Цепочка `Secure Comms › [Название чата]` с индикатором онлайн-статуса собеседника.
+  * Быстрое переключение между чатами в списке через `Alt+↑` (предыдущий) и `Alt+↓` (следующий).
+  * Прямой переход по номеру `Ctrl+1..9` и иерархическое закрытие слоев модалок по `Escape`.
+* **Тесты ([`src/components/Navigation/navigation.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/Navigation/navigation.test.ts))**:
+  * 10 специализированных юнит-тестов логики фильтрации комнат по папкам, комбинирования с поисковыми запросами и работы Command Palette.
 
 ---
 
@@ -226,15 +416,358 @@ Comms/
 # 1. Запуск Node.js бэкенд сервера (порт 3000)
 npm run server
 
-# 2. Запуск Vite Dev сервера с HTTPS (порт 5173)
+# 2. Запуск Vite Dev сервера (порт 5173)
 npm run dev
 
-# 3. Проверка типов TypeScript и сборка проекта
+# 3. Запуск юнит-тестов Vitest (107/107 тестов)
+npm test
+
+# 4. Проверка линтером Oxlint
+npm run lint
+
+# 5. Проверка типов TypeScript и production сборка проекта
 npm run build
 
-# 4. Запуск Storybook песочницы компонентов (порт 6006)
+# 6. Запуск Storybook песочницы компонентов (порт 6006)
 npm run storybook
 ```
+
+---
+
+## 📜 Журнал изменений (Changelog)
+
+### [v3.19.0] — 2 сентября 2026 г.
+* **Распил "God-компонента" `ChatScreen.tsx` (декомпозиция монолита 4 478 строк / 192 КБ)**:
+  * **Архитектурная модульность**: монолитный компонент `ChatScreen.tsx` декомпозирован на 6 изолированных, легко поддерживаемых субкомпонентов в каталоге `src/components/Chat/`:
+    * [`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx) (511 строк) — список чатов, фильтры, папки, поиск, истории, гамбургер-меню, кнопка архива сообщений (Admin), плавный ресайз ширины и мобильная навигация.
+    * [`src/components/Chat/Header/ChatHeader.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Header/ChatHeader.tsx) (508 строк) — шапка активного чата, аватар, статус "печатает", капсула поиска внутри чата (iOS/Telegram capsule) с навигацией по совпадениям (Next/Prev) и фильтрами по дате/типу, кнопки звонков и панель мультивыделения сообщений (`isSelectMode`).
+    * [`src/components/Chat/Feed/ChatMessageFeed.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Feed/ChatMessageFeed.tsx) (228 строк) — лента сообщений, плашка закрепленного сообщения с прыжком, баннер оффлайн-статуса, разделители дат ("Сегодня", "Вчера"), дропзона Drag & Drop и плавающая кнопка скролла вниз со счетчиком непрочитанных.
+    * [`src/components/Chat/Input/ChatInputBar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Input/ChatInputBar.tsx) (491 строк) — поле ввода, предпросмотр медиа и документов, плашки ответов и редактирования, автокомплит @упоминаний, подсказки стикеров, попап эмодзи, диктофон `<VoiceRecorderHUD />`, превью голоса `<VoicePreviewPlayer />` и тулбар форматирования `<FormattingToolbar />`.
+    * [`src/components/Chat/UserInfo/ChatUserInfoPanel.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/UserInfo/ChatUserInfoPanel.tsx) (190 строк) — правая панель деталей пользователя и группы, переключатель уведомлений, био и галерея общих медиафайлов.
+    * [`src/components/Chat/Modals/ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx) (834 строк) — централизованный хост модалок (`ProfileEditModal`, `PollCreateModal`, `SearchPage`, `AdvancedSearchModal`, `ThemeSettingsModal`, `StoryViewer`, `StoryCreateModal`, `MediaGalleryModal`, `CommandPaletteModal`, `TelegramContextMenuModal`, оверлей WebRTC-звонков, модалка видео-кружка, QR-код, нижняя панель выбора и тосты).
+    * [`src/components/Chat/index.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/index.ts) — единая точка экспорта компонентов подсистемы чата.
+  * **Рефакторинг `ChatScreen.tsx`**: размер файла сокращен с 4 478 строк (192 КБ) до 2 609 строк (~50% сокращение объема!). Компонент очищен от громоздкой вложенной верстки и преобразован в чистый координатор состояний, контекстов и эффектов.
+* **Подключение неиспользуемых страниц и очистка Git-репозитория**:
+  * **Подключение `AdminArchive.tsx`**: компонент страницы архива [`src/pages/AdminArchive.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/pages/AdminArchive.tsx) получил проп `onClose` и кнопку «✕ Закрыть». Интегрирован в пользовательский интерфейс:
+    1. Кнопка «Архив сообщений (Admin)» в гамбургер-меню сайдбара.
+    2. Быстрая команда в палитре `CommandPaletteModal` (Ctrl+K, ключевые слова: *архив, archive, бд, хранилище, admin*).
+    3. Рендеринг через модальный хост `ChatModalsHost`.
+  * **Удаление мертвых дубликатов**: удалены неиспользуемые файлы `src/pages/RegisterPage.tsx` и `src/pages/ResetPasswordPage.tsx`, дублировавшие визард авторизации.
+  * **Фиксация зависших удаленных файлов в Git**: зафиксировано удаление более 30 устаревших файлов (`src/components/ChatRoom/*`, `src/services/*`, `src/hooks/*`), исключив рассинхронизацию индекса.
+* **Контроль качества, линтинг и тесты**:
+  * 112/112 юнит-тестов Vitest проходят успешно (10 suites, 100% pass).
+  * Линтер `oxlint` проходит с **0 ошибок**.
+  * Сборка `npm run build` (`tsc -b && vite build`) проходит с exit code 0 за 1.18 сек.
+
+### [v3.18.0] — 2 сентября 2026 г.
+* **Устранение критических ошибок в бэкенде и WebRTC сигналинге ([`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js))**:
+  * **Устранение SyntaxError redeclaration `userStories`**: удалено повторное объявление `const userStories` на строке 931 в сокет-обработчике `send_story`, блокировавшее запуск сервера Node.js.
+  * **Исправление сигналинга личных звонков 1-на-1**: в обработчиках `call_end` и `webrtc_signal` проверка разрешенных комнат переведена с `allowedRooms.includes(roomId)` (где находились только статические комнаты) на общую функцию `isRoomAllowedForUser(roomId, user)`. Это разблокировало передачу ICE-кандидатов, SDP оферов/ансверов и завершение звонков для комнат прямого общения (`dm-*`).
+  * **Сквозная генерация и синхронизация UUID сообщений**: генерация `messageId` переведена на `crypto.randomUUID()`. При сохранении в Supabase PostgreSQL строковый ID передается явно (`id: messageId`), обеспечивая 100% совпадение идентификаторов в памяти и в базе данных, что гарантирует работу реакций и статусов прочтения (`isUuid`).
+* **Унификация сокетов и оптимизация рендеринга на клиенте**:
+  * **Единый WebSocket в StoriesContext ([`src/context/StoriesContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/StoriesContext.tsx), [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx))**:
+    * В `SocketContextType` добавлен экспортируемый инстанс `socket: Socket | null`.
+    * В `StoriesContext.tsx` полностью удален второй независимый экземпляр `io(SERVER_URL)`. Контекст историй теперь использует общий сокет из `useSocket()`, подписывается на `stories_state` и выполняет `socket.off(...)` при размонтировании. Это снизило нагрузку на сокеты в 2 раза и исключило гонки аутентификации.
+  * **Стабилизация вкладок ChatFolderTabs ([`src/components/Navigation/ChatFolderTabs.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Navigation/ChatFolderTabs.tsx))**:
+    * Массив `tabs` вынесен за пределы компонента в константу `FOLDER_TABS`, удалена лишняя зависимость из `useEffect`. Устранены постоянные пересоздания слушателей `scroll` и `resize` окна при каждом рендере.
+* **Качество кодовой базы и тесты**:
+  * Линтер `oxlint` теперь проходит с **0 ошибок** (была 1 блокирующая ошибка).
+  * 112/112 юнит-тестов Vitest успешно пройдены.
+  * Сборка `npm run build` проходит без ошибок типов TypeScript.
+
+### [v3.17.0] — 1 сентября 2026 г.
+* **Мастер-сьют историй Telegram 3.0 («Как в TG» / Telegram Stories 3.0 Master Suite)**:
+  * **Сегментированные SVG-кольца в сайдбаре ([`src/components/Stories/StoriesBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoriesBar.tsx))**:
+    * Реализован компонент `<SegmentedStoryRing />`: кольцо вокруг аватара динамически разделяется на количество дуг, точно равное числу историй пользователя с разделителями (`stroke-dasharray`).
+    * Независимый статус просмотренных (серый цвет) и непросмотренных историй (градиент `#3390ec` ➔ `#ac8bdd` ➔ `#e6604c`).
+    * Режим «Близкие друзья» (Close Friends) с неоново-зеленым кольцом (`#00c853` ➔ `#aeea00`) и звездочкой ★.
+    * Горизонтальный drag-to-scroll мышью и колесиком, быстрый плюс `+` на своей аватарке для публикации истории.
+  * **Полноэкранный плеер историй в стиле Telegram ([`src/components/Stories/StoryViewer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryViewer.tsx))**:
+    * **Жест удержания (Hold to pause & Hide UI)**: долгое нажатие/удержание мгновенно ставит историю на паузу и плавно скрывает весь интерфейс (шапку, сегменты, футер) для чистого просмотра контента.
+    * **Свайп/драг вниз для закрытия**: утягивание карточки истории вниз с динамическим масштабированием и пружинящим закрытием.
+    * **Двойной тап для лайка ❤️**: быстрое двойное касание триггерит анимацию пульсирующего сердца по центру экрана и регистрирует реакцию.
+    * **Панель быстрых реакций TG**: 10 аутентичных реакций (`❤️`, `🔥`, `👍`, `👏`, `😂`, `😍`, `🎉`, `⚡`, `💯`, `🚀`) с физикой взлетающих разнонаправленных частиц и автоотправкой уведомления в чат автору.
+    * **Прямой ответ (Story Direct Reply)**: поле ввода ответа на историю с мгновенной отправкой в личный диалог с автором.
+    * **Шторка зрителей для автора (Viewers Drawer)**: всплывающая шторка со списком всех посмотревших пользователей, поиском, временными метками и бейджами оставленных реакций.
+    * **Меню опций**: скачивание медиа, копирование ссылки и удаление своей истории.
+    * **Горячие клавиши**: `←`/`→` (сегменты), `↑`/`↓` (смена пользователей), `Space` (пауза), `M` (звук), `Esc` (закрыть).
+  * **Студия создания историй Telegram Studio ([`src/components/Stories/StoryCreateModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryCreateModal.tsx))**:
+    * **Живая съемка с веб-камеры / камеры смартфона (`navigator.mediaDevices.getUserMedia`)**: моментальная съемка фото или запись видео с круговым таймером до 60 секунд.
+    * **Текстовые истории**: 12 фирменных градиентов, 6 шрифтов (`Classic`, `Neon`, `Bold`, `Serif`, `Mono`, `Script`), палитра цветов, выравнивание и стили подложки (`None`, `[Fill]`, `✨Glow`).
+    * **Интерактивное рисование кистью (Doodle Canvas)**: рисование на `<canvas>` поверх фото/видео с выбором из 8 цветов, ползунком толщины и кнопкой очистки.
+    * **Стикеры поверх фото**: добавление и позиционирование эмодзи-стикеров.
+    * **Срок жизни (Custom TTL)**: выбор 6 часов, 12 часов, 24 часа, 48 часов.
+    * **Приватность и закрепление**: *«Все»*, *«Контакты»*, *«Близкие друзья»*, *«Только я»*, тумблер *«Сохранить в профиле» (Pinned Highlights)*.
+  * **Синхронизация бэкенда и контекст ([`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js), [`src/context/StoriesContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/StoriesContext.tsx), [`src/components/Stories/StoryCreateModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryCreateModal.tsx))**:
+    * Устранены дубликаты сокет-обработчиков, добавлена поддержка всех полей Stories 3.0 и расчет срока жизни по `durationHours`.
+    * **Дедупликация и защита от повторной отправки**: сквозная передача уникального клиентского `id` истории в сокет, серверная проверка дедупликации `userStories.some(s => s.id === storyId)` и блокировка повторного нажатия кнопки отправки (`isPosting`).
+    * Очищены неиспользуемые переменные и дубликаты JSX в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx).
+  * **Юнит-тесты ([`src/lib/stories.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/stories.test.ts))**:
+    * Добавлены 11 тестов для сегментированных колец, кастомных TTL 6-48ч, оверлеев, рисования и приватности. Общее число тестов: **112/112 passed** (100%).
+
+### [v3.16.0] — 1 сентября 2026 г.
+* **Мастер-сьют глобальной навигации и палитры команд (Master Navigation Suite: Spotlight, Folders & Power-User Shortcuts)**:
+  * **Command Palette Spotlight (`Ctrl+K` / `Cmd+K`) ([`src/components/Navigation/CommandPaletteModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Navigation/CommandPaletteModal.tsx))**:
+    * Создана модальная палитра команд в стиле macOS Spotlight и Linear.
+    * Категории: *Все*, *Чаты*, *Действия*, *Настройки*.
+    * Поиск по комнатам, контактам и ключевым словам действий с поддержкой клавиатурной навигации (`↑`/`↓`/`Enter`/`Esc`).
+  * **Вкладки папок чатов Telegram ([`src/components/Navigation/ChatFolderTabs.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Navigation/ChatFolderTabs.tsx))**:
+    * Вкладки: *Все*, *Личные*, *Группы*, *Непрочитанные*, *Избранное*.
+    * Динамический подсчет комнат и бейджей непрочитанных, горячие клавиши `Alt+1`..`Alt+5`.
+  * **Модернизация мобильной навигации и устранение перекрытий ([`src/components/Mobile/MobileBottomNav.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Mobile/MobileBottomNav.tsx), [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx))**:
+    * Устранено наложение нижней панели навигации на строку ввода сообщений: панель `MobileBottomNav` скрывается при открытии активного диалога и на десктопном интерфейсе, отображаясь строго в списке чатов на смартфонах (`!isDesktopView && mobileView === 'list'`).
+    * Добавлены классы `md:hidden`, `min-w-0`, `truncate` и безопасные отступы `safe-area-inset-bottom`.
+  * **Десктопные хлебные крошки и заголовок окна ([`src/components/Desktop/DesktopTitleBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Desktop/DesktopTitleBar.tsx))**:
+    * Интегрированы цепочка `Secure Comms › [Чат]`, онлайн-индикатор и триггер Command Palette.
+  * **Клавиатурные хоткеи Power-User ([`src/components/Desktop/KeyboardShortcutsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Desktop/KeyboardShortcutsModal.tsx), [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx))**:
+    * Добавлено циклическое переключение чатов `Alt+↑` / `Alt+↓`, переключение по цифрам `Ctrl+1..9`, иерархический `Escape`.
+  * **Юнит-тесты ([`src/components/Navigation/navigation.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/Navigation/navigation.test.ts))**:
+    * Добавлено 10 тестов для фильтрации папок и поиска в палитре команд. Общее количество тестов: **107/107 passed**.
+
+### [v3.15.1] — 1 сентября 2026 г.
+* **Стабилизация WebSocket-проксирования Vite и подавление сетевых прерываний (Vite WS Proxy ECONNABORTED Fix)**:
+  * **Кастомный фильтр логгера Vite ([`vite.config.ts`](https://github.com/Voltikalk/Comms/blob/main/vite.config.ts))**:
+    * Интегрирован `customLogger` с перехватом `logger.error` для подавления безвредных сетевых ошибок закрытия сокета (`ECONNABORTED`, `ECONNRESET`, `EPIPE`, `ECONNREFUSED`), возникающих при горячей перезагрузке страниц (HMR), закрытии/обновлении вкладок браузера или выходе из спящего режима.
+    * Добавлен обработчик ошибок `proxy.on('proxyReqWs')` для безопасного перехвата ошибок на уровне сокета клиента.
+  * **Актуализация тестов**: все 97/97 тестов Vitest проходят успешно (`npm test`).
+
+### [v3.15.0] — 1 сентября 2026 г.
+* **Продвинутый UX записи голосовых сообщений (Slide-to-Cancel & Hands-Free Lock Suite)**:
+  * **Плавающий HUD записи ([`src/components/Audio/VoiceRecorderHUD.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Audio/VoiceRecorderHUD.tsx))**:
+    * Реализован Slide-to-Cancel жест свайпа влево с подсказкой `‹ ‹ ‹ Проведите влево для отмены`, анимацией корзины и виброоткликом `triggerHaptic('warning')`.
+    * Реализован Swipe-Up Lock жест свайпа вверх для перехода в режим фиксации (Hands-Free) с плавающим индикатором замочка 🔒.
+    * Полнофункциональная панель управления: кнопка паузы/возобновления (`MediaRecorder.pause()`), колеблющийся спектр звука, таймер, удаление и быстрая отправка.
+  * **Предпросмотр перед отправкой ([`src/components/Audio/VoicePreviewPlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Audio/VoicePreviewPlayer.tsx))**:
+    * Интерактивный мини-плеер: прослушивание записанного звука до отправки с интерактивным скраббером по 30-полосному спектру волн, таймером и кнопками отмены/отправки.
+  * **Тесты**: добавлены юнит-тесты таймеров, порогов жестов и нормализации спектра ([`src/components/Audio/VoiceRecorder.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/Audio/VoiceRecorder.test.ts)), 97/97 тестов проходят.
+* **Анимированные интерактивные фоны React Bits (React Bits Backgrounds Suite)**:
+  * Созданы 5 премиальных компонентов фонов: `<Squares />`, `<Aurora />`, `<Particles />`, `<LetterGlitch />`, `<Hyperspeed />`.
+  * Добавлена новая категория обоев «✨ React Bits» в модальном окне настроек темы.
+  * Интегрирован живой рендеринг анимированных фонов прямо в окно активного чата.
+* **Мастер-сьют форматирования текста, спойлеров и блоков кода (Rich Text & Telegram Spoilers Suite)**:
+  * **Парсер и токенизатор ([`src/lib/markdown-parser.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/lib/markdown-parser.tsx), [`src/lib/markdown-parser.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/markdown-parser.test.ts))**:
+    * Реализован парсер с поддержкой `||спойлеров||`, блоков кода ```` ```lang\ncode\n``` ````, инлайн-кода `` `code` ``, `**жирного**`, `*курсива*`, `__подчеркнутого__`, `~~зачеркнутого~~`, `@упоминаний`, `#хештегов` и URL-ссылок.
+    * **Интерактивный спойлер `<TelegramSpoiler />`**: Canvas-эффект искрящихся частиц/шума в скрытом состоянии с волновым раскрытием по клику.
+    * **Блок кода `<CodeBlock />`**: темный контейнер с бейджем языка, номерами строк и кнопкой «Копировать» с анимацией `IconCheck`.
+  * **Всплывающая панель инструментов ([`src/components/Chat/FormattingToolbar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/FormattingToolbar.tsx))**:
+    * Контекстный тулбар над выделенным текстом в поле ввода с кнопками форматирования и глобальными хоткеями (`Ctrl+B`, `Ctrl+I`, `Ctrl+U`, `Ctrl+Shift+X`, `Ctrl+Shift+P`, `Ctrl+Shift+M`).
+* **Мастер-сьют полноэкранной медиа-галереи (Telegram Media Lightbox & Gallery Suite)**:
+  * **Компонент полноэкранного просмотра ([`src/components/Media/MediaGalleryModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Media/MediaGalleryModal.tsx), [`src/components/Media/MediaGalleryModal.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/Media/MediaGalleryModal.test.ts))**:
+    * Полноэкранный просмотр всех фото и видео активного диалога с навигацией стрелками `←` / `→` и свайпами.
+    * Интерактивный зум колесом мыши (`1.0x`–`4.0x`), двойной клик 1x ⟷ 2.5x, панорамирование мышью при зуме.
+    * Поворот на 90° (`R`), счетчик «N из M», автор, дата, скачивание и копирование ссылки.
+    * Нижняя карусель миниатюр с подсветкой и автоскроллом к активному медиа.
+* **Интеграция в сообщения и ленту ([`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx), [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx))**:
+  * В сообщениях чата подключен рендеринг через `parseAndRenderRichText`.
+  * Клик по любому фото/видео в чате или в сайдбаре общих медиа открывает медиа-галерею.
+* **Тесты Vitest**: 93/93 юнит-теста проходят успешно (`npm test`).
+* **Кроссплатформенный гибридный мастер-сьют для ПК и смартфонов (Comms Hybrid Desktop & Mobile Suite)**:
+  * **Ядро платформы и хук `usePlatform` ([`src/context/PlatformContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/PlatformContext.tsx), [`src/types/platform.types.ts`](https://github.com/Voltikalk/Comms/blob/main/src/types/platform.types.ts))**:
+    * Реализован универсальный контекст платформы с автоопределением операционной системы (`windows`, `macos`, `linux`, `ios`, `android`), форм-фактора устройства (`desktop`, `mobile`, `tablet`) и PWA-статуса `isStandalone`.
+    * **Замер пинга в реальном времени**: непрерывный фоновый мониторинг сетевой задержки (ping в миллисекундах) и статуса онлайн/офлайн.
+    * **Тактильный движок (`triggerHaptic`)**: 6 сценариев виброотклика на поддерживаемых устройствах (`light`, `medium`, `heavy`, `success`, `warning`, `selection`).
+    * **Переключатель режимов отображения**: тумблер `Авто ⚡` / `ПК 🖥️` / `Телефон 📱` с сохранением в `localStorage`.
+  * **Настольный режим (Telegram Desktop Experience)**:
+    * **Заголовок окна Telegram Desktop ([`src/components/Desktop/DesktopTitleBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Desktop/DesktopTitleBar.tsx))**:
+      * Стеклянная плашка с логотипом, бейджем операционной системы, живым пингом сети (🟢 22ms), строкой быстрого поиска `Ctrl+K`, переключателем режимов и кнопкой F11.
+    * **Интерактивная шпаргалка горячих клавиш ([`src/components/Desktop/KeyboardShortcutsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Desktop/KeyboardShortcutsModal.tsx))**:
+      * Красивое модальное окно со всеми доступными хоткеями (`Ctrl+K`, `Ctrl+1..9`, `Ctrl+,`, `Ctrl+/`, `Esc`, `Ctrl+N`, `Ctrl+E`).
+      * Глобальные перехватчики клавиатурных событий для быстрого серфинга без мыши.
+  * **Мобильный режим (Telegram Mobile Experience)**:
+    * **Нижняя панель навигации ([`src/components/Mobile/MobileBottomNav.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Mobile/MobileBottomNav.tsx))**:
+      * Таб-бар с вкладками Чаты, Истории, Поиск, Комнаты, Настройки, бейджами непрочитанных сообщений и поддержкой `safe-area-inset-bottom`.
+    * **Свайп от левого края (Edge Swipe Gesture)**:
+      * Жест возврата из экрана чата к списку диалогов при свайпе от левой границы экрана с легким тактильным виброоткликом.
+  * **PWA & Hybrid App Shell ([`src/components/Hybrid/AppInstallModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Hybrid/AppInstallModal.tsx), [`public/manifest.json`](https://github.com/Voltikalk/Comms/blob/main/public/manifest.json))**:
+    * Модальное окно установки с поддержкой установки в 1 клик (`beforeinstallprompt`) на Windows/macOS/Linux/Android и иллюстрированным гидом для Safari iOS.
+    * Обновлен `manifest.json` с поддержкой `display_override: ["window-controls-overlay", "standalone"]`, shortcuts быстрого поиска и историй, и `viewport-fit=cover` в `index.html`.
+  * **Устранение ошибки SSL в Яндекс.Браузере (`ERR_CERT_AUTHORITY_INVALID`)**:
+    * В [`vite.config.ts`](https://github.com/Voltikalk/Comms/blob/main/vite.config.ts) отключен плагин принудительного самоподписанного сертификата `basicSsl`, благодаря чему локальный сервер разработки `http://localhost:5173` мгновенно открывается без ложных предупреждений «Нейропротект» и блокировок сертификатов.
+    * В [`index.html`](https://github.com/Voltikalk/Comms/blob/main/index.html) добавлен автоматический редирект со старого `https://` на `http://` для локальных сессий.
+    * В [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) и [`src/context/StoriesContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/StoriesContext.tsx) добавлена явная конфигурация `transports: ['websocket', 'polling']` для бесшовного подключения сокетов.
+  * **Исправление SVG атрибута `<circle>` в переключателях тем**:
+    * В [`src/components/ui/skiper4.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper4.tsx) и [`src/components/ui/skiper26.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper26.tsx) для `<motion.circle>` добавлены базовый и начальный радиусы `r` и `initial={{ r }}`, устранив предупреждение браузера `Error: <circle> attribute r: Expected length, "undefined"`.
+  * **Тесты Vitest**:
+    * Создан файл [`src/lib/platform.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/platform.test.ts) с 5 тестами логики платформы — общее число тестов выросло до 83/83 (100% Passing).
+
+### [v3.13.0] — 27 августа 2026 г.
+* **Мастер-сьют видео-кружков 2.0 (Telegram Video Notes 2.0 Master Suite)**:
+  * **Изолированный компонент плеера ([`src/components/Media/TelegramVideoNotePlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Media/TelegramVideoNotePlayer.tsx))**:
+    * Вся логика видео-кружка вынесена в изолированный мемоизированный компонент, устранив 60 перерендеров всего сообщения `MessageBubble` в секунду.
+    * **Intersection Observer**: автоматическая пауза воспроизведения и моментальная остановка цикла `requestAnimationFrame` при скролле видео-кружка за пределы экрана, экономя 100% ресурсов процессора.
+    * **Устранение лагов при первом нажатии**: замена физического изменения `width/height` на аппаратное GPU-масштабирование (`transform: scale(1.28)` + `transform-gpu` + `will-change-transform`) и предзагрузка `preload="auto"`, обеспечивающая запуск с 60/120 FPS без пересчета DOM-дерева (0 layout reflows).
+    * **Аутентичный контур Telegram**: тонкая полупрозрачная белая линия `rgba(255, 255, 255, 0.88)` толщиной `2.2px` по контуру кружка без искажающих отступов и без лишних круглых точек/ручек.
+    * **Умное отображение прогресса**: в миниатюре ленты чата кружок проигрывается как чистое видео без полоски (`opacity: 0`), а белое кольцо прогресса плавно появляется только при активном просмотре (`opacity: 100`).
+    * **Управление и жесты**: круговая 360° перемотка пальцем/мышью с защитным порогом сдвига (>7px) против случайных нажатий, мгновенная пауза/воспроизведение по тапу, выключение звука по клику на иконку в углу и автоматическое закрытие/сворачивание кружка при клике на фон или по клавише `Escape`.
+    * **Оптимизация видео-рекордера**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) для `MediaRecorder` установлен битрейт `1.2 Mbps` с подавлением шума (`noiseSuppression`) и эхокомпенсацией (`echoCancellation`).
+* **Движок смены темы Skiper UI 26 (View Transitions API) & Skiper 4 Variant 2**:
+  * **Круговое раскрытие темы**: в [`src/components/ui/skiper26.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper26.tsx) интегрирован View Transition API (`document.startViewTransition`) с кинематографичным временем `1.15s` и радиальным раскрытием `clip-path` точно из координат клика мыши.
+  * **Морфинг-иконка Skiper 4 (Variant 2)**: в [`src/components/ui/skiper4.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper4.tsx) реализован компонент `ThemeToggleButton2` с плавным вырезанием полумесяца через Framer Motion `clipPath` и вращением лучей солнца.
+  * **Очистка меню**: удален устаревший дублирующий пункт темы из выпадающего меню Telegram.
+* **Мастер-сьют размытия и затемнения обоев чата**:
+  * В [`src/components/Theme/ThemeSettingsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Theme/ThemeSettingsModal.tsx) и [`src/types/theme.types.ts`](https://github.com/Voltikalk/Comms/blob/main/src/types/theme.types.ts) исправлено сохранение настроек `blur` (0–20px) и `dimming` (0–80%) для всех типов обоев (свои фото, встроенные фото-обои, паттерны и градиенты).
+  * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) обновлен `getChatBackgroundStyle` с наложением `filter: blur(...)`, авто-масштабированием `scale(1.12)` против краевых артефактов и динамическим слоем затемнения.
+* **Тесты и стабильность**: все 78/78 тестов в проекте (`npm test`) и TypeScript сборка (`npm run build`) успешно пройдены.
+
+### [v3.12.0] — 27 августа 2026 г.
+* **Мастер-сьют голосовых сообщений 2.0 и видео-кружков (Voice & Video Notes Master Suite)**:
+  * **Реальный спектр звука (Waveform Analysis)**: в [`src/lib/audio-waveform.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/audio-waveform.ts) реализован захват амплитуд через Web Audio API (`AudioContext` + `AnalyserNode`), расчет RMS громкости, интерполяция/нормализация в 30 баров (`normalizeWaveform`) и детерминированный фоллбэк для старых записей (`generateFallbackWaveform`).
+  * **Живой осциллирующий визуализатор записи**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) во время записи микрофона в строке ввода отображаются анимированные полоски звукового спектра в реальном времени, пульсирующий индикатор записи, таймер и кнопка отмены.
+  * **Переключатель режимов отправки (Mic 🎙️ ⟷ Camera 📹)**: на главной кнопке действия реализовано переключение между записью голосового сообщения и видео-кружка по клику / контекстному меню с мгновенной сменой иконок и подсказок.
+  * **Круговой рекордер видео-кружков**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) модальное окно записи видео-кружка оснащено круговым SVG-кольцом таймера (0–100% за 60 секунд), авто-завершением при достижении 1 минуты и сохранением метаданных длительности.
+  * **Премиум-плеер голосовых сообщений**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) внедрен интерактивный скраббер по полоскам спектра звука с кликом для перемотки, переключением скорости воспроизведения `1x` → `1.5x` → `2x` и точным отображением времени.
+  * **Круглый плеер видео-кружков**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) добавлено внешнее круговое SVG-кольцо прогресса по периметру кружка, синхронизированное с `currentTime / duration`, управление звуком по тапу и сохранение плавного раскрытия.
+  * **Юнит-тесты**: создан файл [`src/lib/audio-waveform.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/audio-waveform.test.ts) с 8 тестами — 78/78 тестов в проекте проходят успешно.
+
+### [v3.11.0] — 23 августа 2026 г.
+* **Мастер-сьют интерактивных историй (Stories Master Suite — Telegram Stories 2.0)**:
+  * **Backend-синхронизация и хранилище историй**: в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) реализовано in-memory хранилище `storiesStore` с автоматической фоновой очисткой истекших историй (24-часовой TTL), отправкой `stories_state` при подключении и сокет-обработчиками `send_story`, `delete_story`, `view_story`, `react_story`.
+  * **Контекст историй и оптимистичные обновления**: [`src/context/StoriesContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/StoriesContext.tsx) дополнен методами `sendStory`, `deleteStory`, `viewStory`, `reactStory` с мгновенным локальным обновлением UI до ответа сервера.
+  * **Интеграция в интерфейс мессенджера**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) в шапку сайдбара встроен компонент [`StoriesBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoriesBar.tsx) с градиентными анимированными кольцами непросмотренных историй (`#3390ec` ➔ `#ac8bdd` ➔ `#e6604c`), бейджем добавления «+» и плавной горизонтальной прокруткой колесом мыши.
+  * **Полноэкранный плеер историй (StoryViewer)**: в [`src/components/Stories/StoryViewer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryViewer.tsx) добавлены:
+    * Панель быстрых эмодзи-реакций (❤️, 🔥, 😂, 👏, 🎉, 😍) с анимацией взлетающих эмодзи (`animate-fly-up`).
+    * Поле быстрого ответа на историю с автоматической отправкой личного сообщения автору.
+    * Панель просмотров для автора истории со списком зрителей и их аватарами.
+    * Поддержка фото, видеоисторий со звуком (`<video>` + mute toggle), текстовых историй на 12 ярких градиентах и подписей к медиа (captions).
+    * Зоны навигации (нажатие слева/справа, пауза при удержании, стрелки клавиатуры и Esc).
+    * Монотонный таймер прогресс-бара: устранены рывки и отскоки таймлайна назад при паузах и перерендерах за счет перехода на инкремент дельты времени кадра (`performance.now() - lastTime`) и отключения инерционных CSS-анимаций `transition-all duration-75`.
+  * **Модальное окно создания историй (StoryCreateModal)**: в [`src/components/Stories/StoryCreateModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryCreateModal.tsx) реализованы:
+    * Создание текстовых историй с выбором из 12 градиентов (`STORY_GRADIENTS`) и выравниванием текста (слева, по центру, справа).
+    * Drag-and-drop загрузка фото и видео с живым предпросмотром в рамке 9:14 и полем подписи (до 200 символов).
+  * **Юнит-тесты**: создан файл [`src/lib/stories.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/stories.test.ts) с 6 тестами на 24-часовой TTL, дедупликацию просмотров, группировку реакций, градиенты и подписи — 70/70 тестов в проекте проходят успешно.
+
+### [v3.10.0] — 23 августа 2026 г.
+* **Мастер-сьют интерактивных опросов и викторин (Live Polls & Quizzes Master Suite)**:
+  * **Исправление бага множественного выбора**: в [`src/components/Poll/PollCard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Poll/PollCard.tsx) устранена критическая ошибка, из-за которой повторный клик по выбранному варианту в режиме нескольких ответов не снимал отметку — теперь чекбокс корректно переключается (toggle on/off).
+  * **Поддержка режима «Викторина» (Quiz Mode)**:
+    * В [`src/types.ts`](https://github.com/Voltikalk/Comms/blob/main/src/types.ts) в интерфейс `Poll` добавлены поля `quiz?: boolean`, `correctOptionId?: string` и `explanation?: string`.
+    * В [`src/components/Poll/PollCreateModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Poll/PollCreateModal.tsx) добавлен тумблер «Режим викторины», радиокнопки выбора правильного ответа и опциональное поле «Объяснение» с лимитом 200 символов.
+    * В [`src/components/Poll/PollCard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Poll/PollCard.tsx) реализована анимация ответа викторины: при выборе правильного варианта — зеленое кольцо и иконка галочки, при ошибке — красная обводка с крестиком, анимация дрожания (`animate-shake`), автоматическая подсветка верного варианта и карточка пояснения с лампочкой 💡.
+    * В [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) в обработчик `vote_poll` добавлено правило неизменяемости ответа в викторине (поведение 1:1 Telegram).
+  * **Отзыв голоса («Отменить голос»)**: для обычных (не-викторин) активных опросов добавлена кнопка отзыва своего голоса.
+  * **Список проголосовавших в публичных опросах**: для неанонимных опросов при наведении на вариант отображается всплывающий список имен участников (`getUserDisplayName`).
+  * **Оптимистичный UI**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) методы `votePoll` и `closePoll` обновляют локальное состояние `messages` мгновенно до ответа сервера.
+  * **Пересылка опросов и Избранное**: в `forwardMessage` добавлена передача структуры опроса со сбросом счетчика голосов (`votes: {}`).
+  * **Копирование опроса из контекстного меню**: в [`src/components/TelegramContextMenuModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/TelegramContextMenuModal.tsx) и [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) пункт «Копировать опрос» копирует вопрос и пронумерованный список вариантов в буфер обмена.
+  * **Полнотекстовый поиск по опросам**: [`src/pages/SearchPage.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/pages/SearchPage.tsx), [`src/components/Search/SearchResultCard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Search/SearchResultCard.tsx) и [`src/lib/filter-utils.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/filter-utils.ts) теперь индексируют текст вопроса и всех вариантов ответа.
+  * **Контрастность заголовков (Contrast & Accessibility Fix)**: устранена нечитаемость белого текста на светло-зеленых пузырях исходящих сообщений в светлой теме — заголовок «Викторина» переведен на четкий янтарный цвет (`text-amber-600 dark:text-amber-400`), а «Опрос» — на фирменный синий (`text-[#3390ec] dark:text-[#70b1ff]`) со 100% контрастностью на любом фоне.
+  * **Защита от фантомных пустых сообщений (Ghost Message Elimination)**: добавлена валидация на клиенте и сервере, запрещающая отправку и сохранение пустых сообщений без текста/файла/опроса, а в [`MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) внедрен guard `return null` для исключения рендеринга пустых горизонтальных полос при выделении.
+  * **Встроенный таймлайн в карточке опроса**: отображение времени отправки и двойных галочек прочитанности в нижнем правом углу пузыря опроса.
+  * **Юнит-тесты**: создан файл [`src/lib/poll.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/poll.test.ts) с 15 тестами (одиночный выбор, мультивыбор, викторины, подсчет процентов, фильтрация и пересылка) — 64/64 тестов в проекте проходят успешно.
+
+### [v3.9.0] — 23 августа 2026 г.
+* **Тестовая инфраструктура Vitest и юнит-тесты утилит (Testing Foundation)**:
+  * **Vitest 4.x подключен**: в [`package.json`](https://github.com/Voltikalk/Comms/blob/main/package.json) добавлены dev-зависимость `vitest` и скрипт `npm run test` (режим `vitest run` для CI).
+  * **49 юнит-тестов на утилиты упоминаний**: [`src/lib/mentions.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/mentions.test.ts) — парсинг токенов (текст/упоминания/хештеги, кириллица, смежные токены), детектор активного токена по каретке (триггер `@`/`#`, пробелы, лимит длины 32), построение и фильтрация кандидатов автодополнения (по username и имени, case-insensitive, лимиты), `isUserMentionedInText` (по username/имени, игнор хештегов), извлечение хештегов и упомянутых userId.
+  * **Юнит-тесты фильтров сообщений**: [`src/lib/filter-utils.test.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/filter-utils.test.ts) — `applyFilters` по отправителям, комнатам, вложениям и их типам, реакциям, правкам, типу сообщения, поисковому запросу, датам (включая расширение конечной даты до 23:59:59.999) и комбинациям фильтров; `sortMessages` (date asc/desc, reactions, edited, иммутабельность входного массива); `validateFilters` (инвертированные даты, невалидные строки, отрицательные minReactions).
+  * **Результат**: `npm run test` — 49/49 зеленых за ~200 мс; `tsc`, `oxlint`, `vite build` — без ошибок.
+
+### [v3.8.0] — 23 августа 2026 г.
+* **Глубокая чистка мертвого кода (Dead Code Purge: −31 файл)**:
+  * **Удалены заброшенные папки компонентов** (завершенный неудачей рефакторинг на Supabase-архитектуру, нигде не импортировались): [`src/components/RoomList/`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx), `src/components/RoomMembers/`, `src/components/UserProfile/`, `src/components/ChatRoom/` (ChatRoom, MessageList, VirtualMessageList, MessageVirtualizer, SendMessage).
+  * **Удалены мертвые компоненты поиска**: `Search/FilterPanel.tsx`, `Search/SearchFilters.tsx`, `Search/DateRangePicker.tsx` (реальный UI поиска живет в SearchPage + AdvancedSearchModal).
+  * **Удалены неиспользуемые хуки**: `useFileUpload`, `useMessageFilter`, `useMessageReactions`, `useMessageSearch`, `useRealtimeSubscription`, `useSupabase`, `useUserStatus`, `useVirtualScroll`, `useInfiniteMessageHistory`, `useRoomMessages`.
+  * **Удалены неиспользуемые сервисы**: `attachment.service`, `read-receipt.service`, `message-filter.service`, `message-history.service`, `realtime.service`, `room.service`, `message.service`, `reaction.service`, `storage.service`.
+  * **Сохранены**: страницы (LoginPage/RegisterPage/ResetPasswordPage/AdminArchive — задокументированные точки входа), `message-archive.service` + `archive-messages.job` (цепочка AdminArchive), `filter-utils` (используется ChatScreen), `message-search.service` (AdvancedSearchModal).
+  * **Результат**: кодовая база сократилась со 156 до 125 файлов, `tsc` / `oxlint` / `vite build` — без ошибок.
+
+### [v3.7.0] — 23 августа 2026 г.
+* **Роутинг и глубокие ссылки на чаты (URL Hash Routing & Deep Links)**:
+  * **Синхронизация URL с активным чатом**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) метод `handleSetActiveRoomId` теперь пишет `#/chat/{roomId}` в адресную строку через `history.pushState` — URL всегда отражает открытый диалог.
+  * **Глубокие ссылки**: при запуске приложения активный чат читается из hash URL в приоритете над `localStorage` — ссылка вида `https://host/#/chat/family` открывает сразу нужный чат, удобно для шаринга и закладок.
+  * **Кнопка «Назад» браузера**: добавлен обработчик `popstate` / `hashchange` — навигация назад/вперед переключает между ранее открытыми чатами, ручное редактирование hash тоже поддерживается.
+  * **Без новых зависимостей**: вместо тяжелого react-router реализована легковесная hash-синхронизация (~40 строк), полностью совместимая с существующей state-архитектурой SocketContext.
+
+### [v3.6.0] — 23 августа 2026 г.
+* **Полноценный PWA: офлайн-кэш и индикатор соединения (Offline-First App Shell)**:
+  * **Рабочий Service Worker**: [`public/sw.js`](https://github.com/Voltikalk/Comms/blob/main/public/sw.js) полностью переписан — раньше он самоуничтожался (unregister + очистка кэшей), теперь реализует три стратегии: cache-first для хешированных бандлов `/assets/*` (иммутабельны), stale-while-revalidate для медиа `/uploads/*` и network-first с офлайн-фоллбэком на закэшированный `index.html` для навигации. Сокеты, HMR и API-запросы не перехватываются.
+  * **Регистрация SW**: в [`index.html`](https://github.com/Voltikalk/Comms/blob/main/index.html) блок самоуничтожения заменен на честную регистрацию `/sw.js` c pre-cache app shell (`/`, `manifest.json`, иконки).
+  * **Баннер «Нет соединения»**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) при потере сокет-соединения над лентой появляется янтарная плашка «Нет соединения с сервером · сообщения не отправляются» с пульсирующим индикатором.
+  * **Установка на домашний экран**: манифест и иконки уже были на месте — теперь PWA проходит критерий installability (SW + manifest + иконки) и корректно работает офлайн как приложение-оболочка.
+
+### [v3.5.0] — 23 августа 2026 г.
+* **Истории (Stories) с кругами аватарок, просмотрщиком и 24-часовым жизненным циклом**:
+  * **Типизация и градиенты**: создан модуль [`src/types/story.types.ts`](https://github.com/Voltikalk/Comms/blob/main/src/types/story.types.ts) — интерфейс `Story` (текст/фото, просмотры, срок жизни 24 ч) и 8 фирменных градиентных фонов (`STORY_GRADIENTS`).
+  * **Серверное хранилище**: в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) in-memory стор `storiesStore` с автоочисткой истекших историй и сокет-событиями `send_story` / `delete_story` / `view_story` + broadcast `stories_state` всем клиентам (до 20 историй на пользователя).
+  * **Изолированный контекст**: новый [`src/context/StoriesContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/StoriesContext.tsx) с собственным легковесным сокет-подключением (не трогает SocketContext), экспортирует `myStories` / `othersStories` и действия.
+  * **Строка историй в списке чатов**: компонент [`src/components/Stories/StoriesBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoriesBar.tsx) — круги аватарок с градиентным кольцом для непросмотренных и серым для просмотренных (отслеживание в `localStorage tg_viewed_stories`), кнопка «+» на своей аватарке; в компактном режиме сайдбара — круглая кнопка добавления.
+  * **Полноэкранный просмотрщик**: [`src/components/Stories/StoryViewer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryViewer.tsx) — сегментные полосы прогресса с автопереходом каждые 5 секунд, навигация кликом по зонам / стрелками / Esc, пауза при зажатии мыши, шапка с автором и возрастом истории, панель просмотров и удаление для своих историй.
+  * **Создание истории**: [`src/components/Stories/StoryCreateModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoryCreateModal.tsx) — вкладки «Текст» (живое превью + палитра градиентов) и «Фото» (загрузка через `/api/upload`), превью 9:14, автосрок 24 часа.
+  * **E2E-валидация**: сокет-тест создание → broadcast → просмотр (views) → удаление пройден полностью.
+
+### [v3.4.1] — 23 августа 2026 г.
+* **Список пользователей в реакциях (Who Reacted Tooltip)**:
+  * **Всплывающая подсказка при наведении**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) каждый бейдж реакции обернут в группу с CSS `group-hover` тултипом — при наведении курсора над бейджем всплывает аккуратная стеклянная карточка со списком имен всех, кто поставил реакцию («Вы, Влад и ещё 2»).
+  * **Корректная резолюция имен**: имена определяются через `getUserDisplayName` (пользовательские профили → дефолтные профили → USER_NAMES), собственная реакция всегда подписана «Вы»; список обрезается до 4 имен с указанием «и ещё N».
+  * **Нулевые ререндеры**: тултип реализован на чистом CSS (`opacity` + `translate` переходы), без дополнительного React-состояния — наведение не вызывает повторных рендеров ленты.
+
+### [v3.4.0] — 23 августа 2026 г.
+* **Сохранённые сообщения — личное «Избранное» (Saved Messages Suite)**:
+  * **Виртуальная комната «Избранное»**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) каждому пользователю в начало списка чатов добавляется персональная комната `saved-messages` (участник — только сам пользователь), как в Telegram.
+  * **Фирменная синяя закладка**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) комната «Избранное» получила градиентную синюю аватарку с иконкой закладки (`IconBookmark`) в списке чатов и в шапке активного диалога; подзаголовок «Ваши сохранённые сообщения», скрытие индикаторов онлайн и кнопок звонков.
+  * **Быстрое сохранение из контекстного меню**: в [`src/components/TelegramContextMenuModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/TelegramContextMenuModal.tsx) новый пункт «В Избранное» — пересылает любое сообщение (текст, медиа, стикеры, опросы) в личное хранилище одним кликом через существующий механизм `forwardMessage` с toast-подтверждением.
+  * **Серверная поддержка**: в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) комната `saved-messages` автоматически добавляется в авторизованные комнаты каждого подключившегося пользователя, история сохранённостей переживает перезагрузку страницы.
+
+### [v3.3.1] — 23 августа 2026 г.
+* **Доработка опросов: завершение опроса и полировка карточки (Poll Close & Visual Polish)**:
+  * **Кнопка «Завершить опрос» для автора**: в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) добавлен сокет-обработчик `close_poll` (только автор опроса) с broadcast-событием `poll_updated`; в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) добавлен метод `closePoll(messageId, roomId)`, в [`src/components/Poll/PollCard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Poll/PollCard.tsx) — кнопка завершения с блокировкой дальнейшего голосования.
+  * **Исправление обрезания футера карточки**: увеличены внутренние отступы контейнера опроса в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) (`pt-2.5 pb-2`), счетчик голосов больше не обрезается нижней границей пузыря.
+  * **Русская плюрализация счетчика**: корректные формы «1 голос / 2 голоса / 5 голосов»; для мультивыбора отображается «N голосов · M чел.».
+  * **Квадратные чекбоксы для мультивыбора**: круглые радиокнопки для одиночного выбора и квадратные чекбоксы для опросов с несколькими ответами (поведение 1:1 Telegram).
+  * **E2E-валидация**: сквозной сокет-тест (отправка опроса → голосование → завершение автором) прошел успешно на всех трех этапах.
+
+### [v3.3.0] — 23 августа 2026 г.
+* **Интерактивные опросы с живыми результатами (Live Polls Suite)**:
+  * **Типизация опросов**: в [`src/types.ts`](https://github.com/Voltikalk/Comms/blob/main/src/types.ts) добавлены интерфейсы `Poll` (вопрос, варианты, карта голосов `optionId -> UserId[]`, флаги «несколько ответов» / «анонимно» / «завершён») и `PollOption`, поле `poll` интегрировано в `Message`.
+  * **Модалка создания опроса**: новый компонент [`src/components/Poll/PollCreateModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Poll/PollCreateModal.tsx) — вопрос, 2–10 вариантов с добавлением/удалением, тумблеры «Несколько ответов» и «Анонимное голосование», кнопка создания активна только при заполненных полях.
+  * **Живая карточка голосования**: компонент [`src/components/Poll/PollCard.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Poll/PollCard.tsx) в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) — клик по варианту отдает голос, анимированные цветные полосы результатов с процентами, галочка на выбранном варианте, счетчик голосующих, кнопка «Завершить опрос» для автора.
+  * **Синхронизация через сокеты**: в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) новое событие `vote_poll` (переключение голоса пользователя между вариантами) с broadcast-событием `poll_updated` на всю комнату; поле `poll` прокинуто сквозь `send_message`.
+  * **Клиентский контекст**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) метод `votePoll(messageId, roomId, optionIds)` и обработчик `poll_updated`, обновляющий ленту у всех участников в реальном времени; параметр `poll` добавлен в `sendMessage` с оптимистичным рендером.
+  * **Превью опроса**: плашка «Опрос: {вопрос}» в списке чатов ([`ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx)) и в цитатах ответов ([`MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx)); кнопка 📊 создания опроса добавлена в строку ввода рядом с камерой.
+
+### [v3.2.0] — 23 августа 2026 г.
+* **Упоминания пользователей @user и хештеги (Mentions & Hashtags Suite)**:
+  * **Утилиты парсинга токенов**: создан модуль [`src/lib/mentions.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/mentions.ts) — `parseMessageTokens` (разбивка текста на `@упоминания`, `#хештеги` и обычный текст с поддержкой кириллицы), `getActiveToken` (определение активного токена по позиции каретки), `buildMentionCandidates` / `filterMentionCandidates` (кандидаты автодополнения из участников комнаты), `isUserMentionedInText` и `extractHashtags`.
+  * **Автодополнение @упоминаний в стиле Telegram**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) при вводе `@` над строкой ввода всплывает аккуратный попап с аватарками, именами и @username участников активного чата; фильтрация в реальном времени по имени и username, клавиатурная навигация (`↑`/`↓`/`Enter`/`Tab`/`Esc`) и вставка выбранного упоминания с корректной позицией курсора.
+  * **Подсветка в пузырях сообщений**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) внедрен рендерер `renderRichTokens` — упоминания отображаются фирменным синим цветом Telegram (#3390ec) с полужирным начертанием, хештеги кликабельны и открывают глобальный поиск по тегу через новый проп `onHashtagClick`.
+  * **Поиск по хештегу из сообщения**: клик по `#хештегу` мгновенно открывает окно глобального поиска с предзаполненным запросом (новый проп `initialQuery` в [`src/pages/SearchPage.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/pages/SearchPage.tsx)).
+  * **Push-уведомления «Вас упомянули»**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) уведомления об упоминании текущего пользователя имеют приоритетный заголовок «{Имя} упомянул(а) вас» и обходят mute отдельных чатов (поведение 1:1 Telegram).
+
+### [v3.1.0] — 23 августа 2026 г.
+* **Плавающая кнопка прокрутки вниз (Scroll-to-Bottom FAB with Unread Badge)**:
+  * **Telegram-стиль кнопка «вниз»**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) при прокрутке вверх более чем на 350px от низа ленты появляется круглая белая кнопка со стрелкой (`IconArrowDown`) с плавным появлением и мгновенным скрытием у нижней границы.
+  * **Счетчик непрочитанных на кнопке**: красный бейдж с числом непрочитанных сообщений активного чата в стиле Telegram (синий кружок с белой обводкой).
+* **Группировка сообщений одного автора (Author Message Grouping & Corner Flattening)**:
+  * **Слющенные углы пузырей**: в [`src/components/MessageBubble.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/MessageBubble.tsx) сообщения, идущие подряд от одного автора (в пределах 5 минут, без цитаты-ответа), получают сплющенные углы стыковки (`6px` вместо полного скругления) — сверху при продолжении группы и снизу при ее завершении, отдельно для входящих/исходящих сторон.
+  * **Плотные вертикальные отступы**: сгруппированные сообщения сближаются до `2px` между собой, сохраняя стандартный отступ перед началом новой группы.
+* **Перетаскивание файлов прямо в окно чата (Full-Chat Drag & Drop Attachments)**:
+  * **Полноэкранный оверлей захвата**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) при перетаскивании файла на область чата появляется оверлей с пунктирной рамкой, стеклянной карточкой «Отпустите для отправки» и иконкой скрепки; подсчет глубины вложенных drag-событий исключает мерцание.
+  * **Единый конвейер обработки**: извлечена общая функция `acceptIncomingFile`, используемая и пикером файлов, и drag&drop — с автораспознаванием типа (фото/видео/аудио/стикер `.tgs`), превью через `URL.createObjectURL` и определением ориентации видео.
+* **Mute отдельных чатов (Per-Chat Mute)**:
+  * **Тумблер «Без звука»**: в панели информации о чате добавлен переключатель отключения уведомлений с персистентностью в `localStorage` (`tg_muted_rooms`) и toast-подтверждением.
+  * **Приоритет мьюта в уведомлениях**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) звук и push-уведомления не отправляются для заглушенных чатов.
+  * **Индикатор в списке чатов**: перечеркнутый колокольчик (`IconBellOff`) рядом с именем заглушенного диалога.
+
+### [v3.0.1] — 23 августа 2026 г.
+* **Визуальное отображение черновиков в списке чатов (Draft Indicators in Chat List)**:
+  * **Красная плашка «Черновик:» как в Telegram**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) превью чата с несохраненным набранным текстом показывает красную метку `Черновик:` и начало текста вместо последнего сообщения (приоритет ниже индикатора «печатает...»).
+  * **Скрытие плашки для активного чата**: метка черновика не отображается для открытого в данный момент диалога — она появляется только после выхода из чата.
+  * **Реактивное состояние черновиков**: черновики зеркалируются в состояние `draftsMap` через единый `persistDraft` (localStorage + UI синхронно), гидратация всех сохраненных черновиков при запуске приложения.
+  * **Индикатор карандаша в компактном режиме**: на аватарке чата в узкой панели (72px) отображается красная круглая метка с `IconEdit` при наличии черновика.
+
+### [v3.0.0] — 23 августа 2026 г.
+* **Черновики сообщений для каждого чата (Per-Chat Message Drafts)**:
+  * **Автосохранение с дебаунсом 400 мс**: в [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) набранный текст каждого диалога автоматически сохраняется в `localStorage` (`tg_draft_{roomId}`) и восстанавливается при возврате в чат — поведение 1:1 Telegram Desktop.
+  * **Мгновенное сохранение при переключении чатов**: при смене активного диалога черновик предыдущего чата фиксируется синхронно через `inputTextRef`, а поле ввода мгновенно наполняется сохраненным текстом целевого чата.
+  * **Очистка после отправки**: отправка сообщения удаляет черновик чата; режим редактирования сообщения не загрязняет черновики.
+* **Доработка браузерных уведомлений (Notification Click Navigation & Tab Title Badge)**:
+  * **Переход в чат по клику на уведомление**: в [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) клик по push-уведомлению теперь фокусирует окно и переключает активный диалог на чат отправителя (`navigateToRoomRef` → `handleSetActiveRoomId`) с автоматической отметкой прочитанности.
+  * **Счетчик непрочитанных в заголовке вкладки**: мемизированный `totalUnread` по всем комнатам выводит бейдж `(N) Telegram Web` в `document.title`.
+  * **Синхронизация переключателя уведомлений**: тумблер «Уведомления» в боковом меню переведен на состояние контекста (`notificationsEnabled`) с персистентностью в `localStorage` (`tg_notifications_enabled`); при включении запрашивается `Notification.requestPermission()`, при выключении подавляются и звук, и push.
+* **Чистка кодовой базы от lint-предупреждений (Zero-Warning Lint Pass)**:
+  * Устранены неиспользуемые catch-параметры в [`src/services/message.service.ts`](https://github.com/Voltikalk/Comms/blob/main/src/services/message.service.ts), [`src/services/reaction.service.ts`](https://github.com/Voltikalk/Comms/blob/main/src/services/reaction.service.ts), [`src/services/room.service.ts`](https://github.com/Voltikalk/Comms/blob/main/src/services/room.service.ts), [`src/services/read-receipt.service.ts`](https://github.com/Voltikalk/Comms/blob/main/src/services/read-receipt.service.ts), [`src/services/attachment.service.ts`](https://github.com/Voltikalk/Comms/blob/main/src/services/attachment.service.ts) и [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) (удален мертвый `memoryAttempts`).
+  * Исправлены зависимости `useEffect`/`useMemo` в [`src/hooks/useUserStatus.ts`](https://github.com/Voltikalk/Comms/blob/main/src/hooks/useUserStatus.ts), [`src/hooks/useRealtimeSubscription.ts`](https://github.com/Voltikalk/Comms/blob/main/src/hooks/useRealtimeSubscription.ts), [`src/hooks/useRoomMessages.ts`](https://github.com/Voltikalk/Comms/blob/main/src/hooks/useRoomMessages.ts) и [`src/pages/SearchPage.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/pages/SearchPage.tsx) (`getRoomName`/`saveHistory` обернуты в `useCallback`).
+  * Удалены лишние приведения `Boolean()` в [`src/lib/filter-utils.ts`](https://github.com/Voltikalk/Comms/blob/main/src/lib/filter-utils.ts) и [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx), почищены неиспользуемые импорты в [`scratch/test-filter.ts`](https://github.com/Voltikalk/Comms/blob/main/scratch/test-filter.ts).
 
 ### [v2.99.0] — 18 августа 2026 г.
 * **Премиальный редизайн превью последних сообщений в списке чатов (Telegram Rich Chat List Snippets & Delivery Indicators)**:
@@ -758,6 +1291,65 @@ npm run storybook
   * [`src/hooks/useVideoPlayer.ts`](https://github.com/Voltikalk/Comms/blob/main/src/hooks/useVideoPlayer.ts) — кастомный React-хук для взаимодействия с плеером и форматирования времени (`hh:mm:ss`).
   * [`src/components/VideoPlayer/VideoPlayer.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/VideoPlayer.tsx) — главный компонент с модульными подкомпонентами (`VideoElement`, `VideoTimeline`, `VideoSettingsMenu`, `VideoControlsOverlay`, `VideoFeedbackOverlay`).
   * [`src/components/VideoPlayer/index.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/index.ts) — точка входа и экспорта модуля.
+  * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
+
+### [v2.18.0] — 3 сентября 2026 г.
+* **Инфраструктура контейнеризации и развертывания на виртуальном сервере (Ubuntu VPS / Docker Compose)**:
+  * **Контейнеризация бэкенда (`Dockerfile.backend`)**:
+    * Легковесный базовый образ `node:20-alpine`, установка только production-зависимостей (`npm ci --omit=dev`).
+    * Персистентное хранилище для пользовательских медиафайлов и вложений через Docker Volume `uploads_data:/app/uploads`.
+    * Поддержка чтения переменной порта `process.env.PORT || 3000` в [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js).
+  * **Контейнеризация фронтенда и защищенный обратный прокси (`Dockerfile.frontend` & `nginx.docker.conf`)**:
+    * Multi-stage сборка: сборка Vite-бандла (`npm run build`) с передачей аргументов Supabase окружения (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) и раздача через Nginx `1.25-alpine`.
+    * Оптимизированная конфигурация Nginx с поддержкой домена `commsint.duckdns.org`:
+      * Автоматический 301-редирект с HTTP (порт 80) на HTTPS (порт 443).
+      * Поддержка бесплатного SSL-сертификата Let's Encrypt (TLSv1.2, TLSv1.3, HSTS).
+      * SPA-маршрутизация с fallback на `/index.html`.
+      * Защищенное проксирование REST API (`/api/`) и медиафайлов (`/uploads/`) на бэкенд-контейнер `http://backend:3000`.
+      * Защищенное проксирование WebSockets WSS (`/socket.io/`) с поддержкой HTTP/1.1 Upgrade, отключенной буферизацией и таймаутом `86400s`.
+      * Gzip-сжатие и кэширование хешированных статических ассетов Vite на 1 год.
+  * **Оркестрация и автоматизация (`docker-compose.yml` & `deploy.sh`)**:
+    * Создан `docker-compose.yml` с автоматическим перезапуском (`restart: unless-stopped`), изолированной внутренней сетью `comms_net`, портами `80:80` и `443:443`, и монтированием сертификатов из `/etc/letsencrypt`.
+    * Создан `.dockerignore` для ускорения сборки и изоляции локальных артефактов (`node_modules`, `dist`, `.git`).
+    * Написан скрипт `deploy.sh` для развертывания одной командой на Ubuntu VPS: автоматическая установка Docker & Certbot, выпуск Let's Encrypt сертификата для `commsint.duckdns.org`, настройка cron-продления, сборка и запуск `https://commsint.duckdns.org/`.
+  * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
+
+### [v2.17.0] — 2 сентября 2026 г.
+* **Трансформация прототипа в полноценный многопользовательский мессенджер (Real Messenger Architecture)**:
+  * **Персистентность пользователей и комнат в Supabase (PostgreSQL)**:
+    * `server.js`: функция `initUsers()` загружает всех зарегистрированных пользователей из таблицы `users` Supabase при старте сервера в память и сохраняет кэш.
+    * Регистрация (`POST /api/auth/register`) теперь сохраняет нового пользователя (UUID, username, email, хешированный пароль bcrypt, display_name, avatar_url) непосредственно в PostgreSQL таблицу `users`.
+    * Убрана жесткая привязка комнат к семейному списку `USER_ROOMS`. Реализовано хранилище `memoryRooms` с загрузкой из Supabase (`loadRoomsFromSupabase()`), поддержкой персонального «Избранного» (Saved Messages) и динамических комнат.
+    * Добавлен REST-эндпоинт `GET /api/users/search?q=...&currentUserId=...` для поиска пользователей.
+  * **Реализация сокет-событий взаимодействия в реальном времени**:
+    * Добавлена подписка сокетов на персональную комнату пользователя `socket.join(user)`, позволяющая отправлять персональные оповещения.
+    * Реализовано событие `search_users` для поиска зарегистрированных пользователей по никнейму и имени (исключая самого себя).
+    * Реализовано событие `create_direct_chat`: находит существующий или создает новый 1-на-1 диалог, сохраняет в Supabase (`rooms`, `room_members`), подключает сокеты обоих участников и отправляет событие `room_created`.
+    * Реализовано событие `create_group_chat`: создание групповых чатов с произвольным количеством участников.
+    * Реализовано событие `get_user_rooms` и автоматическая рассылка актуального списка комнат `rooms_list` клиентам.
+  * **Клиентский уровень SocketContext и типы**:
+    * В [`src/types.ts`](https://github.com/Voltikalk/Comms/blob/main/src/types.ts) добавлен интерфейс `UserSearchResult` и опциональные поля `avatarUrl`, `description` для `Room`.
+    * В [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) методы `searchUsers`, `createDirectChat`, `createGroupChat` интегрированы в контекст; список комнат синхронизируется с сервером через `rooms_list` и `room_created`.
+    * Для новых пользователей дефолтным стартовым чатом назначается личное «Избранное» (`saved-messages`).
+  * **UI Suite создания чатов (NewChatModal & FAB)**:
+    * Создан компонент [`src/components/Chat/NewChatModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/NewChatModal.tsx) в стиле Telegram Web:
+      * Вкладки «Личный диалог» и «Создать группу».
+      * Поле поиска с дебаунсом (220ms) и индикатором загрузки.
+      * Интерактивный список пользователей с анимированными карточками, аватарами, онлайн-статусами, никами и био.
+      * В режиме группы: множественный выбор чекбоксами, чипсы выбранных участников и поле ввода названия группы.
+    * В [`src/components/Chat/Sidebar/ChatSidebar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Sidebar/ChatSidebar.tsx) добавлена фирменная круглая плавающая кнопка (FAB ✏️) в правом нижнем углу и пункт «Новое сообщение» в выпадающем меню сайдбара.
+    * Добавлено визуальное пустое состояние со ссылкой на поиск для пользователей, у которых еще нет диалогов.
+    * Компонент подключен в центральный диспетчер модалок [`src/components/Chat/Modals/ChatModalsHost.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Modals/ChatModalsHost.tsx) и управляется из [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx).
+  * **Редизайн экрана авторизации (LoginScreen Cleanup)**:
+    * В [`src/components/LoginScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/LoginScreen.tsx) убрана навязчивость моковых аккаунтов:
+      * Вкладки переименованы в лаконичные «Вход по паролю» и «По QR-коду».
+      * Кнопка «Создать новый аккаунт» размещена прямо под формой входа и открывает пошаговый мастер регистрации `TelegramRegistrationWizard`.
+      * Пять тестовых профилей убраны в аккуратный сворачиваемый блок «🧪 Тестовые профили (Dev Mode)» в нижней части экрана.
+  * **Исправление вызова контекстного меню сообщений (Bugfix: TypeError e.preventDefault)**:
+    * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
+  * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
+    * В [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) обработчик `POST /api/auth/login` научился автоматически отсекать префикс `@` в логине, динамически находить пользователя в Supabase PostgreSQL при отсутствии в кеше памяти, безопасно сопоставлять пароль (bcrypt/plain) и при необходимости проверять пользователя через Supabase Auth (`signInWithPassword`).
+    * В [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) добавлена очистка префикса `@` перед отправкой и гарантированный fallback на тестовые пресеты при недоступности сети/сервера.
   * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
 
 ### [v2.16.0] — 17 августа 2026 г.

@@ -1,4 +1,4 @@
-export type WallpaperCategory = 'pattern' | 'photo' | 'gradient' | 'minimal' | 'custom';
+export type WallpaperCategory = 'pattern' | 'photo' | 'gradient' | 'minimal' | 'animated' | 'custom';
 
 export interface ChatWallpaper {
   id: string;
@@ -14,6 +14,7 @@ export interface ChatWallpaper {
   thumbnailUrl?: string;
   blur?: number;
   dimming?: number;
+  animatedType?: 'squares' | 'aurora' | 'particles' | 'letter-glitch' | 'hyperspeed' | 'waves' | 'dither';
 }
 
 export interface ThemeAccentColor {
@@ -26,9 +27,9 @@ export interface ThemeAccentColor {
 }
 
 export interface CustomWallpaperSettings {
-  imageUrl: string;
-  blur: number; // 0 to 25 px
-  dimming: number; // 0 to 85 %
+  imageUrl?: string;
+  blur?: number; // 0 to 25 px
+  dimming?: number; // 0 to 85 %
 }
 
 export interface ChatThemeConfig {

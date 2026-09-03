@@ -12,7 +12,8 @@ import {
   IconShare3, 
   IconCircleCheck, 
   IconEye, 
-  IconChevronDown 
+  IconChevronDown,
+  IconBookmark
 } from '@tabler/icons-react';
 
 interface TelegramContextMenuModalProps {
@@ -31,6 +32,7 @@ interface TelegramContextMenuModalProps {
   onDelete: (message: Message) => void;
   onSelect: (message: Message) => void;
   onMarkRead: (message: Message) => void;
+  onSaveToFavorites?: (message: Message) => void;
   onToggleReaction: (messageId: string, emoji: string) => void;
 }
 
@@ -49,6 +51,7 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
   onDelete,
   onSelect,
   onMarkRead,
+  onSaveToFavorites,
   onToggleReaction
 }) => {
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
@@ -56,6 +59,7 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
   const [pos, setPos] = useState({ top: y, left: x });
 
   const hasText = !!message.text;
+  const canCopy = !!message.text || !!message.poll || !!message.file;
 
   // Calculate smart screen-boundary coordinates with dynamic width measurement
   useEffect(() => {
@@ -211,20 +215,26 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
               <span className={isPinned ? 'text-[#3390ec]' : ''}>{isPinned ? 'Открепить' : 'Закрепить'}</span>
             </button>
 
-            {/* Копировать текст */}
-            {hasText && (
+            {/* Копировать */}
+            {canCopy && (
               <button
                 type="button"
                 onClick={() => { onCopy(message); onClose(); }}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
               >
                 <IconCopy size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
-                <span>Копировать текст</span>
+                <span>
+                  {message.poll
+                    ? 'Копировать опрос'
+                    : message.file && !message.text
+                    ? 'Копировать имя файла'
+                    : 'Копировать текст'}
+                </span>
               </button>
             )}
 
             {/* Редактировать */}
-            {isSelf && hasText && (
+            {isSelf && hasText && !message.poll && (
               <button
                 type="button"
                 onClick={() => { onEdit(message); onClose(); }}
@@ -244,6 +254,18 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
               <IconShare3 size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
               <span>Переслать</span>
             </button>
+
+            {/* Сохранить в Избранное */}
+            {onSaveToFavorites && (
+              <button
+                type="button"
+                onClick={() => { onSaveToFavorites(message); onClose(); }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
+              >
+                <IconBookmark size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
+                <span>В Избранное</span>
+              </button>
+            )}
 
             {/* Удалить */}
             {isSelf && (

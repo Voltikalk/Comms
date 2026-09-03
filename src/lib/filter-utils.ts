@@ -292,7 +292,10 @@ export function applyFilters<T = any>(
     if (filters.searchQuery && filters.searchQuery.trim()) {
       const q = filters.searchQuery.trim().toLowerCase();
       const content = String(msg.content || msg.text || msg.snippet || '').toLowerCase();
-      if (!content.includes(q)) return false;
+      const pollContent = msg.poll
+        ? `${msg.poll.question} ${msg.poll.options?.map((o: any) => o.text).join(' ')}`.toLowerCase()
+        : '';
+      if (!content.includes(q) && !pollContent.includes(q)) return false;
     }
 
     return true;
@@ -580,7 +583,7 @@ export function getSavedPresets(): FilterPreset[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -658,7 +661,7 @@ export function exportFilteredMessagesToCSV(messages: any[], filename?: string):
     const senderName = m.sender?.display_name || m.sender?.username || m.sender_id || m.sender || '';
     const content = m.content || m.text || '';
     const dateStr = m.created_at || (m.timestamp ? new Date(m.timestamp).toISOString() : '');
-    const isEdited = Boolean(m.isEdited || m.edited_at) ? 'YES' : 'NO';
+    const isEdited = (m.isEdited || m.edited_at) ? 'YES' : 'NO';
     const editedTime = m.edited_at || '';
     const reactionsCount = getReactionsCount(m);
 
