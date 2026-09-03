@@ -1295,9 +1295,11 @@ npm run storybook
 
 ### [v2.18.1] — 3 сентября 2026 г.
 * **Повышение надежности скрипта развертывания (`deploy.sh`)**:
-  * Добавлена гарантированная установка пакетов `curl`, `wget`, `ca-certificates`, `openssl`, `certbot`.
+  * Добавлена гарантированная установка пакетов `curl`, `wget`, `ca-certificates`, `openssl`, `certbot`, `cron`.
   * Реализована прямая загрузка официального бинарника Docker Compose v2 с GitHub Releases в `/usr/local/lib/docker/cli-plugins/docker-compose` и создание симлинка `/usr/local/bin/docker-compose` на случай отсутствия пакета `docker-compose-plugin` в стандартных репозиториях Ubuntu Jammy.
   * Реализовано динамическое определение команды вызова (`docker compose` или `docker-compose`) через переменную `$COMPOSE_CMD`.
+  * Устранена критическая ошибка прерывания скрипта из-за отсутствия `crontab` на минимальных образах Ubuntu (`command -v crontab` guard).
+  * Добавлена остановка конфликтующих веб-серверов (`systemctl stop nginx apache2`) перед вызовом Certbot и бесшовная генерация SSL fallback-сертификата.
   * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
 
 ### [v2.18.0] — 3 сентября 2026 г.
