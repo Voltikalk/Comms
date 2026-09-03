@@ -1293,6 +1293,12 @@ npm run storybook
   * [`src/components/VideoPlayer/index.ts`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/index.ts) — точка входа и экспорта модуля.
   * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
 
+### [v2.18.2] — 3 сентября 2026 г.
+* **Переход на Node.js 22 LTS и устранение ошибки 502 Bad Gateway / WebSocket**:
+  * В [`Dockerfile.backend`](https://github.com/Voltikalk/Comms/blob/main/Dockerfile.backend) и [`Dockerfile.frontend`](https://github.com/Voltikalk/Comms/blob/main/Dockerfile.frontend) базовый образ обновлен с `node:20-alpine` на **`node:22-alpine`** (LTS). Это устраняет фатальный сбой `@supabase/supabase-js` v2.112.3+ (`Error: Node.js detected but native WebSocket not found`), из-за которого контейнер `comms-backend` падал в цикл перезапуска и вызывал 502 Bad Gateway.
+  * В [`deploy.sh`](https://github.com/Voltikalk/Comms/blob/main/deploy.sh) вызов `$COMPOSE_CMD down` вынесен перед запросом Certbot, гарантируя полное освобождение портов 80 и 443 для валидации Let's Encrypt ACME.
+  * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
+
 ### [v2.18.1] — 3 сентября 2026 г.
 * **Повышение надежности скрипта развертывания (`deploy.sh`)**:
   * Добавлена гарантированная установка пакетов `curl`, `wget`, `ca-certificates`, `openssl`, `certbot`, `cron`.

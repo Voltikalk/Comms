@@ -51,14 +51,16 @@ mkdir -p /etc/letsencrypt/live/${DOMAIN}
 CERT_FILE="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
 KEY_FILE="/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
 
-echo "🔒 Проверка и выпуск SSL-сертификата для ${DOMAIN}..."
+echo "🔒 Остановка существующих служб для освобождения портов 80 и 443..."
 systemctl stop nginx apache2 2>/dev/null || true
+$COMPOSE_CMD down 2>/dev/null || true
 
-# Пытаемся выпустить настоящий SSL от Let's Encrypt
-if certbot certonly --standalone -d "${DOMAIN}" --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring 2>/dev/null; then
-    echo "✅ Сертификат Let's Encrypt успешно получен!"
+# Проверка: если сертификат временный (самоподписанный), пытаемся заменить его на настоящий
+echo "🔒 Проверка и выпуск SSL-сертификата для ${DOMAIN}..."
+if certbot certonly --standalone -d "${DOMAIN}" --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring; then
+    echo "✅ Официальный сертификат Let's Encrypt успешно получен/актуален!"
 elif [ ! -f "$CERT_FILE" ]; then
-    echo "⚠️ Внимание: DNS еще обновляется или порт 80 временно недоступен. Создаем временный SSL-сертификат..."
+    echo "⚠️ DNS еще обновляется. Создаем временный SSL-сертификат, чтобы запустить приложение..."
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout "$KEY_FILE" \
         -out "$CERT_FILE" \
@@ -76,7 +78,6 @@ fi
 
 # 5. Сборка и запуск контейнеров через Docker Compose
 echo "📦 Сборка и запуск контейнеров..."
-$COMPOSE_CMD down 2>/dev/null || true
 $COMPOSE_CMD up -d --build
 
 # 6. Проверка статуса
