@@ -904,7 +904,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute top-5 right-18 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer z-50 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+                  className="absolute top-[max(1.25rem,calc(env(safe-area-inset-top,0px)+0.75rem))] right-18 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer z-50 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
                   title="Скачать фото"
                 >
                   <IconDownload size={20} />
@@ -916,7 +916,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                     e.stopPropagation();
                     setIsImagePreviewOpen(false);
                   }}
-                  className="absolute top-5 right-5 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer z-50 transition-transform hover:scale-110 active:scale-95"
+                  className="absolute top-[max(1.25rem,calc(env(safe-area-inset-top,0px)+0.75rem))] right-5 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer z-50 transition-transform hover:scale-110 active:scale-95"
                   title="Закрыть"
                 >
                   <IconX size={20} />
@@ -1193,7 +1193,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && createPortal(
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-pop-in"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] select-none animate-pop-in"
           onClick={() => setIsDeleteModalOpen(false)}
         >
           <div 

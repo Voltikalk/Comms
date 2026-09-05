@@ -35,9 +35,9 @@ export const AppInstallModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-md animate-backdrop">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] bg-black/65 backdrop-blur-md animate-backdrop">
       <div
-        className="w-full max-w-md bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-gray-200/80 dark:border-[#202b36] overflow-hidden flex flex-col animate-pop-in"
+        className="w-full max-w-md bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-gray-200/80 dark:border-[#202b36] overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with App Banner */}

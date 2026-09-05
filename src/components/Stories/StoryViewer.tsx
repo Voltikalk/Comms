@@ -338,7 +338,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-[max(1rem,env(safe-area-inset-top,1rem))] right-4 z-50 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-transform active:scale-90"
+        className="absolute top-[max(1rem,calc(env(safe-area-inset-top,0px)+0.75rem))] right-4 z-50 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-transform active:scale-90"
         title="Закрыть (Esc)"
       >
         <IconX size={22} />
@@ -356,7 +356,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       >
         {/* Top Progress Segment Bars */}
         <div
-          className={`absolute top-[max(0.75rem,env(safe-area-inset-top,0.75rem))] left-3 right-3 z-40 flex gap-1.5 transition-opacity duration-200 ${
+          className={`absolute top-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.5rem))] left-3 right-3 z-40 flex gap-1.5 transition-opacity duration-200 ${
             isHolding ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
         >
@@ -377,7 +377,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
         {/* Top Header Card (Author, Time, Close Friends badge, Sound & More) */}
         <div
-          className={`absolute top-6 left-3 right-3 z-40 flex items-center gap-2.5 pt-1 transition-opacity duration-200 ${
+          className={`absolute top-[max(2rem,calc(env(safe-area-inset-top,0px)+1.5rem))] left-3 right-3 z-40 flex items-center gap-2.5 pt-1 transition-opacity duration-200 ${
             isHolding ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
         >
@@ -755,7 +755,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
         {/* Bottom Interaction Footer (Reaction pill & Direct Reply) */}
         <div
-          className={`relative z-30 px-3 pb-3 pt-2 bg-gradient-to-t from-black/85 via-black/50 to-transparent transition-opacity duration-200 ${
+          className={`relative z-30 px-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] pt-2 bg-gradient-to-t from-black/85 via-black/50 to-transparent transition-opacity duration-200 ${
             isHolding ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
         >

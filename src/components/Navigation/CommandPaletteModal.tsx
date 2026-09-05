@@ -423,7 +423,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Command Palette"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-3 bg-black/60 backdrop-blur-md animate-fade-in select-none"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] px-3 bg-black/60 backdrop-blur-md animate-fade-in select-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           triggerHaptic('light');
@@ -432,7 +432,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       }}
     >
       <div
-        className="w-full max-w-2xl bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/80 dark:border-white/10 overflow-hidden flex flex-col max-h-[82vh] transition-all transform animate-pop-in"
+        className="w-full max-w-2xl bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/80 dark:border-white/10 overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-4rem)] transition-all transform animate-pop-in"
         onKeyDown={handleKeyDown}
       >
         {/* Header Search Box */}

@@ -117,11 +117,11 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] bg-black/60 backdrop-blur-xs animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col max-h-[90vh]"
+        className="w-full max-w-md bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

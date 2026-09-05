@@ -189,11 +189,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs select-none animate-backdrop"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] bg-black/60 backdrop-blur-xs select-none animate-backdrop"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[450px] bg-white dark:bg-[#17212b] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-pop-in"
+        className="w-full max-w-[450px] bg-white dark:bg-[#17212b] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/10 flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[90vh] overflow-hidden animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Minimal Header */}

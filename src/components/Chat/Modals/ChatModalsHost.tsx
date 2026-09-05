@@ -442,11 +442,11 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
       {/* 12. Telegram Forward Message Modal */}
       {forwardingMessage && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-backdrop select-none"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] animate-backdrop select-none"
           onClick={() => setForwardingMessage(null)}
         >
           <div
-            className="w-full max-w-sm bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 p-4 flex flex-col gap-3 animate-pop-in text-slate-900 dark:text-white"
+            className="w-full max-w-sm max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 p-4 flex flex-col gap-3 animate-pop-in text-slate-900 dark:text-white"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/10">
@@ -496,7 +496,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
 
       {/* 13. WebRTC Calling Overlay */}
       {callSession && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center text-white select-none animate-pop-in">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center text-white select-none animate-pop-in pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] px-4">
           {callSession.status === 'active' && callSession.type === 'audio' && (
             <div style={{ position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden' }}>
               <audio ref={remoteAudioRef as any} autoPlay playsInline />
@@ -600,8 +600,8 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
 
       {/* 14. Video Circle Record Modal */}
       {isRecordingVideo && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center select-none animate-pop-in p-4">
-          <div className="p-6 tg-header rounded-3xl flex flex-col items-center gap-4 max-w-[320px] shadow-2xl border border-slate-200 dark:border-white/10">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center select-none animate-pop-in p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))]">
+          <div className="p-6 tg-header rounded-3xl flex flex-col items-center gap-4 max-w-[320px] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] overflow-y-auto shadow-2xl border border-slate-200 dark:border-white/10">
             <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
               Видео-кружок
             </span>
@@ -669,11 +669,11 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
       {/* 15. QR Code Modal */}
       {showQrModal && (
         <div
-          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 select-none animate-pop-in"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] select-none animate-pop-in"
           onClick={() => setShowQrModal(false)}
         >
           <div
-            className="w-full max-w-[360px] tg-header rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl border border-slate-200 dark:border-white/10"
+            className="w-full max-w-[360px] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] overflow-y-auto tg-header rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl border border-slate-200 dark:border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between w-full mb-3">
@@ -760,7 +760,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
 
       {/* 16. Selection Mode Bottom Action Bar */}
       {isSelectMode && (
-        <div className="fixed bottom-3 inset-x-3 sm:inset-x-6 z-40 max-w-2xl mx-auto bg-white/98 dark:bg-[#17212b]/98 rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 px-4 py-2.5 flex items-center justify-between animate-pop-in select-none backdrop-blur-md">
+        <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] inset-x-3 sm:inset-x-6 z-40 max-w-2xl mx-auto bg-white/98 dark:bg-[#17212b]/98 rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 px-4 py-2.5 flex items-center justify-between animate-pop-in select-none backdrop-blur-md">
           <button
             type="button"
             onClick={handleDeleteSelectedAnimated}
@@ -826,7 +826,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
 
       {/* 17. Floating Toast Notification */}
       {toast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#17212b]/95 dark:bg-[#242f3d]/95 text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-medium backdrop-blur-md border border-white/10 animate-pop-in select-none flex items-center gap-3">
+        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 z-50 bg-[#17212b]/95 dark:bg-[#242f3d]/95 text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-medium backdrop-blur-md border border-white/10 animate-pop-in select-none flex items-center gap-3">
           <span>{toast.text}</span>
           {toast.actionLabel && toast.onAction && (
             <button

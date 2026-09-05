@@ -91,15 +91,26 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 51 — Mobile Layout Safe Areas & Viewport Alignment Fix [v3.20.0]):
-* ✅ **Исправление сдвига интерфейса на мобильных устройствах (Mobile Safe Area Alignment Fix)**:
-  * Устранена проблема, из-за которой на смартфонах (iOS Safari / PWA / Android) весь интерфейс съезжал вверх под «монобровь» (notch), Dynamic Island и системную строку состояния (Status Bar / часы / батарею).
-  * В [`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx) для главного контейнера добавлен отступ `paddingTop: 'env(safe-area-inset-top, 0px)'` и базовый фон `bg-white dark:bg-[#17212b]`. Это гарантирует, что область за системной строкой состояния заполняется цветом шапки Telegram, а сайдбар (`ChatSidebar`) и шапка активного чата (`ChatHeader`) позиционируются строго под вырезом экрана.
-  * В [`src/components/Chat/Input/ChatInputBar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Input/ChatInputBar.tsx) добавлен нижний безопасный отступ `pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))]`, предотвращающий наложение панели ввода и кнопок микрофона/отправки на жестовую полосу Home Bar на iPhone и Android.
-  * В [`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx) плавающая кнопка создания чата (FAB ✏️) переведена на динамический отступ `bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-5`, исключая наложение кнопки на мобильную навигационную панель `<MobileBottomNav />`.
-  * В [`src/pages/SearchPage.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/pages/SearchPage.tsx) добавлены `pt-[max(0.625rem,env(safe-area-inset-top,0.625rem))]` в шапку поиска и `pb-[max(1rem,env(safe-area-inset-bottom,1rem))]` в область прокрутки результатов.
-  * В [`src/components/Stories/StoryViewer.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryViewer.tsx) и [`src/components/LoginScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/LoginScreen.tsx) верхние контролы (кнопка закрытия, сегментные полосы прогресса историй, переключатель тем) переведены на поддержку `safe-area-inset-top`.
-  * В [`src/styles/responsive.css`](file:///c:/Users/Drilla/Desktop/Comms/src/styles/responsive.css) актуализированы классы `.safe-area-top-header`, `.safe-area-bottom-nav` и добавлен `.safe-area-top-app`.
+### 📌 Текущая стадия разработки (Status: Phase 51 — Mobile Layout Safe Areas & Modal Portals Viewport Optimization [v3.21.0]):
+* ✅ **Комплексная оптимизация безопасных зон (Safe Areas) и вертикального позиционирования на смартфонах**:
+  * **Проблема**: На смартфонах (iOS Safari, PWA, Chrome Android) верхняя часть интерфейса (поиск, гамбургер-меню, истории) прижималась вплотную к часам (`02:26`) и системным значкам строки состояния. При открытии модальных окон (в частности, «Студии историй Telegram» `StoryCreateModal`, создания опросов, настроек тем) шапка модалки и кнопка закрытия `✕` физически накладывались прямо на часы, вырез (notch / Dynamic Island) и уровень заряда батареи, делая интерфейс нечитаемым и труднодоступным.
+  * **Решение и оптимизация**:
+    1. **Главный экран приложения ([`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx))**:
+       * Верхний отступ мобильного контейнера увеличен с чистого `env(safe-area-inset-top)` до `max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))`. Это дало естественные ~12-18px «воздуха» ниже системного статус-бара в точном соответствии с нативным Telegram iOS.
+       * Добавлен базовый фон `bg-white dark:bg-[#17212b]` и корректные боковые/нижние отступы `safe-area-inset-*`.
+    2. **Сайдбар и поиск ([`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx))**:
+       * Верхняя панель переведена на аккуратный паддинг `px-3 pt-2.5 pb-2`, а поле поиска `Поиск...` получило высоту `py-2 text-xs` и скругление `rounded-xl`, устранив тесноту между статус-баром и лентой историй.
+       * Кнопка создания чата (FAB ✏️) смещена на `bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-5`.
+    3. **Модальные окна и порталы React (`createPortal(..., document.body)`)**:
+       * Так как модальные окна монтируются напрямую в `document.body`, они игнорировали паддинги `ChatScreen`. Для всех модалок добавлена защита от выреза экрана и жестовой полосы:
+         * [`StoryCreateModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryCreateModal.tsx): подложка получила `pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))]`, а диалог — `max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)]`.
+         * [`StoryViewer.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryViewer.tsx): кнопка закрытия, сегментные полоски историй, карточка автора и нижняя панель реакций/ответа получили безопасные отступы относительно `env(safe-area-inset-top/bottom)`.
+         * [`PollCreateModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Poll/PollCreateModal.tsx), [`ThemeSettingsModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Theme/ThemeSettingsModal.tsx), [`ProfileEditModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ProfileEditModal.tsx), [`NewChatModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/NewChatModal.tsx), [`AdvancedSearchModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Search/AdvancedSearchModal.tsx): аналогичная защита бэкдропа и ограничение высоты диалогов.
+         * [`MediaGalleryModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Media/MediaGalleryModal.tsx): шапка просмотра медиа получила `pt-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.5rem))]`, а нижний тулбар — `pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))]`.
+         * [`CommandPaletteModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Navigation/CommandPaletteModal.tsx), [`KeyboardShortcutsModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Desktop/KeyboardShortcutsModal.tsx), [`AppInstallModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Hybrid/AppInstallModal.tsx).
+         * [`TelegramContextMenuModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/TelegramContextMenuModal.tsx): расчет позиции всплывающего контекстного меню ограничен безопасной верхней границей `minTop = 56px`, предотвращая открытие меню под вырезом.
+         * [`ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx): оверлей звонка, окно видео-кружков, QR-код, модалка пересылки, нижняя панель режима выделения и всплывающие тосты переведены на учет безопасных зон.
+         * [`ChatUserInfoPanel.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/UserInfo/ChatUserInfoPanel.tsx): мобильная шапка и список общих медиа защищены от выреза экрана.
 
 ### 📌 Предыдущая стадия разработки (Phase 50 — Modular Architecture, God-Component Decomposition & Clean Repository [v3.19.0]):
 * ✅ **Распил "God-компонента" `ChatScreen.tsx` (декомпозиция монолита 4 478 строк / 192 КБ)**:
@@ -445,6 +456,33 @@ npm run storybook
 ---
 
 ## 📜 Журнал изменений (Changelog)
+
+### [v3.21.0] — 6 сентября 2026 г.
+* **Комплексная оптимизация безопасных зон (Safe Areas) и устранение коллизий со статус-баром в модальных окнах и порталах**:
+  * **Оптимизация верхнего зазора главного экрана (Header Breathing Room)**:
+    * В [`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx) верхний отступ мобильного экрана увеличен с чистого `env(safe-area-inset-top)` до `max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))`. Это дало естественные ~18px пространства ниже системных часов (`02:26`) и выреза экрана в полном соответствии со стандартом Telegram iOS.
+    * В [`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx) уменьшена перегруженность шапки: паддинг скорректирован до `px-3 pt-2.5 pb-2`, а поле `Поиск...` — до компактного `py-2 text-xs`.
+  * **Устранение наезда модальных окон на системный статус-бар и вырез (Modal Portals Isolation Fix)**:
+    * Поскольку модальные окна монтируются через `createPortal(..., document.body)`, они полностью обходили паддинги `ChatScreen`. При открытии окна создания историй (`StoryCreateModal`), опросов, настроек тем или редактирования профиля шапка модалки и кнопка закрытия `✕` физически накладывались на часы (`02:25`), notch/Dynamic Island и индикаторы сети/батареи.
+    * Во всех модальных окнах добавлен безопасный отступ бэкдропа `pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))]` и жесткое ограничение высоты диалогов `max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)]`:
+      * [`StoryCreateModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryCreateModal.tsx) — «Студия историй Telegram»: заголовок, переключатели режимов («Текст / Медиа / Камера») и крестик теперь гарантированно располагаются ниже статус-бара.
+      * [`StoryViewer.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryViewer.tsx) — кнопка закрытия, прогресс-бары, карточка автора и нижний тулбар реакций/ответов адаптированы под `env(safe-area-inset-*)`.
+      * [`PollCreateModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Poll/PollCreateModal.tsx) — создание опросов и викторин.
+      * [`ThemeSettingsModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Theme/ThemeSettingsModal.tsx) — настройки тем оформления и обоев.
+      * [`ProfileEditModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ProfileEditModal.tsx) — редактирование профиля пользователя.
+      * [`NewChatModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/NewChatModal.tsx) — окно создания личных и групповых чатов.
+      * [`AdvancedSearchModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Search/AdvancedSearchModal.tsx) — расширенные параметры поиска.
+      * [`MediaGalleryModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Media/MediaGalleryModal.tsx) — полноэкранная медиа-галерея: верхняя панель получила `pt-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.5rem))]`, а нижний скраббер — `pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))]`.
+      * [`CommandPaletteModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Navigation/CommandPaletteModal.tsx), [`KeyboardShortcutsModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Desktop/KeyboardShortcutsModal.tsx), [`AppInstallModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Hybrid/AppInstallModal.tsx).
+      * [`TelegramContextMenuModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/TelegramContextMenuModal.tsx) — всплывающее меню реакций защищено минимальной верхней границей `minTop = 56px`, исключая появление реакций под вырезом.
+      * [`ChatUserInfoPanel.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/UserInfo/ChatUserInfoPanel.tsx) — мобильная шапка информации о собеседнике и нижний скролл медиа.
+      * [`MessageBubble.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/MessageBubble.tsx) — кнопки лайтбокса фото (`IconDownload`, `IconX`) и окно подтверждения удаления сообщения.
+      * [`ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx) — оверлей звонков WebRTC, видео-кружки, QR-код, модалка пересылки, нижняя панель выбора сообщений (`isSelectMode`) и плавающие тосты (`bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]`).
+      * [`SearchPage.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/pages/SearchPage.tsx) — увеличен верхний зазор поисковой строки.
+  * **Тестирование и контроль качества**:
+    * 112/112 юнит-тестов Vitest пройдены без ошибок (10 тест-сьютов).
+    * Oxlint: 0 ошибок.
+    * `npm run build` (`tsc -b && vite build`): успешная сборка с кодом 0.
 
 ### [v3.20.0] — 6 сентября 2026 г.
 * **Исправление сдвига интерфейса на мобильных устройствах (Mobile Safe Area Alignment & Notch Fix)**:

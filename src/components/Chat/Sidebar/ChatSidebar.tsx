@@ -139,7 +139,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         }`}
       >
         {/* Top Bar: Hamburger + Search Input */}
-        <div className={`p-2.5 flex items-center gap-2 relative ${isCompactSidebar ? 'justify-center p-2' : ''}`}>
+        <div className={`px-3 pt-2.5 pb-2 flex items-center gap-2.5 relative ${isCompactSidebar ? 'justify-center p-2' : ''}`}>
           <button
             type="button"
             onClick={() => setShowMenuDropdown(!showMenuDropdown)}
@@ -357,7 +357,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 value={roomFilterQuery}
                 onChange={(e) => setRoomFilterQuery(e.target.value)}
                 placeholder="Поиск..."
-                className="w-full pl-9 pr-3 py-1.5 bg-black/5 dark:bg-white/5 text-slate-900 dark:text-white rounded-full text-xs placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3390ec]"
+                className="w-full pl-9 pr-3 py-2 bg-black/5 dark:bg-white/5 text-slate-900 dark:text-white rounded-full text-xs placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3390ec] transition-colors"
               />
             </div>
           )}

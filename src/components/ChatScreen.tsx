@@ -2208,7 +2208,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     <div
       className="flex flex-col h-dvh w-full overflow-hidden select-none bg-white dark:bg-[#17212b]"
       style={{
-        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingTop: isDesktopView ? undefined : 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))',
       }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}

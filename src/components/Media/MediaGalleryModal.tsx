@@ -260,7 +260,7 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
     >
       {/* 1. Top Header Bar */}
       <header
-        className="w-full h-16 px-4 md:px-6 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between z-20 shrink-0 select-none backdrop-blur-xs"
+        className="w-full min-h-[4.5rem] pt-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.5rem))] pb-2 px-4 md:px-6 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between z-20 shrink-0 select-none backdrop-blur-xs"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Left: Author info & Timestamp */}
@@ -497,7 +497,7 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
 
       {/* 3. Bottom Footer: Caption & Thumbnail Carousel */}
       <footer
-        className="w-full bg-gradient-to-t from-black/90 via-black/60 to-transparent p-3 sm:p-4 z-20 flex flex-col items-center gap-2 select-none backdrop-blur-xs shrink-0"
+        className="w-full bg-gradient-to-t from-black/90 via-black/60 to-transparent p-3 sm:p-4 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))] z-20 flex flex-col items-center gap-2 select-none backdrop-blur-xs shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Caption text (if message contains text) */}

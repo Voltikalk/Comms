@@ -59,7 +59,7 @@ export const ChatUserInfoPanel: React.FC<ChatUserInfoPanelProps> = ({
 
       <aside className="fixed inset-0 z-50 w-full h-full md:relative md:inset-auto md:w-80 md:z-20 tg-user-panel flex flex-col shrink-0 overflow-y-auto shadow-2xl md:shadow-none animate-slide-in-right md:animate-pop-in">
         {/* Header */}
-        <div className="p-3.5 sm:p-4 flex items-center justify-between border-b border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#17212b]/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="px-3.5 sm:px-4 py-3.5 sm:py-4 pt-[max(0.875rem,calc(env(safe-area-inset-top,0px)+0.5rem))] md:pt-4 flex items-center justify-between border-b border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#17212b]/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -205,7 +205,7 @@ export const ChatUserInfoPanel: React.FC<ChatUserInfoPanelProps> = ({
         </div>
 
         {/* Shared Media Section */}
-        <div className="flex-1 p-5 sm:p-4 border-t border-slate-100 dark:border-white/5 overflow-y-auto">
+        <div className="flex-1 p-5 sm:p-4 pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+1rem))] md:pb-4 border-t border-slate-100 dark:border-white/5 overflow-y-auto">
           <span className="text-xs sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
             Общие медиа
           </span>

@@ -91,11 +91,14 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
         finalLeft = Math.max(padding, Math.min(x - 20, viewportWidth - menuWidth - padding));
       }
 
-      // Vertical position
+      // Vertical position with safe clearance for mobile notch/Dynamic Island
+      const minTop = 56;
       let finalTop = y + 8;
       if (finalTop + menuHeight > viewportHeight - padding) {
         // Open upwards if overflowing bottom
-        finalTop = Math.max(padding, y - menuHeight - 8);
+        finalTop = Math.max(minTop, y - menuHeight - 8);
+      } else {
+        finalTop = Math.max(minTop, finalTop);
       }
 
       setPos({ top: finalTop, left: finalLeft });
@@ -127,7 +130,7 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
       {showFullEmojiPicker ? (
         /* Full Emoji Reaction Picker: Centered on Mobile, Anchored at Message on Desktop */
         <div 
-          className="fixed inset-0 z-50 flex sm:block items-center justify-center p-3 sm:p-0 animate-fade-in"
+          className="fixed inset-0 z-50 flex sm:block items-center justify-center p-3 sm:p-0 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] animate-fade-in"
           onClick={onClose}
         >
           <div 

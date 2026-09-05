@@ -88,11 +88,11 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 select-none animate-backdrop"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] select-none animate-backdrop"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-md tg-header rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col overflow-hidden animate-pop-in text-slate-900 dark:text-white max-h-[90vh]"
+        className="w-full max-w-md tg-header rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col overflow-hidden animate-pop-in text-slate-900 dark:text-white max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

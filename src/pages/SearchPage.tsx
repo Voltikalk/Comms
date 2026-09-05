@@ -223,7 +223,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
   return (
     <div className="w-full h-full flex flex-col bg-white dark:bg-[#0e1621] text-slate-900 dark:text-white">
       {/* Top Mobile-Friendly Header */}
-      <div className="px-3 sm:px-4 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0.625rem))] border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#17212b] flex items-center gap-2 shrink-0">
+      <div className="px-3 sm:px-4 py-2.5 pt-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.5rem))] border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#17212b] flex items-center gap-2 shrink-0">
         {onClose && (
           <button
             type="button"
@@ -313,7 +313,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] space-y-2">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+1rem))] space-y-2">
         {/* Search History when query is empty and tab is all */}
         {!query && activeTab === 'all' && (
           <SearchHistory

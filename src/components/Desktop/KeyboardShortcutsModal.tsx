@@ -109,9 +109,9 @@ export const KeyboardShortcutsModal: React.FC = () => {
   if (!showShortcutsModal) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-backdrop">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] bg-black/60 backdrop-blur-sm animate-backdrop">
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#17212b] rounded-2xl shadow-2xl border border-gray-200/80 dark:border-[#202b36] overflow-hidden flex flex-col max-h-[85vh] animate-pop-in"
+        className="w-full max-w-lg bg-white dark:bg-[#17212b] rounded-2xl shadow-2xl border border-gray-200/80 dark:border-[#202b36] overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
