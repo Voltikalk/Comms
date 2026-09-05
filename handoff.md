@@ -91,25 +91,23 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 52 — Elimination of Mobile Bottom Gap & Viewport Edge Pinning [v3.22.0]):
-* ✅ **Устранение пустого пространства / темной полосы внизу экрана на мобильных устройствах (iOS PWA / Safari / Chrome)**:
-  * **Проблема**: На смартфонах под нижней панелью навигации (`MobileBottomNav`) отображалась пустая темная полоса высотой ~74-89px цвета `#0e1621`. 
-  * **Причина**: В WebKit / iOS Safari при наличии мета-тега `viewport-fit=cover` единица `100dvh` вычисляется как `window.innerHeight`, исключающее нижнюю безопасную зону (жестовую полосу / Home Indicator). Использование `height: 100dvh` (`h-dvh`) на `#root`, `html, body` и `ChatScreen` преждевременно обрывало интерфейс за 74px до физического низа экрана, обнажая фон `body` (`#0e1621`).
-  * **Решение**:
-    1. **[`src/index.css`](file:///c:/Users/Drilla/Desktop/Comms/src/index.css)**:
-       * `#root` зафиксирован на весь физический экран: `position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column;`.
-       * Цвет фона `html.dark, body.dark` приведен к фирменному оттенку мессенджера `#17212b`.
-       * Убрано ограничение `height: 100dvh` из базовых стилей `html, body` и `#root`.
-    2. **[`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx)**:
-       * Класс `h-dvh` заменен на `flex-1 h-full min-h-0 w-full`, что гарантирует бесшовное заполнение всего зафиксированного экрана.
-    3. **[`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx)**:
-       * Элементу `<aside>` добавлен класс `h-full` в базовый список классов, гарантируя растяжение на 100% высоты родителя в режиме списка чатов.
-    4. **[`src/components/Mobile/MobileBottomNav.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Mobile/MobileBottomNav.tsx)**:
-       * Нижний отступ обновлен до `pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))]`. Фон панели (`#17212b`) доходит до нижнего края стекла, а значки и подписи безопасно приподняты над системным Home Bar.
-    5. **[`src/components/LoginScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/LoginScreen.tsx)**:
-       * Контейнер переведен на `min-h-full h-full overflow-y-auto` для корректной прокрутки внутри зафиксированного `#root`.
-
-### 📌 Предыдущая стадия разработки (Phase 51 — Mobile Layout Safe Areas & Modal Portals Viewport Optimization [v3.21.0]):
+### 📌 Текущая стадия разработки (Status: Phase 53 — iOS PWA Negative Viewport Offset & Edge-to-Edge Fix [v3.23.0]):
+* ✅ **Полное устранение смещения интерфейса вверх и щели снизу на iOS (Safari / PWA / Chrome)**:
+  * **Первопричина бага**: Тег `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">` в iOS WebKit принудительно сдвигал начало координат веб-вью вверх на высоту статус-бара (~59px), вызывая уход шапки под вырез экрана/часы и образование симметричного пустого «подбородка» (chin gap) внизу страницы.
+  * **Реализованное решение**:
+    1. **[`index.html`](file:///c:/Users/Drilla/Desktop/Comms/index.html)**:
+       * Значение тега `apple-mobile-web-app-status-bar-style` изменено с `black-translucent` на `default`. В сочетании с `<meta name="theme-color" content="#17212b">` iOS автоматически окрашивает верхний статус-бар в фирменный цвет мессенджера, не смещая систему координат страницы вверх.
+    2. **[`public/manifest.json`](file:///c:/Users/Drilla/Desktop/Comms/public/manifest.json)**:
+       * `background_color` обновлен с `#0e1621` на `#17212b`.
+    3. **[`src/index.css`](file:///c:/Users/Drilla/Desktop/Comms/src/index.css)**:
+       * Контейнеры `html, body` и `#root` получили полную поддержку современных мобильных высот: `min-height: 100vh`, `min-height: 100lvh`, `min-height: -webkit-fill-available`.
+       * `#root` зафиксирован: `top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; height: 100vh; height: 100lvh; height: -webkit-fill-available;`.
+    4. **[`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx)**:
+       * Верхний отступ нормализован до `max(0.5rem, env(safe-area-inset-top, 0px))`, предотвращая чрезмерное сдавливание шапки.
+    5. **[`src/components/Mobile/MobileBottomNav.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Mobile/MobileBottomNav.tsx)**:
+       * Нижний отступ панели навигации зафиксирован через инлайн-стили `paddingBottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem))`, гарантируя прижатие к нижней кромке стекла и вывод значков над Home Indicator.
+    6. **[`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx)**:
+       * Позиционирование плавающей кнопки FAB переведено на гарантированный инлайн-стиль `bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px))`.
     2. **Сайдбар и поиск ([`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx))**:
        * Верхняя панель переведена на аккуратный паддинг `px-3 pt-2.5 pb-2`, а поле поиска `Поиск...` получило высоту `py-2 text-xs` и скругление `rounded-xl`, устранив тесноту между статус-баром и лентой историй.
        * Кнопка создания чата (FAB ✏️) смещена на `bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-5`.
@@ -1442,6 +1440,17 @@ npm run storybook
     * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
   * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
     * В [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) обработчик `POST /api/auth/login` научился автоматически отсекать префикс `@` в логине, динамически находить пользователя в Supabase PostgreSQL при отсутствии в кеше памяти, безопасно сопоставлять пароль (bcrypt/plain) и при необходимости проверять пользователя через Supabase Auth (`signInWithPassword`).
+### [v3.23.0] — 6 сентября 2026 г.
+* **Устранение смещения интерфейса вверх и щели снизу на iOS (iOS PWA Negative Offset & Chin Fix)**:
+  * **Устранена первопричина сдвига вьюпорта**:
+    * В `index.html`: удален тег `apple-mobile-web-app-status-bar-style: black-translucent`, который принудительно сдвигал начало координат страницы вверх на 59px в статус-бар и создавал симметричную дыру снизу. Установлен `default`, а статус-бар гармонично окрашивается системным `<meta name="theme-color" content="#17212b">`.
+    * В `public/manifest.json`: `background_color` приведен к `#17212b`.
+    * В `src/index.css`: селекторам `html, body` и `#root` назначены `min-height: 100vh`, `min-height: 100lvh`, `min-height: -webkit-fill-available`, устраняя сжатие контейнера.
+    * В `src/components/ChatScreen.tsx`: нормализован `paddingTop: max(0.5rem, env(safe-area-inset-top, 0px))`.
+    * В `src/components/Mobile/MobileBottomNav.tsx`: нижний отступ переведен на инлайн-стиль `paddingBottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem))`, прижимая панель к низу экрана.
+    * В `src/components/Chat/Sidebar/ChatSidebar.tsx`: позиционирование кнопки создания чата FAB зафиксировано через инлайн-стиль.
+  * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
+
 ### [v3.22.0] — 6 сентября 2026 г.
 * **Устранение пустого пространства / темной полосы внизу экрана на мобильных устройствах (Mobile Bottom Chin Elimination)**:
   * **Исправлена высота контейнеров в WebKit/iOS (`100dvh` Safe Area Bug)**:
