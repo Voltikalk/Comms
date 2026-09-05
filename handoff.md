@@ -91,13 +91,25 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 51 — Mobile Layout Safe Areas & Modal Portals Viewport Optimization [v3.21.0]):
-* ✅ **Комплексная оптимизация безопасных зон (Safe Areas) и вертикального позиционирования на смартфонах**:
-  * **Проблема**: На смартфонах (iOS Safari, PWA, Chrome Android) верхняя часть интерфейса (поиск, гамбургер-меню, истории) прижималась вплотную к часам (`02:26`) и системным значкам строки состояния. При открытии модальных окон (в частности, «Студии историй Telegram» `StoryCreateModal`, создания опросов, настроек тем) шапка модалки и кнопка закрытия `✕` физически накладывались прямо на часы, вырез (notch / Dynamic Island) и уровень заряда батареи, делая интерфейс нечитаемым и труднодоступным.
-  * **Решение и оптимизация**:
-    1. **Главный экран приложения ([`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx))**:
-       * Верхний отступ мобильного контейнера увеличен с чистого `env(safe-area-inset-top)` до `max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))`. Это дало естественные ~12-18px «воздуха» ниже системного статус-бара в точном соответствии с нативным Telegram iOS.
-       * Добавлен базовый фон `bg-white dark:bg-[#17212b]` и корректные боковые/нижние отступы `safe-area-inset-*`.
+### 📌 Текущая стадия разработки (Status: Phase 52 — Elimination of Mobile Bottom Gap & Viewport Edge Pinning [v3.22.0]):
+* ✅ **Устранение пустого пространства / темной полосы внизу экрана на мобильных устройствах (iOS PWA / Safari / Chrome)**:
+  * **Проблема**: На смартфонах под нижней панелью навигации (`MobileBottomNav`) отображалась пустая темная полоса высотой ~74-89px цвета `#0e1621`. 
+  * **Причина**: В WebKit / iOS Safari при наличии мета-тега `viewport-fit=cover` единица `100dvh` вычисляется как `window.innerHeight`, исключающее нижнюю безопасную зону (жестовую полосу / Home Indicator). Использование `height: 100dvh` (`h-dvh`) на `#root`, `html, body` и `ChatScreen` преждевременно обрывало интерфейс за 74px до физического низа экрана, обнажая фон `body` (`#0e1621`).
+  * **Решение**:
+    1. **[`src/index.css`](file:///c:/Users/Drilla/Desktop/Comms/src/index.css)**:
+       * `#root` зафиксирован на весь физический экран: `position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column;`.
+       * Цвет фона `html.dark, body.dark` приведен к фирменному оттенку мессенджера `#17212b`.
+       * Убрано ограничение `height: 100dvh` из базовых стилей `html, body` и `#root`.
+    2. **[`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx)**:
+       * Класс `h-dvh` заменен на `flex-1 h-full min-h-0 w-full`, что гарантирует бесшовное заполнение всего зафиксированного экрана.
+    3. **[`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx)**:
+       * Элементу `<aside>` добавлен класс `h-full` в базовый список классов, гарантируя растяжение на 100% высоты родителя в режиме списка чатов.
+    4. **[`src/components/Mobile/MobileBottomNav.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Mobile/MobileBottomNav.tsx)**:
+       * Нижний отступ обновлен до `pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))]`. Фон панели (`#17212b`) доходит до нижнего края стекла, а значки и подписи безопасно приподняты над системным Home Bar.
+    5. **[`src/components/LoginScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/LoginScreen.tsx)**:
+       * Контейнер переведен на `min-h-full h-full overflow-y-auto` для корректной прокрутки внутри зафиксированного `#root`.
+
+### 📌 Предыдущая стадия разработки (Phase 51 — Mobile Layout Safe Areas & Modal Portals Viewport Optimization [v3.21.0]):
     2. **Сайдбар и поиск ([`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx))**:
        * Верхняя панель переведена на аккуратный паддинг `px-3 pt-2.5 pb-2`, а поле поиска `Поиск...` получило высоту `py-2 text-xs` и скругление `rounded-xl`, устранив тесноту между статус-баром и лентой историй.
        * Кнопка создания чата (FAB ✏️) смещена на `bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-5`.
@@ -1430,7 +1442,21 @@ npm run storybook
     * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
   * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
     * В [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) обработчик `POST /api/auth/login` научился автоматически отсекать префикс `@` в логине, динамически находить пользователя в Supabase PostgreSQL при отсутствии в кеше памяти, безопасно сопоставлять пароль (bcrypt/plain) и при необходимости проверять пользователя через Supabase Auth (`signInWithPassword`).
-    * В [`src/context/SocketContext.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/context/SocketContext.tsx) добавлена очистка префикса `@` перед отправкой и гарантированный fallback на тестовые пресеты при недоступности сети/сервера.
+### [v3.22.0] — 6 сентября 2026 г.
+* **Устранение пустого пространства / темной полосы внизу экрана на мобильных устройствах (Mobile Bottom Chin Elimination)**:
+  * **Исправлена высота контейнеров в WebKit/iOS (`100dvh` Safe Area Bug)**:
+    * В `src/index.css`:
+      * Селектор `#root` переведен на `position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column;`, что принудительно фиксирует приложение на полный физический размер экрана смартфона и исключает разрывы на жестовых полосах.
+      * Убрано ограничение `height: 100dvh` на `html, body` и `#root`, вызывавшее сжатие вьюпорта на 74px на iOS.
+      * Цвет фона `html.dark, body.dark` обновлен с `#0e1621` до `#17212b`, что устраняет цветовой диссонанс при любых движениях экрана.
+    * В `src/components/ChatScreen.tsx`:
+      * Класс корневого контейнера изменен с `h-dvh` на `flex-1 h-full min-h-0 w-full`.
+    * В `src/components/Chat/Sidebar/ChatSidebar.tsx`:
+      * Боковой панели `<aside>` добавлен класс `h-full`, обеспечивающий 100% растяжение списка чатов до нижней кромки экрана.
+    * В `src/components/Mobile/MobileBottomNav.tsx`:
+      * Нижний отступ панели навигации задан как `pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))]`. Фон панели доходит до физического низа экрана, а иконки и текст располагаются строго над системной полоской Home Indicator.
+    * В `src/components/LoginScreen.tsx`:
+      * Контейнер авторизации переведен на `min-h-full h-full overflow-y-auto`.
   * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
 
 ### [v2.16.0] — 17 августа 2026 г.

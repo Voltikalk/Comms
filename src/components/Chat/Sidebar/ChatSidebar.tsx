@@ -128,14 +128,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         style={{
           '--sidebar-width': `${sidebarWidth}px`,
         } as React.CSSProperties}
-        className={`w-full md:w-[var(--sidebar-width)] tg-sidebar flex flex-col shrink-0 ${
+        className={`w-full md:w-[var(--sidebar-width)] tg-sidebar flex flex-col shrink-0 h-full ${
           showMenuDropdown ? 'z-50' : 'z-20'
         } ${
           isResizingSidebar ? 'select-none transition-none' : 'transition-transform duration-150'
         } ${
           mobileView === 'list' || isDesktopView
             ? 'translate-x-0 flex'
-            : '-translate-x-full md:translate-x-0 absolute md:relative z-20 h-full left-0 top-0 hidden md:flex'
+            : '-translate-x-full md:translate-x-0 absolute md:relative z-20 left-0 top-0 hidden md:flex'
         }`}
       >
         {/* Top Bar: Hamburger + Search Input */}

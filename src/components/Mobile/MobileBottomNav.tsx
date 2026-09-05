@@ -70,7 +70,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     <nav
       role="navigation"
       aria-label="Мобильная навигация"
-      className="md:hidden shrink-0 w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-2xl border-t border-gray-200/80 dark:border-white/10 px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around z-40 select-none transition-colors shadow-lg"
+      className="md:hidden shrink-0 w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-2xl border-t border-gray-200/80 dark:border-white/10 px-2 py-1.5 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] flex items-center justify-around z-40 select-none transition-colors shadow-lg"
     >
       {navItems.map((item) => {
         const isActive = activeTab === item.id;
