@@ -165,7 +165,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-50 dark:bg-[#0e1621] text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 pt-[max(1.5rem,env(safe-area-inset-top,1.5rem))] pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] bg-slate-50 dark:bg-[#0e1621] text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden"
     >
       
       {/* Soft Ambient Light Orbs */}
@@ -173,7 +173,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
       <div className="absolute bottom-1/4 -left-20 w-80 h-80 rounded-full bg-[#0066FF]/10 blur-[100px] pointer-events-none" />
 
       {/* Top Bar: Skiper 26 Theme Toggle */}
-      <div className="fixed top-4 right-4 z-40 pointer-events-auto">
+      <div className="fixed top-[max(1rem,env(safe-area-inset-top,1rem))] right-4 z-40 pointer-events-auto">
         {toggleDarkMode && (
           <Skiper26ThemeToggle 
             darkMode={darkMode} 

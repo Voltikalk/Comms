@@ -131,7 +131,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   showToast,
 }) => {
   return (
-    <footer className="p-2 sm:p-3 relative z-10 w-full min-w-0 max-w-full">
+    <footer className="p-2 sm:p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] relative z-10 w-full min-w-0 max-w-full">
       <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col gap-1.5 relative">
         {/* 1. Selected File Preview Bar */}
         {selectedFile && (

@@ -338,7 +338,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-transform active:scale-90"
+        className="absolute top-[max(1rem,env(safe-area-inset-top,1rem))] right-4 z-50 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-transform active:scale-90"
         title="Закрыть (Esc)"
       >
         <IconX size={22} />
@@ -356,7 +356,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       >
         {/* Top Progress Segment Bars */}
         <div
-          className={`absolute top-3 left-3 right-3 z-40 flex gap-1.5 transition-opacity duration-200 ${
+          className={`absolute top-[max(0.75rem,env(safe-area-inset-top,0.75rem))] left-3 right-3 z-40 flex gap-1.5 transition-opacity duration-200 ${
             isHolding ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
         >

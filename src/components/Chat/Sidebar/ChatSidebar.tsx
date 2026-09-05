@@ -520,7 +520,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
         {/* Floating Action Button (FAB) for New Chat (Telegram Style) */}
         {!isCompactSidebar && onOpenNewChatModal && (
-          <div className="absolute right-4 bottom-16 md:bottom-5 z-20">
+          <div className="absolute right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-5 z-20">
             <button
               type="button"
               onClick={onOpenNewChatModal}
