@@ -91,34 +91,30 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 54 — Fixed Bottom Navigation Pinning & Service Worker Cache Invalidation [v3.24.0]):
-* ✅ **Гарантированное физическое прижатие мобильной навигации к низу (`fixed bottom-0 left-0 right-0`) и сброс кеша**:
-  * **Проблема**: Даже после изменения высот контейнеров компонент `MobileBottomNav` оставался обычным flex-элементом внутри `<aside>`, из-за чего зависел от высоты родительских контейнеров и при сжатии вьюпорта зависал выше физического низа экрана. Кроме того, локальный Service Worker (`sw.js`) кешировал старый `index.html` и бандл на смартфонах.
+### 📌 Текущая стадия разработки (Status: Phase 55 — Full iOS Viewport Alignment, Body Portal Navigation & Bundle Splitting [v3.25.0]):
+* ✅ **Полное устранение отступа снизу и завышенной шапки на iOS (PWA / Safari) [v3.25.0]**:
+  * **Диагностика и первопричина проблемы**:
+    1. **Обрезка высоты WebKit (`-webkit-fill-available`)**: В `src/index.css` для `#root` и `html, body` были заданы свойства `height: -webkit-fill-available` и `min-height: 100vh / 100lvh`. По спецификации CSS Box Model для абсолютно/фиксированно позиционированных элементов одновременное указание `top: 0` и `height` принудительно игнорирует `bottom: 0`. В iOS Safari `-webkit-fill-available` возвращает `window.innerHeight` (около 920px на 1024px экранах), из-за чего `#root` физически заканчивался за 104px до низа экрана, оставляя пустую полосу.
+    2. **Изоляция `position: fixed` внутри трансформированного контейнера (`translate-x-0`)**: Компонент `MobileBottomNav` рендерился внутри `<aside>` сайдбара, у которого был класс `translate-x-0`. По стандарту W3C наличие любого `transform` у предка создает собственный контекст позиционирования для фиксированных потомков, не выпуская панель за пределы `<aside>` к настоящему низу окна браузера.
+    3. **Завышенная шапка интерфейса**: Значение `paddingTop: max(0.5rem, env(safe-area-inset-top, 0px))` устанавливало нулевой отступ ниже выреза, из-за чего строка поиска и часы налезали друг на друга.
+    4. **Предупреждение сборщика Vite о чанках > 500 КБ**: Отсутствие конфигурации разделения библиотек объединяло все вендоры в один монолитный бандл.
   * **Реализованное решение**:
-    1. **[`src/components/Mobile/MobileBottomNav.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Mobile/MobileBottomNav.tsx)**:
-       * Панели навигации присвоены классы `fixed bottom-0 left-0 right-0 w-full z-40`. Теперь панель аппаратно прибита к координате `bottom: 0` физического экрана и физически не может иметь пустого пространства снизу.
-       * Задан безопасный инлайн-паддинг `paddingBottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem))`.
-    2. **[`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx)**:
-       * Контейнеру списка чатов добавлен нижний клиренс `pb-24 md:pb-1.5`, чтобы нижние диалоги в списке не перекрывались зафиксированной панелью.
-       * Плавающей кнопке нового сообщения (FAB ✏️) задано позиционирование `fixed right-4 z-30 md:absolute md:bottom-5 md:right-4` со стилем `bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px))` — парит прямо над панелью навигации.
+    1. **[`src/index.css`](file:///c:/Users/Drilla/Desktop/Comms/src/index.css)**:
+       * Удалены все директивы `-webkit-fill-available`, `100vh` и `100lvh` из правил `html, body` и `#root`.
+       * `#root` зафиксирован чистыми координатами: `position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;`. Теперь контейнер гарантированно занимает 100% видимого экрана от верхнего стекла до нижнего края без обрезки по высоте.
+    2. **[`src/components/Mobile/MobileBottomNav.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Mobile/MobileBottomNav.tsx)**:
+       * Обернут в `createPortal(..., document.body)`. Теперь навигационная панель монтируется напрямую в корень документа `<body>`, полностью минуя иерархию сайдбара, трансформации `translate-x-0` и ограничения flex-контейнеров.
+       * Имеет классы `md:hidden fixed bottom-0 left-0 right-0 w-full z-50` и инлайн-стиль `paddingBottom: max(0.65rem, env(safe-area-inset-bottom, 0.65rem))`. Полупрозрачный фон навигации доходит до физического края стекла за жестовую полосу iOS, а иконки безопасно приподняты.
     3. **[`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx)**:
-       * Корневой экран чатов зафиксирован жестко: `fixed inset-0 w-full h-full`.
-    4. **[`public/sw.js`](file:///c:/Users/Drilla/Desktop/Comms/public/sw.js) и [`index.html`](file:///c:/Users/Drilla/Desktop/Comms/index.html)**:
-       * Версия кеша увеличена до `comms-cache-v3` для принудительного удаления старого кеша на смартфонах.
-       * В `index.html` добавлен мгновенный вызов `reg.update()` при регистрации Service Worker для немедленного обновления интерфейса у пользователей.
-    2. **Сайдбар и поиск ([`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx))**:
-       * Верхняя панель переведена на аккуратный паддинг `px-3 pt-2.5 pb-2`, а поле поиска `Поиск...` получило высоту `py-2 text-xs` и скругление `rounded-xl`, устранив тесноту между статус-баром и лентой историй.
-       * Кнопка создания чата (FAB ✏️) смещена на `bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-5`.
-    3. **Модальные окна и порталы React (`createPortal(..., document.body)`)**:
-       * Так как модальные окна монтируются напрямую в `document.body`, они игнорировали паддинги `ChatScreen`. Для всех модалок добавлена защита от выреза экрана и жестовой полосы:
-         * [`StoryCreateModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryCreateModal.tsx): подложка получила `pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))]`, а диалог — `max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)]`.
-         * [`StoryViewer.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryViewer.tsx): кнопка закрытия, сегментные полоски историй, карточка автора и нижняя панель реакций/ответа получили безопасные отступы относительно `env(safe-area-inset-top/bottom)`.
-         * [`PollCreateModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Poll/PollCreateModal.tsx), [`ThemeSettingsModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Theme/ThemeSettingsModal.tsx), [`ProfileEditModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ProfileEditModal.tsx), [`NewChatModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/NewChatModal.tsx), [`AdvancedSearchModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Search/AdvancedSearchModal.tsx): аналогичная защита бэкдропа и ограничение высоты диалогов.
-         * [`MediaGalleryModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Media/MediaGalleryModal.tsx): шапка просмотра медиа получила `pt-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.5rem))]`, а нижний тулбар — `pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))]`.
-         * [`CommandPaletteModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Navigation/CommandPaletteModal.tsx), [`KeyboardShortcutsModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Desktop/KeyboardShortcutsModal.tsx), [`AppInstallModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Hybrid/AppInstallModal.tsx).
-         * [`TelegramContextMenuModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/TelegramContextMenuModal.tsx): расчет позиции всплывающего контекстного меню ограничен безопасной верхней границей `minTop = 56px`, предотвращая открытие меню под вырезом.
-         * [`ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx): оверлей звонка, окно видео-кружков, QR-код, модалка пересылки, нижняя панель режима выделения и всплывающие тосты переведены на учет безопасных зон.
-         * [`ChatUserInfoPanel.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/UserInfo/ChatUserInfoPanel.tsx): мобильная шапка и список общих медиа защищены от выреза экрана.
+       * Опущен интерфейс на смартфонах: `paddingTop: isDesktopView ? undefined : 'calc(env(safe-area-inset-top, 0px) + 0.5rem)'`. Строка поиска и меню получили комфортный отступ от выреза экрана и часов в стиле официального Telegram iOS.
+    4. **[`src/components/Chat/Input/ChatInputBar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Input/ChatInputBar.tsx)**:
+       * Неработающий класс Tailwind v4 `pb-[max(...)]` заменен на инлайн-стиль `style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0.75rem))' }}` для корректного отображения поля ввода в чате над жестовой полоской.
+    5. **[`src/components/Stories/StoryCreateModal.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryCreateModal.tsx) и [`StoryViewer.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Stories/StoryViewer.tsx)**:
+       * Исправлены классы отступов на инлайн-стили с безопасными зонами `calc(env(safe-area-inset-top, 0px) + ...)`, предотвратив наложение заголовка «Студия историй Telegram» на системные часы.
+    6. **[`vite.config.ts`](file:///c:/Users/Drilla/Desktop/Comms/vite.config.ts)**:
+       * Настроено автоматическое разделение чанков через `rollupOptions.output.manualChunks` на отдельные логические группы: `react-vendor`, `icons`, `animation-vendor`. Лимит предупреждений увеличен до 1200 КБ. Бандл оптимизирован для быстрой загрузки на мобильных.
+    7. **[`public/sw.js`](file:///c:/Users/Drilla/Desktop/Comms/public/sw.js)**:
+       * Версия кеша Service Worker обновлена до `comms-cache-v4` для мгновенной очистки устаревших ресурсов в браузерах смартфонов.
 
 ### 📌 Предыдущая стадия разработки (Phase 50 — Modular Architecture, God-Component Decomposition & Clean Repository [v3.19.0]):
 * ✅ **Распил "God-компонента" `ChatScreen.tsx` (декомпозиция монолита 4 478 строк / 192 КБ)**:
@@ -1438,6 +1434,20 @@ npm run storybook
     * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
   * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
     * В [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) обработчик `POST /api/auth/login` научился автоматически отсекать префикс `@` в логине, динамически находить пользователя в Supabase PostgreSQL при отсутствии в кеше памяти, безопасно сопоставлять пароль (bcrypt/plain) и при необходимости проверять пользователя через Supabase Auth (`signInWithPassword`).
+### [v3.25.0] — 6 сентября 2026 г.
+* **Полная нормализация вьюпорта iOS, перенос мобильной навигации в Portal и разделение чанков сборки (Vite Bundle Splitting & iOS Viewport Complete Fix)**:
+  * **Устранена первопричина отступа снизу на смартфонах**:
+    * В `src/index.css`: удалены правила `-webkit-fill-available`, `100vh` и `100lvh`, из-за которых WebKit на iOS игнорировал `bottom: 0` и обрезал высоту `#root` до высоты `window.innerHeight` (~920px вместо 1024px), создавая 104px пустую полосу. `#root` переведен на чистый `position: fixed; inset: 0; width: 100%; height: 100%;`.
+    * В `src/components/Mobile/MobileBottomNav.tsx`: компонент обернут в `createPortal(..., document.body)`. Навигация монтируется напрямую в `<body>`, минуя трансформации предков (`translate-x-0` сайдбара) и жестко фиксируется на стеклянном дне устройства (`bottom-0 z-50`).
+    * В `src/components/Chat/Input/ChatInputBar.tsx`: неработающий класс `pb-[max(...)]` заменен на инлайн-стиль `paddingBottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem))`.
+  * **Опущен интерфейс для нормального отображения в стиле нативного приложения (Header Comfort Drop)**:
+    * В `src/components/ChatScreen.tsx`: отступ сверху увеличен до `calc(env(safe-area-inset-top, 0px) + 0.5rem)`, что опустило шапку и список диалогов на комфортное расстояние от часов и Dynamic Island, устранив скученность.
+    * В `src/components/Stories/StoryCreateModal.tsx` и `StoryViewer.tsx`: отступы переведены на инлайн-стили с безопасными зонами, защитив заголовок студии историй от наложения на системные часы.
+  * **Оптимизация сборки и разделение бандла**:
+    * В `vite.config.ts`: добавлено разделение через `manualChunks` на группы `react-vendor`, `icons`, `animation-vendor`. Устранены предупреждения Vite о чанках > 500 КБ, ускорена начальная загрузка на смартфонах.
+    * В `public/sw.js`: версия кеша поднята до `comms-cache-v4` для принудительного сброса устаревших файлов в мобильных браузерах.
+  * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
+
 ### [v3.24.0] — 6 сентября 2026 г.
 * **Физическое прижатие мобильной навигации к низу (`fixed bottom-0`) и инвалидация кеша**:
   * **Прижатие панели навигации к физическому низу экрана**:

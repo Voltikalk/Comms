@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { usePlatform } from '../../context/PlatformContext';
 import {
   IconMessageCircle2,
@@ -66,13 +67,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     },
   ];
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <nav
       role="navigation"
       aria-label="Мобильная навигация"
-      className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-2xl border-t border-gray-200/80 dark:border-white/10 px-2 py-1.5 flex items-center justify-around z-40 select-none transition-colors shadow-lg"
+      className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-2xl border-t border-gray-200/80 dark:border-white/10 px-2 pt-1.5 flex items-center justify-around z-50 select-none transition-colors shadow-lg"
       style={{
-        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0.5rem))',
+        paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom, 0.65rem))',
       }}
     >
       {navItems.map((item) => {
@@ -99,7 +102,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </button>
         );
       })}
-    </nav>
+    </nav>,
+    document.body
   );
 };
 

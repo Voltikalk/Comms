@@ -366,11 +366,18 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[85] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] select-none animate-fade-in"
+      className="fixed inset-0 z-[85] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 select-none animate-fade-in"
+      style={{
+        paddingTop: 'max(1.5rem, calc(env(safe-area-inset-top, 0px) + 1.25rem))',
+        paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))',
+      }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[90vh]"
+        className="w-full max-w-lg bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col sm:max-h-[90vh]"
+        style={{
+          maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 3rem)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
