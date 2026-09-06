@@ -350,15 +350,29 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
           {/* Search Input for filtering rooms */}
           {!isCompactSidebar && (
-            <div className="flex-1 relative">
-              <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <div className="flex-1 relative flex items-center">
+              <IconSearch size={15} className="absolute left-3 text-slate-400 dark:text-slate-500 pointer-events-none" />
               <input
                 type="text"
                 value={roomFilterQuery}
                 onChange={(e) => setRoomFilterQuery(e.target.value)}
                 placeholder="Поиск..."
-                className="w-full pl-9 pr-3 py-2 bg-black/5 dark:bg-white/5 text-slate-900 dark:text-white rounded-full text-xs placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3390ec] transition-colors"
+                className="w-full pl-8.5 pr-9 py-1.5 bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.04] dark:border-white/[0.06] text-slate-900 dark:text-white rounded-full text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3390ec]/20 focus:border-[#3390ec] transition-all"
               />
+              {roomFilterQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setRoomFilterQuery('')}
+                  className="absolute right-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                  title="Очистить"
+                >
+                  <span className="text-[11px] font-bold">✕</span>
+                </button>
+              ) : (
+                <span className="absolute right-2.5 text-[9.5px] font-mono text-slate-400 dark:text-slate-500 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded pointer-events-none">
+                  ⌘K
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -397,19 +411,24 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 type="button"
                 onClick={() => onSelectRoom(room.id)}
                 title={isCompactSidebar ? displayName : undefined}
-                className={`w-full p-2.5 rounded-2xl flex items-center gap-3 transition-all cursor-pointer select-none text-left relative ${
+                className={`w-full p-2.5 rounded-2xl flex items-center gap-3 transition-all duration-150 cursor-pointer select-none text-left relative group ${
                   isActive
                     ? 'tg-room-active'
                     : 'hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300'
                 } ${isCompactSidebar ? 'justify-center p-2' : ''}`}
               >
+                {/* Active Indicator Strip */}
+                {isActive && !isCompactSidebar && (
+                  <span className="absolute left-1 top-2.5 bottom-2.5 w-1 rounded-full bg-white dark:bg-white/90 shadow-xs" />
+                )}
+
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   {customAvatar ? (
                     <img 
                       src={customAvatar} 
                       alt={displayName} 
-                      className="w-12 h-12 rounded-full object-cover shadow-xs" 
+                      className="w-12 h-12 rounded-full object-cover shadow-xs ring-1 ring-black/[0.04] dark:ring-white/[0.06]" 
                     />
                   ) : (
                     <div className={`w-12 h-12 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center font-bold text-lg shadow-xs`}>
@@ -424,7 +443,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
                   {/* Badge on avatar in compact mode */}
                   {isCompactSidebar && count > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-[#3390ec] text-white shadow-xs">
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold tg-tabular bg-[#3390ec] text-white shadow-xs">
                       {count}
                     </span>
                   )}
@@ -434,11 +453,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 {!isCompactSidebar && (
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`text-sm font-semibold truncate block ${isActive ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                      <span className={`text-sm font-semibold truncate block ${isActive ? 'text-white font-bold' : 'text-slate-900 dark:text-white'}`}>
                         {displayName}
                       </span>
                       {preview && (
-                        <span className={`text-[11px] font-mono shrink-0 ml-1.5 ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
+                        <span className={`text-[11px] font-mono tg-tabular shrink-0 ml-1.5 ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
                           {preview.time}
                         </span>
                       )}
@@ -481,7 +500,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       )}
 
                       {count > 0 && (
-                        <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold ${
+                        <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tg-tabular shadow-xs ${
                           isActive ? 'bg-white text-[#3390ec]' : 'bg-[#3390ec] text-white'
                         }`}>
                           {count}

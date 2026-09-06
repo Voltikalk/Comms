@@ -7,8 +7,8 @@
     <title>Secure Comms — Hybrid Desktop & Mobile</title>
     
     <script>
-      // Auto-redirect from HTTPS to HTTP on local dev to prevent ERR_SSL_PROTOCOL_ERROR
-      if (window.location.protocol === 'https:' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))) {
+      // Auto-redirect from HTTPS to HTTP on localhost dev only (not on LAN/production)
+      if (window.location.protocol === 'https:' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
         window.location.href = window.location.href.replace('https:', 'http:');
       }
     </script>

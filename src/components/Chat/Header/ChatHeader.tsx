@@ -109,7 +109,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   return (
     <>
-      <header className="px-3 sm:px-4 py-2 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[56px] w-full min-w-0 max-w-full">
+      <header className="px-3 sm:px-4 py-2 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[56px] w-full min-w-0 max-w-full border-b border-black/[0.06] dark:border-white/[0.06]">
         {isSelectMode ? (
           <div className="w-full min-w-0 flex items-center justify-between animate-pop-in">
             {/* Left: Cancel Cross Button & Counter */}

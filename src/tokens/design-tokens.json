@@ -1,107 +1,114 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "Comms Design System Tokens",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "colors": {
     "primary": {
-      "50": "#EBF3FF",
-      "100": "#D6E7FF",
-      "200": "#ADCFFF",
-      "300": "#70AFFF",
-      "400": "#3385FF",
-      "500": "#0066FF",
-      "600": "#0052CC",
-      "700": "#003D99",
-      "800": "#002966",
-      "900": "#001433",
-      "950": "#000A1A",
-      "DEFAULT": "#0066FF"
+      "50": "#F0F7FF",
+      "100": "#E0EFFF",
+      "200": "#BAE0FF",
+      "300": "#7CC4FF",
+      "400": "#47A5F5",
+      "500": "#3390EC",
+      "600": "#2B7ECC",
+      "700": "#2064A6",
+      "800": "#194E80",
+      "900": "#133C61",
+      "950": "#0A2036",
+      "DEFAULT": "#3390EC"
     },
-    "secondary": {
-      "50": "#F5EBFF",
-      "100": "#EBD6FF",
-      "200": "#D6ADFF",
-      "300": "#B870FF",
-      "400": "#A347FF",
-      "500": "#9933FF",
-      "600": "#7A24D4",
-      "700": "#5C17A3",
-      "800": "#3D0A70",
-      "900": "#1F033D",
-      "950": "#0F011F",
-      "DEFAULT": "#9933FF"
+    "neutral": {
+      "50": "#F8FAFC",
+      "100": "#F1F5F9",
+      "200": "#E2E8F0",
+      "300": "#CBD5E1",
+      "400": "#94A3B8",
+      "500": "#64748B",
+      "600": "#475569",
+      "700": "#334155",
+      "800": "#1E293B",
+      "900": "#0F172A",
+      "950": "#020617",
+      "DEFAULT": "#64748B"
     },
     "success": {
-      "50": "#E6FAF2",
-      "100": "#CCF5E6",
-      "200": "#99EBCD",
-      "300": "#66E0B3",
-      "400": "#33D69A",
-      "500": "#00D084",
-      "600": "#00A66A",
-      "700": "#007D50",
-      "800": "#005335",
-      "900": "#002A1B",
-      "950": "#00150D",
-      "DEFAULT": "#00D084"
+      "50": "#ECFDF5",
+      "100": "#D1FAE5",
+      "200": "#A7F3D0",
+      "300": "#6EE7B7",
+      "400": "#34D399",
+      "500": "#10B981",
+      "600": "#059669",
+      "700": "#047857",
+      "800": "#065F46",
+      "900": "#064E3B",
+      "950": "#022C22",
+      "DEFAULT": "#10B981"
     },
     "error": {
-      "50": "#FFEBEB",
-      "100": "#FFD6D6",
-      "200": "#FFADAD",
-      "300": "#FF7070",
-      "400": "#FF4747",
-      "500": "#FF3333",
-      "600": "#CC2424",
-      "700": "#991717",
-      "800": "#660A0A",
-      "900": "#330303",
-      "950": "#1A0101",
-      "DEFAULT": "#FF3333"
+      "50": "#FEF2F2",
+      "100": "#FEE2E2",
+      "200": "#FECACA",
+      "300": "#FCA5A5",
+      "400": "#F87171",
+      "500": "#EF4444",
+      "600": "#DC2626",
+      "700": "#B91C1C",
+      "800": "#991B1B",
+      "900": "#7F1D1D",
+      "950": "#450A0A",
+      "DEFAULT": "#EF4444"
     },
     "surface": {
       "dark": {
-        "base": "#0E1621",
+        "base": "#090D13",
+        "canvas": "#0E1621",
         "card": "#17212B",
-        "cardElevated": "#242F3D",
-        "input": "#0E1621",
-        "border": "rgba(255, 255, 255, 0.12)",
+        "cardElevated": "#1F2D3D",
+        "activeItem": "#243343",
+        "input": "rgba(23, 33, 43, 0.85)",
+        "borderHairline": "rgba(255, 255, 255, 0.08)",
+        "specular": "rgba(255, 255, 255, 0.12)",
         "textPrimary": "#FFFFFF",
-        "textSecondary": "#8E9BA8"
+        "textSecondary": "#8E9BA8",
+        "textMuted": "#5B6B79"
       },
       "light": {
-        "base": "#F5F7FF",
-        "card": "rgba(255, 255, 255, 0.85)",
+        "base": "#F0F2F5",
+        "canvas": "#FFFFFF",
+        "card": "#FFFFFF",
         "cardElevated": "#FFFFFF",
-        "input": "rgba(255, 255, 255, 0.9)",
-        "border": "rgba(0, 102, 255, 0.15)",
-        "textPrimary": "#1A1A1A",
-        "textSecondary": "#64748B"
+        "activeItem": "#F0F7FF",
+        "input": "rgba(240, 242, 245, 0.9)",
+        "borderHairline": "rgba(0, 0, 0, 0.06)",
+        "specular": "rgba(255, 255, 255, 0.8)",
+        "textPrimary": "#0F172A",
+        "textSecondary": "#64748B",
+        "textMuted": "#94A3B8"
       }
     }
   },
   "typography": {
     "fontFamilies": {
-      "heading": "Montserrat, Inter, -apple-system, sans-serif",
-      "body": "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
-      "mono": "JetBrains Mono, monospace"
+      "heading": "'Plus Jakarta Sans', 'Geist', -apple-system, BlinkMacSystemFont, sans-serif",
+      "body": "'Plus Jakarta Sans', 'Geist', -apple-system, BlinkMacSystemFont, sans-serif",
+      "mono": "'JetBrains Mono', monospace"
     },
     "fontSizes": {
       "xs": "12px",
-      "sm": "14px",
-      "base": "16px",
-      "lg": "18px",
-      "xl": "20px",
-      "2xl": "24px",
-      "3xl": "30px",
-      "4xl": "36px"
+      "sm": "13px",
+      "base": "15px",
+      "lg": "17px",
+      "xl": "19px",
+      "2xl": "22px",
+      "3xl": "28px",
+      "4xl": "34px"
     },
     "fontWeights": {
       "regular": 400,
       "medium": 500,
       "semibold": 600,
-      "bold": 700,
-      "extrabold": 800
+      "bold": 700
     }
   },
   "spacing": {
@@ -118,26 +125,26 @@
   "radii": {
     "sm": "8px",
     "md": "12px",
-    "lg": "14px",
-    "xl": "18px",
-    "2xl": "20px",
-    "3xl": "24px",
+    "lg": "16px",
+    "xl": "20px",
+    "2xl": "24px",
+    "3xl": "28px",
     "full": "9999px"
   },
   "shadows": {
-    "sm": "0 2px 8px rgba(0, 102, 255, 0.08)",
-    "md": "0 6px 20px -2px rgba(0, 102, 255, 0.4)",
-    "lg": "0 16px 40px rgba(0, 30, 100, 0.2)",
-    "glow": "0 0 25px rgba(153, 51, 255, 0.5)",
-    "success": "0 8px 25px rgba(0, 208, 132, 0.45)"
+    "sm": "0 1px 2px rgba(0, 0, 0, 0.05)",
+    "md": "0 4px 12px rgba(0, 0, 0, 0.08)",
+    "lg": "0 12px 32px rgba(0, 0, 0, 0.12)",
+    "specularDark": "inset 0 1px 0 rgba(255, 255, 255, 0.12)",
+    "specularLight": "inset 0 1px 0 rgba(255, 255, 255, 0.6)",
+    "accentGlow": "0 0 20px rgba(51, 144, 236, 0.35)"
   },
   "animation": {
     "durations": {
       "instant": "100ms",
       "fast": "200ms",
       "normal": "350ms",
-      "slow": "600ms",
-      "shimmer": "1500ms"
+      "slow": "600ms"
     },
     "easings": {
       "natural": [0.4, 0, 0.2, 1],

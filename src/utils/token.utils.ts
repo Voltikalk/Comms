@@ -1,9 +1,16 @@
 import jwt, { type SignOptions } from 'jsonwebtoken';
+import crypto from 'crypto';
 import { AUTH_CONSTANTS, type AuthToken, type JwtPayload } from '../types/auth.types';
 
+// Fallback to runtime-generated secure secrets if environment variables are not supplied
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || crypto.randomBytes(64).toString('hex');
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || crypto.randomBytes(64).toString('hex');
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'comms_jwt_access_secret_super_secure_key_2026';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'comms_jwt_refresh_secret_super_secure_key_2026';
+if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be defined in production environment.');
+  }
+}
 
 /**
  * Generate Access Token (Valid for 15 minutes)
@@ -15,6 +22,7 @@ export function generateAccessToken(payload: Omit<JwtPayload, 'type' | 'iat' | '
   };
 
   const options: SignOptions = {
+    algorithm: 'HS256',
     expiresIn: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY,
   };
 
@@ -31,6 +39,7 @@ export function generateRefreshToken(payload: Omit<JwtPayload, 'type' | 'iat' | 
   };
 
   const options: SignOptions = {
+    algorithm: 'HS256',
     expiresIn: AUTH_CONSTANTS.REFRESH_TOKEN_EXPIRY,
   };
 
@@ -60,15 +69,15 @@ export function generateAuthTokenPair(payload: Omit<JwtPayload, 'type' | 'iat' |
 }
 
 /**
- * Verify and decode an Access Token
+ * Verify and decode an Access Token with strict algorithm whitelist
  */
 export function verifyAccessToken(token: string): JwtPayload {
-  return jwt.verify(token, JWT_ACCESS_SECRET) as JwtPayload;
+  return jwt.verify(token, JWT_ACCESS_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
 }
 
 /**
- * Verify and decode a Refresh Token
+ * Verify and decode a Refresh Token with strict algorithm whitelist
  */
 export function verifyRefreshToken(token: string): JwtPayload {
-  return jwt.verify(token, JWT_REFRESH_SECRET) as JwtPayload;
+  return jwt.verify(token, JWT_REFRESH_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
 }

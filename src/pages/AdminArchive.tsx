@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageArchiveService, type ArchiveStats } from '../services/message-archive.service';
 import { cronScheduler } from '../lib/cron-jobs';
+import { sanitizeSearchHighlight } from '../lib/sanitize';
 
 export interface AdminArchiveProps {
   onClose?: () => void;
@@ -305,7 +306,7 @@ export const AdminArchive: React.FC<AdminArchiveProps> = ({ onClose }) => {
                     </td>
                     <td
                       className="py-3 px-3 max-w-md truncate"
-                      dangerouslySetInnerHTML={{ __html: msg.headline || msg.content }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeSearchHighlight(msg.headline || msg.content || '') }}
                     />
                     <td className="py-3 px-3 whitespace-nowrap text-white/40">
                       {new Date(msg.archived_at).toLocaleDateString()}

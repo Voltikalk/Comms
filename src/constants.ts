@@ -56,13 +56,7 @@ export const DEFAULT_USER_PROFILES: Record<UserId, UserProfile> = {
   }
 };
 
-export const KEY_TO_USER: Record<string, UserId> = {
-  'vladpass': 'vlad',
-  'anyapass': 'anya',
-  'mompass': 'mom',
-  'dadpass': 'dad',
-  'sispass': 'sister'
-};
+// KEY_TO_USER removed for security — authentication is handled server-side via JWT
 
 export const ALL_ROOMS: Room[] = [
   { id: 'family', name: 'Семья', type: 'group', participants: ['vlad', 'mom', 'dad', 'sister'] },

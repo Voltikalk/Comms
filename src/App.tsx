@@ -30,7 +30,7 @@ const AppContent: React.FC = () => {
     try {
       localStorage.setItem('chat_dark_mode', String(darkMode));
     } catch {
-      // ignore
+
     }
   }, [darkMode]);
 

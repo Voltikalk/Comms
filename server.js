@@ -3,10 +3,14 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import validator from 'validator';
 import { createClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,8 +41,13 @@ function loadEnv() {
 }
 loadEnv();
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://mpjizafibhffabwybpgj.supabase.co';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!SUPABASE_URL) {
+  console.error('[FATAL] VITE_SUPABASE_URL is not configured. Set it in .env or .env.local');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false },
@@ -51,28 +60,105 @@ const httpServer = createServer(app);
 
 // Trust proxy headers for reverse proxies
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
-// JSON and URL-encoded parsers
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+// =============================================================================
+// 🛡️ SECURITY MIDDLEWARE
+// =============================================================================
 
-// Enable CORS for API routes
+// Helmet: Automatic security headers (CSP, HSTS, X-Frame-Options, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // Managed by reverse proxy or allowed for SPA
+  crossOriginEmbedderPolicy: false, // Allow embedding external resources (fonts, images)
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// JSON and URL-encoded parsers (reduced from 100MB to 2MB for JSON payloads)
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
+
+// CORS: Whitelist specific origins instead of wildcard *
+const ALLOWED_ORIGINS = [
+  process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  process.env.PRODUCTION_ORIGIN, // e.g. https://dabim.forgottenght.online
+].filter(Boolean);
+
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
   next();
 });
 
+// Rate Limiters
+const globalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте через минуту.' },
+});
+
+const authLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Превышен лимит попыток входа. Попробуйте через 15 минут.' },
+});
+
+const authRegisterLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Превышен лимит регистраций. Попробуйте через час.' },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много загрузок. Попробуйте через 5 минут.' },
+});
+
+app.use('/api/', globalLimiter);
+
 // Configure static uploads directory (local fallback)
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
-app.use('/uploads', express.static(UPLOADS_DIR));
+
+const INLINE_MIME_EXTS = new Set([
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp',
+  '.mp3', '.wav', '.ogg', '.m4a', '.aac', '.webm',
+  '.mp4', '.mov'
+]);
+
+app.use('/uploads', express.static(UPLOADS_DIR, {
+  setHeaders: (res, filePath) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    const ext = path.extname(filePath).toLowerCase();
+    if (!INLINE_MIME_EXTS.has(ext)) {
+      res.setHeader('Content-Disposition', 'attachment');
+    }
+  }
+}));
 
 // Whitelist of allowed extensions for upload security
 const ALLOWED_EXTENSIONS = new Set([
@@ -101,7 +187,7 @@ const uploadMiddleware = multer({
 });
 
 // File Upload endpoint (Uploads directly to Supabase Storage with local fallback)
-app.post('/api/upload', (req, res) => {
+app.post('/api/upload', uploadLimiter, (req, res) => {
   uploadMiddleware.single('file')(req, res, async (err) => {
     if (err) {
       console.error('[Upload Middleware Error]', err);
@@ -180,8 +266,15 @@ app.post('/api/upload', (req, res) => {
 // 🔐 AUTHENTICATION & JWT CONFIGURATION
 // =============================================================================
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'comms_jwt_access_secret_super_secure_key_2026';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'comms_jwt_refresh_secret_super_secure_key_2026';
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
+  console.warn('[SECURITY WARNING] JWT_ACCESS_SECRET / JWT_REFRESH_SECRET not set in .env. Using auto-generated random secrets (will invalidate tokens on restart).');
+}
+
+const _JWT_ACCESS = JWT_ACCESS_SECRET || crypto.randomBytes(64).toString('hex');
+const _JWT_REFRESH = JWT_REFRESH_SECRET || crypto.randomBytes(64).toString('hex');
 
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
@@ -286,11 +379,13 @@ function generateTokenPair(user, sessionId) {
     sessionId
   };
 
-  const accessToken = jwt.sign({ ...payload, type: 'access' }, JWT_ACCESS_SECRET, {
+  const accessToken = jwt.sign({ ...payload, type: 'access' }, _JWT_ACCESS, {
+    algorithm: 'HS256',
     expiresIn: ACCESS_TOKEN_EXPIRY
   });
 
-  const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, JWT_REFRESH_SECRET, {
+  const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, _JWT_REFRESH, {
+    algorithm: 'HS256',
     expiresIn: REFRESH_TOKEN_EXPIRY
   });
 
@@ -307,8 +402,58 @@ function generateTokenPair(user, sessionId) {
   };
 }
 
-// POST /api/auth/login
-app.post('/api/auth/login', async (req, res) => {
+// In-memory token revocation blocklist: tokenOrSessionId -> expiresAtTimestamp
+const revokedTokens = new Map();
+
+function isTokenRevoked(tokenOrSessionId) {
+  if (!tokenOrSessionId) return false;
+  const exp = revokedTokens.get(tokenOrSessionId);
+  if (!exp) return false;
+  if (Date.now() > exp) {
+    revokedTokens.delete(tokenOrSessionId);
+    return false;
+  }
+  return true;
+}
+
+function revokeToken(tokenOrSessionId, expiresAt = Date.now() + REFRESH_TOKEN_EXPIRY_SECONDS * 1000) {
+  if (tokenOrSessionId) {
+    revokedTokens.set(tokenOrSessionId, expiresAt);
+  }
+}
+
+// Clean up expired revoked tokens every 30 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, exp] of revokedTokens.entries()) {
+    if (now > exp) revokedTokens.delete(key);
+  }
+}, 30 * 60 * 1000);
+
+function verifyAccessToken(token) {
+  if (!token || isTokenRevoked(token)) return null;
+  try {
+    const decoded = jwt.verify(token, _JWT_ACCESS, { algorithms: ['HS256'] });
+    if (decoded.sessionId && isTokenRevoked(decoded.sessionId)) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+function verifyRefreshToken(token) {
+  if (!token || isTokenRevoked(token)) return null;
+  try {
+    const decoded = jwt.verify(token, _JWT_REFRESH, { algorithms: ['HS256'] });
+    if (decoded.sessionId && isTokenRevoked(decoded.sessionId)) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+// POST /api/auth/login (rate limited: 5 attempts per 15 min)
+app.post('/api/auth/login', authLoginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) {
@@ -327,10 +472,11 @@ app.post('/api/auth/login', async (req, res) => {
     // 2. If not found in memory, query Supabase users table dynamically
     if (!user) {
       try {
+        const sanitizedInput = cleanInput.replace(/[%.,()]/g, '');
         const { data: dbUser, error: dbErr } = await supabase
           .from('users')
           .select('*')
-          .or(`username.ilike.${cleanInput},email.ilike.${cleanInput}`)
+          .or(`username.eq.${sanitizedInput},email.eq.${sanitizedInput}`)
           .maybeSingle();
 
         if (dbUser && !dbErr) {
@@ -363,17 +509,13 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Неверный email/логин или пароль.' });
     }
 
-    // 3. Check password: exact match (plain text) or bcrypt
+    // 3. Check password: bcrypt only (no plain-text comparison)
     let isMatch = false;
     if (user.passwordHash) {
-      if (user.passwordHash === password) {
-        isMatch = true;
-      } else {
-        try {
-          isMatch = await bcrypt.compare(password, user.passwordHash);
-        } catch {
-          isMatch = false;
-        }
+      try {
+        isMatch = await bcrypt.compare(password, user.passwordHash);
+      } catch {
+        isMatch = false;
       }
     }
 
@@ -401,7 +543,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Неверный email/логин или пароль.' });
     }
 
-    const sessionId = 'sess_' + Math.random().toString(36).substring(2, 11);
+    const sessionId = `sess_${crypto.randomUUID()}`;
     const { tokens } = generateTokenPair(user, sessionId);
 
     return res.json({
@@ -414,23 +556,37 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/register
-app.post('/api/auth/register', async (req, res) => {
+// POST /api/auth/register (rate limited: 3 attempts per hour)
+app.post('/api/auth/register', authRegisterLimiter, async (req, res) => {
   try {
     const { email, username, password, firstName, lastName, avatarUrl, bio } = req.body || {};
     if (!email || !username || !password) {
       return res.status(400).json({ error: 'Заполните все обязательные поля.' });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
-    const cleanUsername = username.toLowerCase().trim();
+    // Input validation
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanUsername = String(username).toLowerCase().trim();
+    const cleanPassword = String(password);
+
+    if (!validator.isEmail(cleanEmail)) {
+      return res.status(400).json({ error: 'Некорректный формат email.' });
+    }
+
+    if (!/^[a-zA-Z0-9_]{3,32}$/.test(cleanUsername)) {
+      return res.status(400).json({ error: 'Имя пользователя: 3–32 символа (a-z, 0-9, _).' });
+    }
+
+    if (cleanPassword.length < 8) {
+      return res.status(400).json({ error: 'Пароль должен содержать минимум 8 символов.' });
+    }
 
     if (memoryUsers.has(cleanEmail) || memoryUsers.has(cleanUsername)) {
       return res.status(409).json({ error: 'Пользователь с таким email или username уже существует.' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(cleanPassword, salt);
     const userId = cleanUsername;
     const displayName = `${firstName || cleanUsername} ${lastName || ''}`.trim();
     const newUuid = (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -476,7 +632,7 @@ app.post('/api/auth/register', async (req, res) => {
     memoryUsers.set(cleanEmail, newUser);
     memoryUsers.set(cleanUsername, newUser);
 
-    const sessionId = 'sess_' + Math.random().toString(36).substring(2, 11);
+    const sessionId = 'sess_' + crypto.randomUUID();
     const { tokens } = generateTokenPair(newUser, sessionId);
 
     return res.status(201).json({
@@ -486,6 +642,98 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (err) {
     console.error('[Register Error]', err);
     return res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
+  }
+});
+
+// POST /api/auth/logout (Revoke token & session)
+app.post('/api/auth/logout', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const { refreshToken } = req.body || {};
+
+    if (bearerToken) {
+      try {
+        const decoded = jwt.verify(bearerToken, _JWT_ACCESS, { algorithms: ['HS256'], ignoreExpiration: true });
+        if (decoded) {
+          revokeToken(bearerToken, decoded.exp ? decoded.exp * 1000 : undefined);
+          if (decoded.sessionId) revokeToken(decoded.sessionId);
+        }
+      } catch {}
+    }
+
+    if (refreshToken) {
+      try {
+        const decoded = jwt.verify(refreshToken, _JWT_REFRESH, { algorithms: ['HS256'], ignoreExpiration: true });
+        if (decoded) {
+          revokeToken(refreshToken, decoded.exp ? decoded.exp * 1000 : undefined);
+          if (decoded.sessionId) revokeToken(decoded.sessionId);
+        }
+      } catch {}
+    }
+
+    return res.json({ message: 'Сессия успешно завершена.' });
+  } catch (err) {
+    console.error('[Logout Error]', err);
+    return res.status(500).json({ error: 'Ошибка завершения сессии.' });
+  }
+});
+
+// POST /api/auth/refresh (Refresh token pair with token rotation)
+app.post('/api/auth/refresh', (req, res) => {
+  try {
+    const { refreshToken } = req.body || {};
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token не предоставлен.' });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded || !decoded.userId) {
+      return res.status(401).json({ error: 'Недействительный или отозванный refresh token.' });
+    }
+
+    const cleanUser = decoded.userId.toLowerCase();
+    const user = memoryUsers.get(cleanUser);
+    if (!user || user.isActive === false) {
+      return res.status(401).json({ error: 'Пользователь не найден или заблокирован.' });
+    }
+
+    // Token rotation: revoke old refresh token
+    revokeToken(refreshToken, decoded.exp ? decoded.exp * 1000 : undefined);
+
+    const newSessionId = decoded.sessionId || `sess_${crypto.randomUUID()}`;
+    const { tokens } = generateTokenPair(user, newSessionId);
+
+    return res.json({ tokens });
+  } catch (err) {
+    console.error('[Refresh Error]', err);
+    return res.status(500).json({ error: 'Ошибка обновления токенов.' });
+  }
+});
+
+// GET /api/auth/me (Get current authenticated user)
+app.get('/api/auth/me', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) {
+      return res.status(401).json({ error: 'Требуется авторизация.' });
+    }
+
+    const decoded = verifyAccessToken(token);
+    if (!decoded || !decoded.userId) {
+      return res.status(401).json({ error: 'Недействительный или отозванный токен доступа.' });
+    }
+
+    const user = memoryUsers.get(decoded.userId.toLowerCase());
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден.' });
+    }
+
+    return res.json({ user: sanitizeUser(user) });
+  } catch (err) {
+    console.error('[Auth Me Error]', err);
+    return res.status(500).json({ error: 'Ошибка получения профиля.' });
   }
 });
 
@@ -500,12 +748,12 @@ app.get('/api/users/search', async (req, res) => {
 
     const resultsMap = new Map();
 
-    // 1. Search in Supabase
+    const sanitizedQ = q.replace(/[^a-zA-Z0-9а-яА-ЯёЁ _-]/g, '').trim();
     try {
       const { data: dbUsers } = await supabase
         .from('users')
         .select('id, username, display_name, avatar_url, bio, is_active')
-        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+        .or(`username.ilike.%${sanitizedQ}%,display_name.ilike.%${sanitizedQ}%`)
         .limit(25);
 
       if (dbUsers) {
@@ -562,19 +810,12 @@ app.get('/api/users/search', async (req, res) => {
 
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: ALLOWED_ORIGINS,
+    methods: ['GET', 'POST'],
+    credentials: true
   },
-  maxHttpBufferSize: 1e8 // 100MB max packet size
+  maxHttpBufferSize: 5e6 // 5MB max packet size (reduced from 100MB)
 });
-
-const AUTH_KEYS = {
-  'vladpass': 'vlad',
-  'anyapass': 'anya',
-  'mompass': 'mom',
-  'dadpass': 'dad',
-  'sispass': 'sister'
-};
 
 // Dynamic Room Store
 const memoryRooms = new Map();
@@ -828,24 +1069,69 @@ async function resolveRoomUuid(roomIdOrName) {
 // Periodically prune expired stories every 10 minutes
 setInterval(pruneExpiredStories, 10 * 60 * 1000);
 
-// Socket.io Connection Handler
-io.on('connection', async (socket) => {
-  const tokenOrKey = socket.handshake.auth?.token || socket.handshake.query?.token;
-  let user = null;
+// =============================================================================
+// ⚡ WEBSOCKET RATE LIMITING & SECURITY HANDSHAKE MIDDLEWARE
+// =============================================================================
 
-  if (tokenOrKey) {
-    try {
-      const decoded = jwt.verify(tokenOrKey, JWT_ACCESS_SECRET);
-      if (decoded && decoded.userId) {
-        user = decoded.userId;
-      }
-    } catch {
-      user = AUTH_KEYS[tokenOrKey] || null;
+// Rate limiter store for socket events per connection: socketId -> { [event]: { count, resetTime } }
+const socketRateLimits = new Map();
+
+function checkSocketRateLimit(socketId, eventName, maxAllowed, windowMs) {
+  let bucket = socketRateLimits.get(socketId);
+  if (!bucket) {
+    bucket = {};
+    socketRateLimits.set(socketId, bucket);
+  }
+  const now = Date.now();
+  const rec = bucket[eventName];
+  if (!rec || now > rec.resetTime) {
+    bucket[eventName] = { count: 1, resetTime: now + windowMs };
+    return true;
+  }
+  if (rec.count >= maxAllowed) {
+    return false;
+  }
+  rec.count++;
+  return true;
+}
+
+// 1. Cross-Site WebSocket Hijacking (CSWSH) & Handshake JWT Authentication
+io.use((socket, next) => {
+  // Check Origin header to prevent CSWSH attacks
+  const origin = socket.handshake.headers.origin;
+  if (origin) {
+    const isAllowed = ALLOWED_ORIGINS.includes(origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
+      origin.startsWith('https://localhost:');
+    if (!isAllowed) {
+      console.warn(`[Security Block] CSWSH attempt blocked from unauthorized origin: ${origin}`);
+      return next(new Error('CORS: Unauthorized WebSocket Origin'));
     }
   }
 
+  // Token authentication (auth payload preferred over query)
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  if (!token) {
+    return next(new Error('Authentication required: Token missing'));
+  }
+
+  const decoded = verifyAccessToken(token);
+  if (!decoded || !decoded.userId) {
+    return next(new Error('Authentication failed: Invalid or revoked token'));
+  }
+
+  socket.data.user = decoded.userId;
+  socket.data.sessionId = decoded.sessionId;
+  next();
+});
+
+// Socket.io Connection Handler
+io.on('connection', async (socket) => {
+  const user = socket.data.user;
+
   if (!user) {
-    console.log(`[Server] Unauthorized connection attempt: ${socket.id}`);
+    console.log(`[Server] Unauthorized socket attempt without user data: ${socket.id}`);
     socket.emit('auth_error', { message: 'Сессия недействительна. Пожалуйста, выполните вход.' });
     socket.disconnect(true);
     return;
@@ -904,10 +1190,11 @@ io.on('connection', async (socket) => {
     }
     const resultsMap = new Map();
     try {
+      const sanitizedQ = q.replace(/[%.,()]/g, '');
       const { data: dbUsers } = await supabase
         .from('users')
         .select('id, username, display_name, avatar_url, bio, is_active')
-        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+        .or(`username.ilike.%${sanitizedQ}%,display_name.ilike.%${sanitizedQ}%`)
         .limit(25);
       if (dbUsers) {
         dbUsers.forEach((u) => {
@@ -1122,8 +1409,19 @@ io.on('connection', async (socket) => {
 
   // 1. SEND MESSAGE (Synchronized with Supabase)
   socket.on('send_message', async (data) => {
+    if (!data || typeof data !== 'object') return;
     if (data.sender !== user) return;
     if (!isRoomAllowedForUser(data.roomId, user)) return;
+
+    if (!checkSocketRateLimit(socket.id, 'send_message', 25, 10000)) {
+      socket.emit('rate_limit', { error: 'Слишком частая отправка сообщений. Подождите пару секунд.' });
+      return;
+    }
+
+    if (data.text && typeof data.text === 'string' && data.text.length > 10000) {
+      socket.emit('error', { message: 'Текст сообщения не должен превышать 10 000 символов.' });
+      return;
+    }
 
     socket.join(data.roomId);
     if (data.roomId.startsWith('dm-')) {
@@ -1255,6 +1553,8 @@ io.on('connection', async (socket) => {
 
   // 2. EDIT MESSAGE (Synchronized with Supabase)
   socket.on('edit_message', async ({ messageId, roomId, newText }) => {
+    if (!checkSocketRateLimit(socket.id, 'edit_message', 15, 10000)) return;
+    if (newText && typeof newText === 'string' && newText.length > 10000) return;
     if (!isRoomAllowedForUser(roomId, user)) return;
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
     if (msgIndex === -1 || messageHistory[msgIndex].sender !== user) return;
@@ -1276,9 +1576,13 @@ io.on('connection', async (socket) => {
 
   // 3. DELETE MESSAGE (Synchronized with Supabase & Telegram 1:1 "Delete for everyone")
   socket.on('delete_message', async ({ messageId, roomId }) => {
+    if (!checkSocketRateLimit(socket.id, 'delete_message', 20, 10000)) return;
     if (!isRoomAllowedForUser(roomId, user)) return;
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
     if (msgIndex === -1) return;
+
+    // Security: Only the message author can delete their own messages
+    if (messageHistory[msgIndex].sender !== user) return;
 
     messageHistory.splice(msgIndex, 1);
     io.to(roomId).emit('message_deleted', { messageId, roomId });
@@ -1294,6 +1598,8 @@ io.on('connection', async (socket) => {
 
   // 4. TOGGLE REACTION (Synchronized with Supabase)
   socket.on('toggle_reaction', async ({ messageId, roomId, reaction }) => {
+    if (!checkSocketRateLimit(socket.id, 'toggle_reaction', 30, 10000)) return;
+    if (!reaction || typeof reaction !== 'string' || reaction.length > 32) return;
     if (!isRoomAllowedForUser(roomId, user)) return;
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId);
     if (msgIndex === -1) return;
@@ -1391,6 +1697,10 @@ io.on('connection', async (socket) => {
   // 4d. STORIES HANDLERS (Real-time ephemeral stories with Telegram 3.0 capabilities)
   socket.on('send_story', (payload) => {
     if (!payload || !payload.data) return;
+    if (!checkSocketRateLimit(socket.id, 'send_story', 5, 30000)) {
+      socket.emit('rate_limit', { error: 'Слишком частая публикация историй.' });
+      return;
+    }
     pruneExpiredStories();
     const {
       type = 'text',
@@ -1410,6 +1720,7 @@ io.on('connection', async (socket) => {
       drawingData
     } = payload;
 
+    const safeCaption = caption && typeof caption === 'string' ? caption.slice(0, 1000) : undefined;
     const lifetimeMs = Math.max(1, Number(durationHours) || 24) * 60 * 60 * 1000;
     const storyId = payload.id || ('story-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7));
 
@@ -1425,7 +1736,7 @@ io.on('connection', async (socket) => {
       authorName: authorName || user,
       type,
       data,
-      caption: caption || undefined,
+      caption: safeCaption,
       background: background || undefined,
       fontStyle: fontStyle || undefined,
       textColor: textColor || undefined,
@@ -1537,6 +1848,7 @@ io.on('connection', async (socket) => {
 
   // 6. TYPING INDICATORS
   socket.on('typing', ({ roomId, isTyping }) => {
+    if (!checkSocketRateLimit(socket.id, 'typing', 25, 5000)) return;
     if (!isRoomAllowedForUser(roomId, user)) return;
     socket.to(roomId).emit('typing_update', {
       roomId,
@@ -1601,6 +1913,7 @@ io.on('connection', async (socket) => {
 
   // Disconnect Handler
   socket.on('disconnect', () => {
+    socketRateLimits.delete(socket.id);
     const disconnectedUser = socketToUser.get(socket.id);
     if (disconnectedUser) {
       socketToUser.delete(socket.id);

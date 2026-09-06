@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import type { Message, UserId, Room, ConnectionStatus, CallSession, UserProfile, Poll, UserSearchResult } from '../types';
-import { USER_NAMES, KEY_TO_USER, ALL_ROOMS, SERVER_URL, DEFAULT_USER_PROFILES } from '../constants';
+import { USER_NAMES, ALL_ROOMS, SERVER_URL, DEFAULT_USER_PROFILES } from '../constants';
 import authService from '../services/auth.service';
 import type { RegisterRequest } from '../types/auth.types';
 import { supabase } from '../lib/supabase/client';
@@ -846,47 +846,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         return true;
       } catch (err: any) {
-        // Fallback for preset testing accounts if API is temporarily unreachable or returned 401
-        const cleanName = normalizedInput.toLowerCase();
-        const mappedUser = KEY_TO_USER[password] || KEY_TO_USER[cleanName] || (['vlad', 'anya', 'mom', 'dad', 'sister'].includes(cleanName) ? cleanName as UserId : null);
-        if (mappedUser) {
-          setCurrentUser(mappedUser);
-          setAuthKey(password || cleanName);
-          localStorage.setItem('chat_user_v2', mappedUser);
-          localStorage.setItem('chat_auth_key_v2', password || cleanName);
-          setActiveRoomId('family');
-          localStorage.setItem('chat_active_room_v2', 'family');
-          return true;
-        }
-
         setError(err.message || 'Ошибка авторизации');
         return false;
       }
     }
 
-    // 2. Legacy key or preset account login (e.g. 'vladpass', 'anyapass')
-    const mappedUser = KEY_TO_USER[normalizedInput];
-    if (mappedUser) {
-      setCurrentUser(mappedUser);
-      setAuthKey(normalizedInput);
-      localStorage.setItem('chat_user_v2', mappedUser);
-      localStorage.setItem('chat_auth_key_v2', normalizedInput);
-
-      // Background Supabase Auth login for preset
-      supabase.auth.signInWithPassword({
-        email: `${mappedUser}@telegram.org`,
-        password: normalizedInput
-      }).catch((e) => console.warn('Supabase preset auth notice:', e));
-
-      const userRooms = ALL_ROOMS.filter(r => r.participants.includes(mappedUser) || r.id === 'family');
-      if (userRooms.length > 0) {
-        setActiveRoomId(userRooms[0].id);
-        localStorage.setItem('chat_active_room_v2', userRooms[0].id);
-      }
-      return true;
-    }
-
-    setError('Неверный логин или пароль.');
+    setError('Укажите логин и пароль.');
     return false;
   };
 

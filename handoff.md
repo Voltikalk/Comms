@@ -1,7 +1,7 @@
 # 🚀 Secure Comms — Architecture & Design System Master Guide
 
 > **Telegram Web Replica / Ultra-Premium Real-Time Messenger**  
-> Стек: **React 19 / Vite**, **TypeScript**, **Tailwind CSS**, **Telegram Rich Text (Spoilers ||text|| / Markdown / CodeBlocks with Copy / Floating Toolbar / Hotkeys)**, **Telegram Media Lightbox & Gallery Suite (Fullscreen / Zoom & Pan / Rotation / Navigation / Carousel)**, **Master Navigation Suite (Command Palette Spotlight Ctrl+K / Chat Folder Tabs / Mobile Bottom Nav / Desktop Breadcrumbs / Power-User Hotkeys)**, **Hybrid Desktop & Mobile Suite (PWA / Window Controls Overlay / Edge Gestures / Latency Ping)**, **Stories 2.0 & Polls/Quizzes Suite**, **Voice & Video Notes 2.0 (Waveform & Circular 60 FPS Player)**, **Telegram .TGS Stickers (60 FPS Lottie/Canvas)**, **Full-Text Search UI Suite (FTS / Debounced SearchBar / Advanced Filters / Animated Cards / History / Stats)**, **Custom Video Player (4K/60FPS/PiP/Settings)**, **Skiper UI 26 View Transitions & Skiper 4 Morphing Theme Switcher**, **Chat Wallpapers Suite (Live Blur & Dimming)**, **Framer Motion, GSAP, AOS & Lottie**, **Storybook**, **Node.js / Express**, **Socket.io / WebSocket**, **WebRTC**, **JWT & Bcrypt**, **Supabase (PostgreSQL + Auth + Storage + Realtime)**, **Vitest (107/107 Tests Passing)**.
+> Стек: **React 19 / Vite**, **TypeScript**, **Tailwind CSS**, **Liquid Precision & Double-Bezel Design System (Doppelrand / Island Buttons / Plus Jakarta Sans & Geist)**, **Telegram Rich Text (Spoilers ||text|| / Markdown / CodeBlocks with Copy / Floating Toolbar / Hotkeys)**, **Telegram Media Lightbox & Gallery Suite (Fullscreen / Zoom & Pan / Rotation / Navigation / Carousel)**, **Master Navigation Suite (Command Palette Spotlight Ctrl+K / Chat Folder Tabs / Mobile Bottom Nav / Desktop Breadcrumbs / Power-User Hotkeys)**, **Hybrid Desktop & Mobile Suite (PWA / Window Controls Overlay / Edge Gestures / Latency Ping)**, **Stories 2.0 & Polls/Quizzes Suite**, **Voice & Video Notes 2.0 (Waveform & Circular 60 FPS Player)**, **Telegram .TGS Stickers (60 FPS Lottie/Canvas)**, **Full-Text Search UI Suite (FTS / Debounced SearchBar / Advanced Filters / Animated Cards / History / Stats)**, **Custom Video Player (4K/60FPS/PiP/Settings)**, **Skiper UI 26 View Transitions & Skiper 4 Morphing Theme Switcher**, **Chat Wallpapers Suite (Live Blur & Dimming)**, **Framer Motion, GSAP, AOS & Lottie**, **Storybook**, **Node.js / Express**, **Socket.io / WebSocket**, **WebRTC**, **JWT & Bcrypt**, **Supabase (PostgreSQL + Auth + Storage + Realtime)**, **Vitest (121/121 Tests Passing)**.
 
 ---
 
@@ -91,7 +91,89 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 55 — Full iOS Viewport Alignment, Body Portal Navigation & Bundle Splitting [v3.25.0]):
+### 📌 Текущая стадия разработки (Status: Phase 58 — Liquid Precision Anti-Slop Design Overhaul & Double-Bezel Architecture [v3.28.0]):
+* ✅ **Комплексный редизайн дизайн-системы по стандартам `design-taste-frontend` и `high-end-visual-design`**:
+  * **Ликвидация AI-шаблонов (Anti-Slop Cleanse)**:
+    * Полностью исключены фиолетовые AI-градиенты (`#9933FF`) и цветные размытые шары (`auth-orb-1/2`) в пользу сапфирового монохромного света и единого зафиксированного акцента — Telegram Electric Cerulean (`#3390EC` / `#007AFF`).
+    * Устранены плоские стандартные серые рамки 1px и мутные темные тени.
+  * **Архитектура Double-Bezel (Doppelrand)**:
+    * Созданы классы `.tg-double-bezel-shell` и `.tg-double-bezel-core` — двухуровневая концентрическая структура с полупрозрачным внешним контуром и внутренним матовым ядром с верхним инсетным бликом (`shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]`).
+  * **Островные кнопки (Island CTA & Button-in-Button Architecture)**:
+    * Внедрены `.tg-island-btn`, `.tg-island-btn-primary` и `.tg-btn-inner-icon` с диагональным сдвигом иконки при наведении (`group-hover:translate(2px, -1px)`) и тактильной пружинной компрессией `active:scale-[0.98]`.
+  * **Типографика и числовые данные**:
+    * Подключены шрифты **Plus Jakarta Sans** и **Geist** с микротрекингом `tracking-[-0.025em]` и пропорциональными моноширинными цифрами `.tg-tabular` (`tabular-nums`) для пинга, таймштампов и бейджей.
+  * **Редизайн экрана входа ([`LoginScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/LoginScreen.tsx))**:
+    * Карточка авторизации в архитектуре Double-Bezel с 3D-параллаксом логотипа.
+    * Apple-сегментированный переключатель входа на Framer Motion `layoutId="authSegmentActive"`.
+    * Горизонтальный демо-селектор аккаунтов и обновленный SVG QR-код с лазерным лучом и круглым таймером.
+  * **Полировка сайдбара и комнат ([`ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx), [`ChatFolderTabs.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Navigation/ChatFolderTabs.tsx))**:
+    * Реализован и стилизован класс `.tg-room-active` с градиентной подсветкой, инсетным бликом и левой вертикальной полосой-индикатором.
+    * Островной поиск с шорткатом `⌘K` и быстрой очисткой `✕`.
+  * **Редизайн пузырей сообщений ([`src/index.css`](file:///c:/Users/Drilla/Desktop/Comms/src/index.css))**:
+    * Аутентичный градиент исходящих сообщений в темной теме (`linear-gradient(145deg, #2b5278 0%, #204162 100%)`) с инсетным светом.
+    * Капсула ввода `.tg-input-capsule` с округлением `rounded-[24px]` и инсетным рельефом.
+  * **Контроль качества**:
+    * 121/121 юнит-тестов проходят (11 suites) в Vitest (100% pass).
+    * 0 ошибок TypeScript и сборщика Vite (бандл собран за 1.19s).
+    * 0 ошибок линтинга Oxlint.
+
+### 📌 Предыдущая стадия разработки (Phase 57 — Anthropic Cybersecurity Skills Hardening & Real-Time Defense Suite [v3.27.0]):
+* ✅ **Комплексное усиление безопасности на базе Anthropic Cybersecurity Skills**:
+  * **Нейтрализация Stored XSS и санитизация HTML (`src/lib/sanitize.ts`)**:
+    * Создана специализированная библиотека санитизации: `escapeHtml()`, `sanitizeSearchHighlight()`, `sanitizeUrl()`.
+    * Разработано 9 юнит-тестов (`src/lib/sanitize.test.ts`), проверяющих нейтрализацию `<script>`, атрибутов `onload`/`onerror`, `<iframe>`, псевдопротоколов `javascript:` и `vbscript:` при сохранении безопасных тегов подсветки `<mark>`.
+    * Устранен Stored XSS в [`SearchResultCard.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Search/SearchResultCard.tsx): подсветка поисковых запросов в сообщениях, именах файлов и отправителях предварительно экранируется перед передачей в `dangerouslySetInnerHTML`.
+    * Устранен Stored XSS в [`AdminArchive.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/pages/AdminArchive.tsx): заголовки и контент архивных сообщений очищаются перед рендерингом.
+  * **Защита WebSockets и Real-Time API (`server.js`)**:
+    * **CSWSH (Cross-Site WebSocket Hijacking) Mitigation**: Проверка заголовка `Origin` при рукопожатии сокетов с валидацией по белому списку доверенных доменов (`CLIENT_ORIGIN`, `PRODUCTION_ORIGIN`, `ALLOWED_ORIGINS`).
+    * **Handshake JWT Middleware (`io.use`)**: Проверка валидности и срока действия Bearer JWT токена ДО установки сокет-соединения с немедленным отклонением неавторизованных подключений.
+    * **Rate Limiting реального времени**: Скользящее окно (sliding window) ограничения частоты сокет-событий per-connection для `send_message` (15/5с), `edit_message` (10/5с), `delete_message` (10/5с), `toggle_reaction` (20/5с), `send_story` (3/10с) и `typing` (5/3с).
+    * **Ограничение размера полезной нагрузки**: Защита от DoS и переполнения буфера — длина текста сообщений ограничена 10 000 символов, подпись к историям — 1 000 символов.
+    * **Усиление санитизации PostgREST**: Регулярное выражение `/[^a-zA-Z0-9а-яА-ЯёЁ _-]/g` для исключения символьных инъекций в поисковые фильтры Supabase.
+  * **Управление сессиями и безопасность JWT (`server.js`, `src/utils/token.utils.ts`)**:
+    * **Удалены hardcoded fallback секреты**: Полностью исключены небезопасные дефолтные строки в `token.utils.ts` и `docker-compose.yml`.
+    * **Принудительное закрепление алгоритма**: В `jwt.verify()` явно зафиксирован `algorithms: ['HS256']` для исключения атак подмены алгоритма (Algorithm Confusion / `none` algorithm).
+    * **Серверный блеклист отзыва токенов**: Реализован in-memory реестр отозванных JWT (`revokedTokens`) с автоматической периодической очисткой по истечении срока жизни токенов (TTL).
+    * **Новые REST API эндпоинты аутентификации**:
+      * `POST /api/auth/refresh`: Безопасная ротация refresh-токенов с автоматическим отзывом старого токена и выпуском новой пары.
+      * `POST /api/auth/logout`: Инвалидация access/refresh токенов на стороне сервера.
+      * `GET /api/auth/me`: Проверка сессии текущего пользователя.
+  * **Защита сетевого и веб-уровня (`nginx.conf`, `server.js`)**:
+    * **Сокрытие метаданных сервера**: Добавлена директива `server_tokens off;` в `nginx.conf` и `app.disable('x-powered-by')` в `server.js`.
+    * **Strict-Transport-Security (HSTS)**: Добавлен заголовок `Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"` в Nginx и Helmet.
+    * **MIME Sniffing Defense**: Добавлен заголовок `X-Content-Type-Options "nosniff"` на раздачу пользовательских файлов `/uploads/` в Nginx и Express.
+  * **Контроль качества**:
+    * 121/121 юнит-тестов проходят (11 suites) в Vitest (100% pass).
+    * 0 ошибок TypeScript и сборщика Vite (бандл собран за 1.17s).
+    * 0 ошибок линтинга Oxlint.
+
+### 📌 Предыдущая стадия разработки (Phase 56 — Security Hardening & Auth Refactoring [v3.26.0]):
+* ✅ **Комплексный рефакторинг безопасности (аудит 20 уязвимостей)**:
+  * **Серверная безопасность ([`server.js`](file:///c:/Users/Drilla/Desktop/Comms/server.js))**:
+    1. **Helmet Security Headers**: Подключен `helmet` для автоматической установки `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options` и др.
+    2. **CORS Whitelist**: Заменён `Access-Control-Allow-Origin: *` на whitelist конкретных origins (`CLIENT_ORIGIN`, `PRODUCTION_ORIGIN` из `.env`). Socket.io CORS аналогично ограничен.
+    3. **Rate Limiting**: Добавлен `express-rate-limit` — `/api/auth/login` (5 попыток/15 мин), `/api/auth/register` (3/час), `/api/upload` (10/5 мин), глобальный лимит (100/мин).
+    4. **Устранение plain-text пароля**: Удалена строка `passwordHash === password` — все пароли проверяются только через `bcrypt.compare()`.
+    5. **Удалён AUTH_KEYS backdoor**: Полностью убран объект `AUTH_KEYS` и фоллбэк `user = AUTH_KEYS[tokenOrKey]` в сокетах. Аутентификация только через JWT.
+    6. **Криптографический sessionId**: Заменён `Math.random().toString(36)` на `crypto.randomUUID()`.
+    7. **Авторизация удаления сообщений**: Добавлена проверка `msg.sender !== user` в обработчике `delete_message`.
+    8. **Валидация регистрации**: Email проверяется через `validator.isEmail()`, username ограничен `[a-zA-Z0-9_]{3,32}`, пароль ≥ 8 символов, bcrypt salt rounds повышен с 10 до 12.
+    9. **Санитизация Supabase запросов**: Спецсимволы PostgREST (`%`, `.`, `,`, `(`, `)`) экранируются во входных данных перед `.or()` запросами.
+    10. **Уменьшен JSON body limit**: С 100 МБ до 2 МБ (`express.json({ limit: '2mb' })`).
+    11. **Уменьшен Socket.io buffer**: С 100 МБ до 5 МБ (`maxHttpBufferSize: 5e6`).
+    12. **Убран hardcoded Supabase URL**: Сервер падает с ошибкой если `VITE_SUPABASE_URL` не задан в `.env`.
+    13. **JWT секреты без hardcoded fallback**: Если `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` не заданы, генерируются через `crypto.randomBytes(64)` (с предупреждением).
+  * **Клиентская безопасность**:
+    14. **Удалён `KEY_TO_USER`** из [`constants.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/constants.ts) — словарь паролей больше не попадает в production бандл.
+    15. **Удалён legacy login fallback** из [`SocketContext.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/context/SocketContext.tsx) — вся аутентификация проходит через серверный JWT API.
+    16. **HTTPS→HTTP redirect** в [`index.html`](file:///c:/Users/Drilla/Desktop/Comms/index.html) ограничен `localhost`/`127.0.0.1` (исключён `192.168.*`).
+  * **Конфигурация**:
+    17. **`.env` добавлен в `.gitignore`** для предотвращения утечки секретов.
+    18. **Nginx security headers** усилены: `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy`. Убран `Access-Control-Allow-Origin *` с `/uploads/`.
+  * **Новые зависимости**: `helmet`, `express-rate-limit`, `validator`.
+  * **Контроль качества**: TypeScript 0 ошибок, `npm test` 112/112 ✅, `npm run build` 1.20s ✅, `npx oxlint` 0 ошибок ✅.
+
+### 📌 Предыдущая стадия разработки (Phase 55 — Full iOS Viewport Alignment, Body Portal Navigation & Bundle Splitting [v3.25.0]):
 * ✅ **Полное устранение отступа снизу и завышенной шапки на iOS (PWA / Safari) [v3.25.0]**:
   * **Диагностика и первопричина проблемы**:
     1. **Обрезка высоты WebKit (`-webkit-fill-available`)**: В `src/index.css` для `#root` и `html, body` были заданы свойства `height: -webkit-fill-available` и `min-height: 100vh / 100lvh`. По спецификации CSS Box Model для абсолютно/фиксированно позиционированных элементов одновременное указание `top: 0` и `height` принудительно игнорирует `bottom: 0`. В iOS Safari `-webkit-fill-available` возвращает `window.innerHeight` (около 920px на 1024px экранах), из-за чего `#root` физически заканчивался за 104px до низа экрана, оставляя пустую полосу.
@@ -460,6 +542,56 @@ npm run storybook
 ---
 
 ## 📜 Журнал изменений (Changelog)
+
+### [v3.28.0] — 6 сентября 2026 г.
+* **Liquid Precision Anti-Slop Design Overhaul & Double-Bezel Architecture**:
+  * **Ликвидация AI-шаблонов (Anti-Slop Cleanse)**:
+    * В [`src/tokens/design-tokens.json`](file:///c:/Users/Drilla/Desktop/Comms/src/tokens/design-tokens.json): устранены фиолетовые AI-градиенты (`#9933FF`). Сформирована строгая цветовая палитра: глубокий сапфировый/OLED темный фон (`#0e1621` / `#17212b`), фарфоровый светлый (`#ffffff` / `#f4f4f5`) и единственный калиброванный акцент Electric Cerulean (`#3390EC`).
+    * В [`src/styles/globals.css`](file:///c:/Users/Drilla/Desktop/Comms/src/styles/globals.css): удалены аморфные фиолетовые орбы `@keyframes floatOrb`, заменены на монохромный сапфировый туман `subtlePulse`.
+  * **Архитектура двойного безеля (Double-Bezel Shell & Core)**:
+    * Созданы классы `.tg-double-bezel-shell` и `.tg-double-bezel-core` с тонким безелем (1px border, specular highlight) и глубокой тенью `0 24px 64px -12px rgba(0,0,0,0.56)`.
+    * Экран входа [`src/components/LoginScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/LoginScreen.tsx) полностью переведен на архитектуру двойного безеля:
+      * Скользящий индикатор переключения режимов (Framer Motion `layoutId="authSegmentActive"`).
+      * Кнопка-остров `.tg-island-btn` со стрелкой в круглом подносе `.tg-btn-inner-icon`.
+      * Горизонтальный селектор демо-аккаунтов с бейджем роли и подсветкой активного профиля.
+      * 3D-тилт эффект маскота с отслеживанием курсора и динамическим сжатием при клике.
+      * QR-сканер с векторным лазерным сканированием и круговым таймером.
+  * **Типографика и микро-детали (Plus Jakarta Sans & Geist)**:
+    * В `index.html` и `src/index.css` подключены шрифты Plus Jakarta Sans и Geist Mono.
+    * Добавлен класс `.tg-tabular` для `font-variant-numeric: tabular-nums`, примененный к счетчикам непрочитанных в папках и сайдбаре.
+    * В [`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx): реализован класс `.tg-room-active` с левым вертикальным акцентным маркером, островной строкой поиска с бейджем `⌘K` и кнопкой очистки `✕`.
+    * В [`src/components/Chat/Header/ChatHeader.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Header/ChatHeader.tsx): добавлена субпиксельная разделительная линия и визуальный баланс элементов.
+  * Актуализирован файл [`handoff.md`](file:///c:/Users/Drilla/Desktop/Comms/handoff.md).
+
+### [v3.27.0] — 6 сентября 2026 г.
+* **Аудит и усиление кибербезопасности на базе Anthropic Cybersecurity Skills**:
+  * **Нейтрализация Stored XSS и санитизация HTML**:
+    * Создан модуль [`src/lib/sanitize.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/lib/sanitize.ts) с функциями `escapeHtml()`, `sanitizeSearchHighlight()` и `sanitizeUrl()`.
+    * Создан набор юнит-тестов [`src/lib/sanitize.test.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/lib/sanitize.test.ts) (9 тестов, проверяющих экранирование тегов, обработчиков событий `onerror`/`onload`, псевдопротоколов `javascript:` при сохранении безопасных `<mark>`).
+    * В [`src/components/Search/SearchResultCard.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Search/SearchResultCard.tsx) входящие строки подсветки поиска обезвреживаются перед передачей в `dangerouslySetInnerHTML`.
+    * В [`src/pages/AdminArchive.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/pages/AdminArchive.tsx) заголовки и контент сообщений архива санитизируются перед рендерингом.
+  * **Защита сокетов и Real-Time API ([`server.js`](file:///c:/Users/Drilla/Desktop/Comms/server.js))**:
+    * Добавлена защита от Cross-Site WebSocket Hijacking (CSWSH) через верификацию заголовка `Origin` сокет-клиента.
+    * Добавлен `io.use()` handshake middleware с проверкой JWT токена и проверкой по реестру отозванных токенов до установки сокет-соединения.
+    * Реализован sliding window rate limiter per socket для событий `send_message`, `edit_message`, `delete_message`, `toggle_reaction`, `send_story`, `typing`.
+    * Установлены жесткие ограничения длины полезной нагрузки (макс. 10 000 символов для сообщений, 1 000 символов для историй).
+    * Усилена санитизация поисковых запросов PostgREST regex `/[^a-zA-Z0-9а-яА-ЯёЁ _-]/g`.
+  * **JWT аутентификация и управление сессиями**:
+    * В [`src/utils/token.utils.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/utils/token.utils.ts) и [`docker-compose.yml`](file:///c:/Users/Drilla/Desktop/Comms/docker-compose.yml) полностью удалены hardcoded секреты; зафиксирован алгоритм `algorithms: ['HS256']`.
+    * В `server.js` добавлены эндпоинты `POST /api/auth/refresh` (с ротацией токенов), `POST /api/auth/logout` (с сохранением токена в `revokedTokens` black-list) и `GET /api/auth/me`.
+    * Реализована автоочистка истекших токенов из памяти сервера по таймеру TTL.
+  * **Сетевой уровень и заголовки безопасности ([`nginx.conf`](file:///c:/Users/Drilla/Desktop/Comms/nginx.conf), [`server.js`](file:///c:/Users/Drilla/Desktop/Comms/server.js))**:
+    * В `nginx.conf` добавлено `server_tokens off;` и HSTS `Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;`.
+    * Добавлен заголовок `X-Content-Type-Options: nosniff` на раздачу пользовательских файлов `/uploads/` в Nginx и Express.
+    * В `server.js` отключен заголовок `x-powered-by` и настроен Helmet HSTS.
+  * **Документация**:
+    * Актуализирован [`SECURITY.md`](file:///c:/Users/Drilla/Desktop/Comms/SECURITY.md) с описанием архитектуры безопасности, поддерживаемых версий (v3.x.x) и рекомендаций по развертыванию.
+    * Актуализирован [`handoff.md`](file:///c:/Users/Drilla/Desktop/Comms/handoff.md).
+
+### [v3.26.0] — 6 сентября 2026 г.
+* **Комплексный рефакторинг безопасности (аудит 20 уязвимостей)**:
+  * В `server.js`: подключен Helmet, CORS whitelist, rate-limiter, удален plain-text пароль, удален backdoor `AUTH_KEYS`, crypto.randomUUID sessionId, авторизация `delete_message`, валидация регистрации, санитизация PostgREST.
+  * На клиенте: удален `KEY_TO_USER` из `constants.ts`, удален legacy login fallback из `SocketContext.tsx`.
 
 ### [v3.21.0] — 6 сентября 2026 г.
 * **Комплексная оптимизация безопасных зон (Safe Areas) и устранение коллизий со статус-баром в модальных окнах и порталах**:

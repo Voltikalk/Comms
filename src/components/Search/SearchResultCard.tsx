@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { USER_NAMES } from '../../constants';
+import { sanitizeSearchHighlight } from '../../lib/sanitize';
 
 export interface SearchResultCardProps {
   item: any;
@@ -34,9 +35,10 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
   const displayTime = item.created_at || item.timestamp || Date.now();
   const displayRoomName = item.roomName || item.rooms?.name || roomName;
   const rawContent = item.headline || item.snippet || item.content || item.text || (item.poll ? `📊 Опрос: ${item.poll.question}` : '') || (item.file ? `📎 ${item.file.name}` : '');
-  const contentHtml = typeof rawContent === 'string'
+  const cleanedContent = typeof rawContent === 'string'
     ? rawContent.replace(/^[\u200B\s]*\[fwd:[^\]]+\][\u200B\s]*/g, '').replace(/^\[Переслано от [^\]]+\]:\s*/, '')
-    : rawContent;
+    : String(rawContent || '');
+  const contentHtml = sanitizeSearchHighlight(cleanedContent);
 
   return (
     <motion.div

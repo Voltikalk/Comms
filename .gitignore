@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 
 # Editor directories and files
 .vscode/*
@@ -31,3 +32,4 @@ uploads/*
 # Scratch and agent local artifacts
 scratch/
 .agents/
+skills-lock.json

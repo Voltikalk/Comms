@@ -231,17 +231,17 @@ export const ChatFolderTabs: React.FC<ChatFolderTabsProps> = ({
               {/* Badge */}
               {hasUnread ? (
                 <span
-                  className={`px-1.5 py-0.2 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[10px] font-bold ${
+                  className={`px-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[10px] font-bold tg-tabular shadow-xs transition-transform ${
                     isActive
                       ? 'bg-white text-[#3390ec]'
-                      : 'bg-[#3390ec] text-white animate-pulse'
+                      : 'bg-[#3390ec] text-white'
                   }`}
                 >
                   {countInfo.unread > 99 ? '99+' : countInfo.unread}
                 </span>
               ) : countInfo.total > 0 && tab.id !== 'all' ? (
                 <span
-                  className={`text-[10px] font-medium px-1 rounded-full ${
+                  className={`text-[10px] font-medium px-1 rounded-full tg-tabular ${
                     isActive ? 'bg-white/20 text-white' : 'text-gray-400 dark:text-gray-500'
                   }`}
                 >

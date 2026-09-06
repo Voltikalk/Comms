@@ -6,8 +6,41 @@ We actively maintain and provide security updates for the following versions of 
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.x.x   | :white_check_mark: |
+| 3.x.x   | :white_check_mark: |
+| 2.x.x   | :x:                |
 | 1.x.x   | :x:                |
+
+---
+
+## Security Architecture & Defenses
+
+Secure Comms implements a defense-in-depth architecture adhering to cybersecurity standards (OWASP Top 10, ASVS, RFC 6455 / CSWSH mitigations, and JWT best practices):
+
+### 1. Frontend Security & XSS Neutralization
+* **HTML Sanitization Suite (`src/lib/sanitize.ts`)**: All user-controlled text rendered via rich elements (e.g. search query highlights, admin headlines, archive data) passes through strict HTML entity encoding. Only safe `<mark class="...">` tags are preserved.
+* **URL Protocol Validation**: Links and media URLs are strictly verified to only allow `http:`, `https:`, and `data:` schemes, blocking `javascript:` and malicious pseudo-protocols.
+* **Component Hardening**: Direct assignments to `dangerouslySetInnerHTML` in `SearchResultCard.tsx` and `AdminArchive.tsx` are sanitized before rendering.
+
+### 2. WebSocket & Real-Time Security
+* **Cross-Site WebSocket Hijacking (CSWSH) Prevention**: Every incoming WebSocket connection validates the HTTP `Origin` header against explicit server-configured whitelists (`CLIENT_ORIGIN`, `PRODUCTION_ORIGIN`, `ALLOWED_ORIGINS`). Cross-origin browser connection attempts from unauthorized domains are rejected.
+* **Handshake JWT Authentication (`io.use`)**: Socket handshakes require a valid Bearer token in `auth.token` or the `Authorization` header. Expired, invalid, or revoked tokens are rejected with authentication errors before the connection is established.
+* **Per-Socket Sliding Window Rate Limiting**: Real-time events (`send_message`, `edit_message`, `delete_message`, `toggle_reaction`, `send_story`, `typing`) are constrained by sliding-window rate limiters to prevent flooding, spamming, and denial of service.
+* **Payload Size Constraints**: Text messages are capped at 10,000 characters and story captions at 1,000 characters to prevent buffer exhaustion.
+
+### 3. Authentication & JWT Hardening
+* **Cryptographic Secrets & Algorithms**: Access and refresh tokens enforce explicit `HS256` verification. Hardcoded fallback secrets are completely removed. If environment secrets are missing in non-production, high-entropy random keys are generated dynamically.
+* **Token Rotation & Revocation**: `POST /api/auth/refresh` rotates tokens and revokes previous tokens. `POST /api/auth/logout` invalidates tokens server-side using an in-memory TTL-based revocation blocklist with periodic cleanup.
+* **Password Hashing**: Passwords are saved and verified strictly using `bcrypt` with 12 salt rounds.
+
+### 4. HTTP & Reverse Proxy Hardening
+* **Nginx Reverse Proxy**:
+  * `server_tokens off;` suppresses server version disclosure.
+  * `Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;` enforces HTTPS.
+  * `X-Content-Type-Options: nosniff` protects uploaded media and assets against MIME-sniffing.
+* **Express & Helmet**:
+  * `app.disable('x-powered-by')` prevents Express fingerprinting.
+  * Helmet applies strict Content-Security-Policy (CSP), Referrer-Policy, and Permissions-Policy.
+  * Express rate limiters protect authentication (`/api/auth/*`), uploads, and general API endpoints.
 
 ---
 
@@ -37,7 +70,7 @@ The Secure Comms team takes all security vulnerabilities seriously. We appreciat
 
 When deploying Secure Comms to production, please ensure:
 
-1. **Environment Secrets**: Never commit real `.env` or API keys (`SUPABASE_SERVICE_ROLE_KEY`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`) to source control.
-2. **HTTPS & WSS**: Always run client and Socket.io endpoints behind secure TLS/SSL termination (`https://` and `wss://`).
-3. **Database RLS Policies**: Keep Row Level Security (RLS) enabled on all PostgreSQL / Supabase tables (`002_rls_policies.sql`).
-4. **Token Expiration**: Rotate JWT secrets periodically and enforce short TTLs for access tokens.
+1. **Environment Secrets**: Generate 64-character random secrets for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`. Never commit `.env` files to git.
+2. **HTTPS & WSS**: Always run behind TLS/SSL termination with Let's Encrypt certificates (`https://` and `wss://`).
+3. **Database RLS Policies**: Ensure Row Level Security (RLS) remains enabled on all Supabase tables.
+4. **CORS & WebSocket Origins**: Configure `CLIENT_ORIGIN` and `PRODUCTION_ORIGIN` to match your production domain.
