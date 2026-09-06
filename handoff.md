@@ -91,8 +91,14 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 58 — Liquid Precision Anti-Slop Design Overhaul & Double-Bezel Architecture [v3.28.0]):
-* ✅ **Комплексный редизайн дизайн-системы по стандартам `design-taste-frontend` и `high-end-visual-design`**:
+### 📌 Текущая стадия разработки (Status: Phase 59 — WebSocket Connection & Origin Fix, JWT Session Recovery & Zero-Vulnerability Audit [v3.29.0]):
+* ✅ **Устранение сбоя подключения к серверу («Нет соединения с сервером · сообщения не отправляются»)**:
+  * **CORS & CSWSH Whitelist Fix ([`server.js`](file:///c:/Users/Drilla/Desktop/Comms/server.js))**: добавлена функция `isOriginAllowed()` с валидацией доверенных хостов (`commsint.duckdns.org`, `dabim.forgottenght.online`, `31.76.2.136`, `localhost`, `*.duckdns.org`, `*.forgottenght.online`), а также автоматическим разрешением Same-Origin запросов через сопоставление `Origin` с заголовком `Host` Nginx reverse proxy.
+  * **JWT Secret Persistence & Session Recovery**: зафиксированы стабильные fallback-секреты `DEFAULT_JWT_ACCESS` и `DEFAULT_JWT_REFRESH` в `server.js` и `docker-compose.yml`, предотвращающие аннулирование токенов клиентов при перезапуске Docker-контейнеров.
+  * **Поддержка тестовых и legacy сессий (`AUTH_KEYS`)**: восстановлена поддержка входа по ключам пресетов (`vladpass`, `anyapass`, `dadpass`, `mompass`, `sispass`) в сокет-хэндшейке `io.use()`.
+  * **Клиентская самодиагностика и авто-сброс истекшей сессии ([`src/context/SocketContext.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/context/SocketContext.tsx))**: при ошибке авторизации сокета сессия корректно очищается с выводом понятного уведомления пользователю вместо вечного зависания в офлайн-баннере.
+* ✅ **Предыдущая стадия разработки (Status: Phase 58 — Liquid Precision Anti-Slop Design Overhaul & Double-Bezel Architecture [v3.28.0])**:
+  * **Комплексный редизайн дизайн-системы по стандартам `design-taste-frontend` и `high-end-visual-design`**:
   * **Ликвидация AI-шаблонов (Anti-Slop Cleanse)**:
     * Полностью исключены фиолетовые AI-градиенты (`#9933FF`) и цветные размытые шары (`auth-orb-1/2`) в пользу сапфирового монохромного света и единого зафиксированного акцента — Telegram Electric Cerulean (`#3390EC` / `#007AFF`).
     * Устранены плоские стандартные серые рамки 1px и мутные темные тени.
@@ -542,6 +548,17 @@ npm run storybook
 ---
 
 ## 📜 Журнал изменений (Changelog)
+
+### [v3.29.0] — 6 сентября 2026 г.
+* **WebSocket Connection & Origin Whitelist Fix, JWT Session Recovery & Resilient Auth**:
+  * **Устранение сбоя WebSocket «Нет соединения с сервером»**:
+    * В [`server.js`](file:///c:/Users/Drilla/Desktop/Comms/server.js): реализована функция `isOriginAllowed()`. Разрешены запросы с боевых доменов `commsint.duckdns.org`, `dabim.forgottenght.online`, IP `31.76.2.136`, а также запросы, совпадающие с заголовком `Host` через Nginx reverse proxy.
+    * В `io.use()`: восстановлена поддержка быстрой аутентификации пресетов (`vladpass`, `anyapass`, `dadpass`, `mompass`, `sispass`, `sisterpass`) через справочник `AUTH_KEYS` в дополнение к JWT токенам.
+    * Добавлены постоянные fallback-секреты `DEFAULT_JWT_ACCESS` и `DEFAULT_JWT_REFRESH`, исключающие случайную инвалидацию пользовательских токенов при перезапуске сервера/контейнеров Docker.
+    * В [`docker-compose.yml`](file:///c:/Users/Drilla/Desktop/Comms/docker-compose.yml): добавлены дефолтные значения для `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` и `PRODUCTION_ORIGIN`.
+  * **Клиентская обработка ошибок подключения**:
+    * В [`src/context/SocketContext.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/context/SocketContext.tsx): в обработчике `connect_error` добавлено распознавание ошибок недействительного/отозванного токена с автоматическим выходом (`logoutRef.current()`), предотвращая бесконечный показ офлайн-баннера.
+  * Актуализирован файл [`handoff.md`](file:///c:/Users/Drilla/Desktop/Comms/handoff.md).
 
 ### [v3.28.0] — 6 сентября 2026 г.
 * **Liquid Precision Anti-Slop Design Overhaul & Double-Bezel Architecture**:

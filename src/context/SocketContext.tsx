@@ -545,8 +545,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsConnected(false);
     });
 
-    socket.on('connect_error', () => {
+    socket.on('connect_error', (err: any) => {
       setIsConnected(false);
+      const errMsg = err?.message || '';
+      console.warn('[Socket Connection Error]', errMsg);
+      if (
+        errMsg.includes('Authentication failed') ||
+        errMsg.includes('Authentication required') ||
+        errMsg.includes('revoked token')
+      ) {
+        setError('Сессия истекла или недействительна. Выполните вход снова.');
+        logoutRef.current();
+        return;
+      }
       setError('Не удалось подключиться к серверу. Убедитесь, что сервер чата запущен.');
     });
 
