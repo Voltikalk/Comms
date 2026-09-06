@@ -40,7 +40,7 @@ npm run dev
 
 ### 5. Тестирование, проверка качества и сборка
 ```bash
-# Запуск юнит-тестов Vitest (107/107 тестов)
+# Запуск юнит-тестов Vitest (121/121 тестов)
 npm test
 
 # Линтинг кодовой базы (Oxlint)
@@ -561,6 +561,9 @@ npm run storybook
     * Добавлен класс `.tg-tabular` для `font-variant-numeric: tabular-nums`, примененный к счетчикам непрочитанных в папках и сайдбаре.
     * В [`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx): реализован класс `.tg-room-active` с левым вертикальным акцентным маркером, островной строкой поиска с бейджем `⌘K` и кнопкой очистки `✕`.
     * В [`src/components/Chat/Header/ChatHeader.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Header/ChatHeader.tsx): добавлена субпиксельная разделительная линия и визуальный баланс элементов.
+  * **Безопасность зависимостей (NPM Security Audit & Zero Vulnerabilities)**:
+    * Устранены 4 уязвимости зависимостей (`nanoid` DoS, `postcss` source map path traversal, `qs` array-limit DoS, `socket.io-parser` memory exhaustion) через обновление патч-версий в `package-lock.json`.
+    * Результат аудита: **0 vulnerabilities** (все 547 пакетов чисты).
   * Актуализирован файл [`handoff.md`](file:///c:/Users/Drilla/Desktop/Comms/handoff.md).
 
 ### [v3.27.0] — 6 сентября 2026 г.
