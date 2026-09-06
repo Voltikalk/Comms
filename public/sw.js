@@ -1,5 +1,5 @@
 // Secure Comms Service Worker — App Shell Caching & Offline Support
-const CACHE_NAME = 'comms-cache-v2';
+const CACHE_NAME = 'comms-cache-v3';
 const APP_SHELL = [
   '/',
   '/index.html',

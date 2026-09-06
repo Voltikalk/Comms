@@ -91,23 +91,21 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 53 — iOS PWA Negative Viewport Offset & Edge-to-Edge Fix [v3.23.0]):
-* ✅ **Полное устранение смещения интерфейса вверх и щели снизу на iOS (Safari / PWA / Chrome)**:
-  * **Первопричина бага**: Тег `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">` в iOS WebKit принудительно сдвигал начало координат веб-вью вверх на высоту статус-бара (~59px), вызывая уход шапки под вырез экрана/часы и образование симметричного пустого «подбородка» (chin gap) внизу страницы.
+### 📌 Текущая стадия разработки (Status: Phase 54 — Fixed Bottom Navigation Pinning & Service Worker Cache Invalidation [v3.24.0]):
+* ✅ **Гарантированное физическое прижатие мобильной навигации к низу (`fixed bottom-0 left-0 right-0`) и сброс кеша**:
+  * **Проблема**: Даже после изменения высот контейнеров компонент `MobileBottomNav` оставался обычным flex-элементом внутри `<aside>`, из-за чего зависел от высоты родительских контейнеров и при сжатии вьюпорта зависал выше физического низа экрана. Кроме того, локальный Service Worker (`sw.js`) кешировал старый `index.html` и бандл на смартфонах.
   * **Реализованное решение**:
-    1. **[`index.html`](file:///c:/Users/Drilla/Desktop/Comms/index.html)**:
-       * Значение тега `apple-mobile-web-app-status-bar-style` изменено с `black-translucent` на `default`. В сочетании с `<meta name="theme-color" content="#17212b">` iOS автоматически окрашивает верхний статус-бар в фирменный цвет мессенджера, не смещая систему координат страницы вверх.
-    2. **[`public/manifest.json`](file:///c:/Users/Drilla/Desktop/Comms/public/manifest.json)**:
-       * `background_color` обновлен с `#0e1621` на `#17212b`.
-    3. **[`src/index.css`](file:///c:/Users/Drilla/Desktop/Comms/src/index.css)**:
-       * Контейнеры `html, body` и `#root` получили полную поддержку современных мобильных высот: `min-height: 100vh`, `min-height: 100lvh`, `min-height: -webkit-fill-available`.
-       * `#root` зафиксирован: `top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; height: 100vh; height: 100lvh; height: -webkit-fill-available;`.
-    4. **[`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx)**:
-       * Верхний отступ нормализован до `max(0.5rem, env(safe-area-inset-top, 0px))`, предотвращая чрезмерное сдавливание шапки.
-    5. **[`src/components/Mobile/MobileBottomNav.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Mobile/MobileBottomNav.tsx)**:
-       * Нижний отступ панели навигации зафиксирован через инлайн-стили `paddingBottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem))`, гарантируя прижатие к нижней кромке стекла и вывод значков над Home Indicator.
-    6. **[`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx)**:
-       * Позиционирование плавающей кнопки FAB переведено на гарантированный инлайн-стиль `bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px))`.
+    1. **[`src/components/Mobile/MobileBottomNav.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Mobile/MobileBottomNav.tsx)**:
+       * Панели навигации присвоены классы `fixed bottom-0 left-0 right-0 w-full z-40`. Теперь панель аппаратно прибита к координате `bottom: 0` физического экрана и физически не может иметь пустого пространства снизу.
+       * Задан безопасный инлайн-паддинг `paddingBottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem))`.
+    2. **[`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx)**:
+       * Контейнеру списка чатов добавлен нижний клиренс `pb-24 md:pb-1.5`, чтобы нижние диалоги в списке не перекрывались зафиксированной панелью.
+       * Плавающей кнопке нового сообщения (FAB ✏️) задано позиционирование `fixed right-4 z-30 md:absolute md:bottom-5 md:right-4` со стилем `bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px))` — парит прямо над панелью навигации.
+    3. **[`src/components/ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx)**:
+       * Корневой экран чатов зафиксирован жестко: `fixed inset-0 w-full h-full`.
+    4. **[`public/sw.js`](file:///c:/Users/Drilla/Desktop/Comms/public/sw.js) и [`index.html`](file:///c:/Users/Drilla/Desktop/Comms/index.html)**:
+       * Версия кеша увеличена до `comms-cache-v3` для принудительного удаления старого кеша на смартфонах.
+       * В `index.html` добавлен мгновенный вызов `reg.update()` при регистрации Service Worker для немедленного обновления интерфейса у пользователей.
     2. **Сайдбар и поиск ([`src/components/Chat/Sidebar/ChatSidebar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Sidebar/ChatSidebar.tsx))**:
        * Верхняя панель переведена на аккуратный паддинг `px-3 pt-2.5 pb-2`, а поле поиска `Поиск...` получило высоту `py-2 text-xs` и скругление `rounded-xl`, устранив тесноту между статус-баром и лентой историй.
        * Кнопка создания чата (FAB ✏️) смещена на `bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-5`.
@@ -1440,6 +1438,16 @@ npm run storybook
     * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
   * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
     * В [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) обработчик `POST /api/auth/login` научился автоматически отсекать префикс `@` в логине, динамически находить пользователя в Supabase PostgreSQL при отсутствии в кеше памяти, безопасно сопоставлять пароль (bcrypt/plain) и при необходимости проверять пользователя через Supabase Auth (`signInWithPassword`).
+### [v3.24.0] — 6 сентября 2026 г.
+* **Физическое прижатие мобильной навигации к низу (`fixed bottom-0`) и инвалидация кеша**:
+  * **Прижатие панели навигации к физическому низу экрана**:
+    * В `src/components/Mobile/MobileBottomNav.tsx`: добавлены классы `fixed bottom-0 left-0 right-0 w-full z-40`, что гарантирует аппаратное прижатие навигационной панели к нижней границе экрана без зависимости от высоты родительских контейнеров.
+    * В `src/components/Chat/Sidebar/ChatSidebar.tsx`: добавлен отступ `pb-24 md:pb-1.5` списку чатов для беспрепятственного скроллинга над панелью, а кнопка FAB переведена на `fixed right-4 z-30 md:absolute md:bottom-5 md:right-4`.
+    * В `src/components/ChatScreen.tsx`: корневой контейнер зафиксирован `fixed inset-0 w-full h-full`.
+    * В `public/sw.js`: версия кеша поднята до `comms-cache-v3` для очистки устаревшего локального кеша PWA на смартфонах.
+    * В `index.html`: добавлен `reg.update()` для немедленного применения изменений без ручной очистки кеша браузера.
+  * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
+
 ### [v3.23.0] — 6 сентября 2026 г.
 * **Устранение смещения интерфейса вверх и щели снизу на iOS (iOS PWA Negative Offset & Chin Fix)**:
   * **Устранена первопричина сдвига вьюпорта**:

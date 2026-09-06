@@ -381,7 +381,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         )}
 
         {/* Chat List Stream */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-0.5 p-1.5 tg-scrollbar">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-0.5 p-1.5 pb-24 md:pb-1.5 tg-scrollbar">
           {rooms.map((room) => {
             const isActive = room.id === activeRoomId;
             const count = unreadCount(room.id);
@@ -521,9 +521,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         {/* Floating Action Button (FAB) for New Chat (Telegram Style) */}
         {!isCompactSidebar && onOpenNewChatModal && (
           <div
-            className="absolute right-4 z-20 md:bottom-5"
+            className="fixed right-4 z-30 md:absolute md:bottom-5 md:right-4"
             style={{
-              bottom: 'calc(4.25rem + env(safe-area-inset-bottom, 0px))',
+              bottom: 'calc(4.75rem + env(safe-area-inset-bottom, 0px))',
             }}
           >
             <button
