@@ -30,6 +30,7 @@ export interface Skiper8Props {
   words?: string[];
   onComplete?: () => void;
   className?: string;
+  fontWeight?: string;
 }
 
 const DEFAULT_WORDS = [
@@ -53,6 +54,7 @@ export const Skiper8: React.FC<Skiper8Props> = ({
   words = DEFAULT_WORDS,
   onComplete,
   className = '',
+  fontWeight = 'font-bold',
 }) => {
   const [index, setIndex] = useState(0);
   const [dimension, setDimension] = useState({ width: 0, height: 0 });
@@ -126,9 +128,9 @@ export const Skiper8: React.FC<Skiper8Props> = ({
                 variants={opacity}
                 initial="initial"
                 animate="enter"
-                className="flex text-white text-[32px] sm:text-[42px] items-center absolute z-[1] font-normal tracking-normal select-none pointer-events-none leading-none"
+                className={`flex text-white text-[32px] sm:text-[42px] items-center absolute z-[1] ${fontWeight} tracking-tight select-none pointer-events-none leading-none`}
               >
-                <span className="block w-[10px] h-[10px] bg-white rounded-full mr-[10px] shrink-0" />
+                <span className="block w-[10px] h-[10px] sm:w-[12px] sm:h-[12px] bg-white rounded-full mr-[10px] sm:mr-[12px] shrink-0" />
                 {words[index]}
               </motion.p>
               <svg className="absolute top-0 w-full h-[calc(100%+300px)] pointer-events-none">
