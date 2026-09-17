@@ -7,12 +7,7 @@ import {
   ArrowRight, 
   Send, 
   Sparkles, 
-  QrCode, 
-  KeyRound, 
-  RefreshCw,
   ShieldCheck,
-  Smartphone,
-  CheckCircle2
 } from 'lucide-react';
 import { TelegramRegistrationWizard } from './TelegramRegistrationWizard';
 import { Skiper26ThemeToggle } from './ui/skiper26';
@@ -32,7 +27,6 @@ const PRESET_ACCOUNTS = [
 ];
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMode }) => {
-  const [authMethod, setAuthMethod] = useState<'password' | 'qr'>('password');
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [showPreloader, setShowPreloader] = useState<boolean>(true);
   
@@ -44,10 +38,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
   const [isCapsLockOn, setIsCapsLockOn] = useState<boolean>(false);
   const [showDevPresets, setShowDevPresets] = useState<boolean>(false);
 
-  // QR Code States
-  const [qrCodeTimer, setQrCodeTimer] = useState<number>(60);
-  const [isQrRefreshed, setIsQrRefreshed] = useState<boolean>(false);
-
   // 3D Tilt effect on Mascot
   const [mouseTilt, setMouseTilt] = useState<{ rx: number; ry: number }>({ rx: 0, ry: 0 });
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -56,19 +46,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
   const [error, setError] = useState<string | null>(null);
 
   const { login, error: serverError } = useSocket();
-
-  // QR Code Countdown
-  useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    if (authMethod === 'qr' && qrCodeTimer > 0) {
-      timer = setInterval(() => {
-        setQrCodeTimer((prev) => Math.max(0, prev - 1));
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [authMethod, qrCodeTimer]);
 
   // Sync server errors
   useEffect(() => {
@@ -141,12 +118,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
   // Handle Caps Lock
   const handlePasswordKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
     setIsCapsLockOn(e.getModifierState('CapsLock'));
-  };
-
-  const handleRefreshQr = () => {
-    setQrCodeTimer(60);
-    setIsQrRefreshed(true);
-    setTimeout(() => setIsQrRefreshed(false), 2000);
   };
 
   // If user selected Registration, display the dedicated multi-step Telegram Registration Wizard
@@ -227,60 +198,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
               Ультрапремиальный защищенный мессенджер
             </p>
 
-            {/* Segmented Switcher: Вход по паролю vs По QR-коду */}
-            <div className="flex p-1 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] w-full mb-6 relative ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
-              <button
-                type="button"
-                onClick={() => setAuthMethod('password')}
-                className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 relative z-10 ${
-                  authMethod === 'password'
-                    ? 'text-[#3390EC] dark:text-white'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {authMethod === 'password' && (
-                  <motion.div
-                    layoutId="authSegmentActive"
-                    className="absolute inset-0 rounded-xl bg-white dark:bg-[#1E2D3D] shadow-xs shadow-black/10 dark:shadow-black/40 ring-1 ring-black/[0.04] dark:ring-white/[0.1] -z-10"
-                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                  />
-                )}
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>По паролю</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAuthMethod('qr')}
-                className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 relative z-10 ${
-                  authMethod === 'qr'
-                    ? 'text-[#3390EC] dark:text-white'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {authMethod === 'qr' && (
-                  <motion.div
-                    layoutId="authSegmentActive"
-                    className="absolute inset-0 rounded-xl bg-white dark:bg-[#1E2D3D] shadow-xs shadow-black/10 dark:shadow-black/40 ring-1 ring-black/[0.04] dark:ring-white/[0.1] -z-10"
-                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                  />
-                )}
-                <QrCode className="w-3.5 h-3.5" />
-                <span>По QR-коду</span>
-              </button>
-            </div>
-
-            {/* ================================================================= */}
-            {/* MODE 1: PASSWORD LOGIN                                            */}
-            {/* ================================================================= */}
-            {authMethod === 'password' && (
-              <motion.div
-                key="method-password"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full"
-              >
+            {/* Login Form */}
+            <div className="w-full">
                 {/* Login Form */}
                 <form onSubmit={handleLoginSubmit} className="w-full space-y-3.5">
                   <div className="w-full text-left">
@@ -419,111 +338,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     )}
                   </AnimatePresence>
                 </div>
-              </motion.div>
-            )}
-
-            {/* ================================================================= */}
-            {/* MODE 2: TELEGRAM QR CODE LOGIN                                    */}
-            {/* ================================================================= */}
-            {authMethod === 'qr' && (
-              <motion.div
-                key="method-qr"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full flex flex-col items-center"
-              >
-                {/* Precision QR Matrix Shell */}
-                <div className="relative p-4 rounded-3xl bg-white dark:bg-[#0E1621] border border-black/[0.08] dark:border-white/[0.08] shadow-lg mb-4">
-                  <div className="w-48 h-48 relative flex items-center justify-center bg-white rounded-2xl p-2.5">
-                    {/* Stylized QR Code Matrix */}
-                    <svg viewBox="0 0 100 100" className="w-full h-full text-slate-900">
-                      {/* Outer corner anchors */}
-                      <rect x="5" y="5" width="25" height="25" fill="none" stroke="#17212b" strokeWidth="4" rx="4" />
-                      <rect x="11" y="11" width="13" height="13" fill="#3390ec" rx="2" />
-                      <rect x="70" y="5" width="25" height="25" fill="none" stroke="#17212b" strokeWidth="4" rx="4" />
-                      <rect x="76" y="11" width="13" height="13" fill="#3390ec" rx="2" />
-                      <rect x="5" y="70" width="25" height="25" fill="none" stroke="#17212b" strokeWidth="4" rx="4" />
-                      <rect x="11" y="76" width="13" height="13" fill="#3390ec" rx="2" />
-                      
-                      {/* Decorative QR points */}
-                      <rect x="35" y="10" width="6" height="6" fill="#17212b" />
-                      <rect x="45" y="10" width="6" height="6" fill="#17212b" />
-                      <rect x="55" y="10" width="6" height="6" fill="#17212b" />
-                      <rect x="35" y="22" width="6" height="6" fill="#17212b" />
-                      <rect x="50" y="25" width="6" height="6" fill="#17212b" />
-                      
-                      <rect x="10" y="38" width="6" height="6" fill="#17212b" />
-                      <rect x="22" y="42" width="6" height="6" fill="#17212b" />
-                      <rect x="35" y="40" width="8" height="8" fill="#3390ec" />
-                      <rect x="65" y="38" width="6" height="6" fill="#17212b" />
-                      <rect x="80" y="42" width="6" height="6" fill="#17212b" />
-
-                      <rect x="38" y="60" width="6" height="6" fill="#17212b" />
-                      <rect x="48" y="65" width="8" height="8" fill="#17212b" />
-                      <rect x="62" y="60" width="6" height="6" fill="#17212b" />
-                      <rect x="75" y="72" width="6" height="6" fill="#17212b" />
-                      <rect x="85" y="80" width="8" height="8" fill="#3390ec" />
-                    </svg>
-
-                    {/* Center Telegram Logo Badge */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-11 h-11 rounded-full bg-[#3390ec] text-white flex items-center justify-center shadow-md border-2 border-white">
-                        <Send className="w-5 h-5 -translate-x-0.5 translate-y-0.5 text-white" />
-                      </div>
-                    </div>
-
-                    {/* Laser Scanning Line */}
-                    <motion.div
-                      animate={{
-                        y: [-80, 80, -80],
-                        opacity: [0.3, 0.9, 0.3],
-                      }}
-                      transition={{
-                        duration: 3,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
-                      className="absolute w-44 h-0.5 bg-gradient-to-r from-transparent via-[#3390ec] to-transparent shadow-[0_0_8px_#3390ec]"
-                    />
-                  </div>
-                </div>
-
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-4 leading-relaxed">
-                  Откройте Telegram на смартфоне: <br />
-                  <strong className="text-slate-700 dark:text-slate-300 font-semibold">Настройки → Устройства → Подключить</strong>
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleRefreshQr}
-                    className="px-4 py-2 rounded-full bg-[#3390EC]/10 hover:bg-[#3390EC]/20 text-[#3390EC] text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer active:scale-95"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span className="tg-tabular">Обновить QR ({qrCodeTimer}с)</span>
-                  </button>
-                  {isQrRefreshed && (
-                    <span className="text-xs text-emerald-500 font-medium flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Обновлен</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Quick Demo QR Simulator Button */}
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPreset(PRESET_ACCOUNTS[0])}
-                    className="text-xs font-medium text-[#3390ec] hover:underline cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>Эмулировать сканирование (Влад)</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
+              </div>
 
             {/* Security Footer Note */}
             <div className="mt-6 pt-4 border-t border-black/[0.04] dark:border-white/[0.05] w-full flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">

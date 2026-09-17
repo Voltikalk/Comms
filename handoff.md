@@ -1611,6 +1611,20 @@ npm run storybook
   * **Исправление вызова контекстного меню сообщений (Bugfix: TypeError e.preventDefault)**:
     * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
   * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
+### [v3.33.0] — 18 сентября 2026 г.
+* **Ликвидация входа по QR-коду и оптимизация экрана авторизации ([`src/components/LoginScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/LoginScreen.tsx))**:
+  * **Убрано**:
+    * Вкладка-переключатель «По QR-коду» и состояние `authMethod`. Форма входа по логину/паролю теперь выводится напрямую без сегментированных табов.
+    * Весь блок генерации матрицы QR-кода, анимированной лазерной полоски сканирования, таймера жизни кода и эмулятора мобильного подключения.
+    * Неиспользуемые иконки Lucide: `QrCode`, `KeyRound`, `RefreshCw`, `Smartphone`, `CheckCircle2`.
+    * Состояния таймера `qrCodeTimer`, `isQrRefreshed`, `useEffect` обратного отсчета и обработчик `handleRefreshQr`.
+  * **Улучшено**:
+    * Карточка авторизации избавилась от лишнего визуального шума и стала монолитной, чистой и ориентированной на мгновенный ввод данных.
+  * **Контроль качества**:
+    * Oxlint: 0 предупреждений, 0 ошибок на всех 167 файлах.
+    * Vitest: 121/121 тестов успешно пройдены (11 suites).
+    * Vite build: успешная сборка production-бандла за 1.42s без ошибок.
+
 ### [v3.32.0] — 18 сентября 2026 г.
 * **Полная 1:1 аутентичная реконструкция Skiper UI 08 / Dennis Snellenberg Words Preloader ([`src/components/ui/skiper8.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ui/skiper8.tsx))**:
   * **Убрано (ликвидация искусственных декораций и визуального шума)**:
