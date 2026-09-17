@@ -12,11 +12,12 @@ import {
   type ActiveToken,
   type MentionCandidate
 } from '../lib/mentions';
-import { triggerTelegramDisintegrate } from './effects/disintegrate';
 import { findStickersByEmoji } from '../constants/stickers';
-import { createAudioLiveAnalyser, normalizeWaveform, type AudioLiveAnalyser } from '../lib/audio-waveform';
 import type { Sticker } from '../types/sticker.types';
-import { usePlatform } from '../context/PlatformContext';
+import { usePlatform } from '../hooks/usePlatform';
+import { useVoiceRecording } from '../hooks/useVoiceRecording';
+import { useVideoNoteRecording } from '../hooks/useVideoNoteRecording';
+import { useChatInteractions } from '../hooks/useChatInteractions';
 import { DesktopTitleBar } from './Desktop/DesktopTitleBar';
 import type { MobileTab } from './Mobile/MobileBottomNav';
 import type { ChatFolderId, FolderCountInfo } from './Navigation/ChatFolderTabs';
@@ -328,7 +329,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const typingTimeoutRef = useRef<any>(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [chatFilters, setChatFilters] = useState<FilterOptions>({});
@@ -338,24 +338,57 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [showAdvancedSearchModal, setShowAdvancedSearchModal] = useState(false);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(40);
-  const [contextMenuTarget, setContextMenuTarget] = useState<{
-    message: Message;
-    x: number;
-    y: number;
-    isSelf: boolean;
-  } | null>(null);
 
-  // Context menu action states
-  const [pinnedMessages, setPinnedMessages] = useState<Record<string, string>>({});
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [toast, setToast] = useState<{
     text: string;
     actionLabel?: string;
     onAction?: () => void;
   } | null>(null);
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+
+  const showToast = useCallback((
+    textOrConfig: string | { text: string; actionLabel?: string; onAction?: () => void }
+  ) => {
+    if (typeof textOrConfig === 'string') {
+      setToast({ text: textOrConfig });
+    } else {
+      setToast(textOrConfig);
+    }
+    setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  // Encapsulated chat interactions (replies, edits, forwarding, pins, selections, context menu, disintegrate)
+  const {
+    replyingToMessage,
+    setReplyingToMessage,
+    editingMessage,
+    setEditingMessage,
+    forwardingMessage,
+    setForwardingMessage,
+    currentPinnedMessage,
+    contextMenuTarget,
+    setContextMenuTarget,
+    isSelectMode,
+    setIsSelectMode,
+    selectedMessageIds,
+    setSelectedMessageIds,
+    messageMap,
+    togglePinMessage,
+    handleForwardToRoom,
+    handleDeleteMessageAnimated,
+    handleDeleteSelectedAnimated,
+    handleContextMenu,
+  } = useChatInteractions({
+    activeRoomId,
+    currentUser,
+    rooms,
+    deleteMessage,
+    forwardMessage,
+    setActiveRoomId,
+    setMobileView,
+    getRoomDisplayName,
+    showToast,
+    messages,
+  });
 
   // Global Keyboard Shortcuts (Desktop / Power User Navigation Suite)
   useEffect(() => {
@@ -489,6 +522,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     showEmojiPicker,
     editingMessage,
     replyingToMessage,
+    setEditingMessage,
+    setReplyingToMessage,
     isSearching,
     mobileView,
     isDesktopView,
@@ -559,17 +594,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [activeStoryViewerUser, setActiveStoryViewerUser] = useState<string | null>(null);
   const [isStoryCreateOpen, setIsStoryCreateOpen] = useState(false);
 
-  const showToast = useCallback((
-    textOrConfig: string | { text: string; actionLabel?: string; onAction?: () => void }
-  ) => {
-    if (typeof textOrConfig === 'string') {
-      setToast({ text: textOrConfig });
-    } else {
-      setToast(textOrConfig);
-    }
-    setTimeout(() => setToast(null), 3500);
-  }, []);
-
   // File & Voice Attachment states
   const [selectedFile, setSelectedFile] = useState<{ 
     name: string; 
@@ -584,43 +608,43 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     waveform?: number[];
     duration?: number;
   } | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordTime, setRecordTime] = useState(0);
-  const [liveVolumeLevels, setLiveVolumeLevels] = useState<number[]>([]);
+
   const [inputActionMode, setInputActionMode] = useState<'voice' | 'video'>('voice');
-  const [isVoiceLocked, setIsVoiceLocked] = useState(false);
-  const [isVoicePaused, setIsVoicePaused] = useState(false);
-  const [voiceDragOffset, setVoiceDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [recordedVoicePreview, setRecordedVoicePreview] = useState<{
-    blob: Blob;
-    url: string;
-    waveform: number[];
-    duration: number;
-    mimeType: string;
-  } | null>(null);
-
-  const voiceStopActionRef = useRef<'send' | 'preview' | 'cancel'>('send');
-  const voicePointerStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const isVoiceHoldingRef = useRef(false);
-  const voiceStartTimeRef = useRef<number>(0);
-
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordIntervalRef = useRef<any>(null);
-  const audioAnalyserRef = useRef<AudioLiveAnalyser | null>(null);
-  const rawAudioAmplitudesRef = useRef<number[]>([]);
-  const audioVolumeIntervalRef = useRef<any>(null);
 
-  // Video Circle recording states
-  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
-  const [videoRecordTime, setVideoRecordTime] = useState(0);
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  // Encapsulated voice recording hook
+  const {
+    isRecording,
+    recordTime,
+    liveVolumeLevels,
+    isVoiceLocked,
+    isVoicePaused,
+    voiceDragOffset,
+    recordedVoicePreview,
+    toggleVoicePause,
+    stopRecording,
+    sendRecordedVoicePreview,
+    cancelRecordedVoicePreview,
+    handleVoicePointerDown,
+    handleVoicePointerMove,
+    handleVoicePointerUp,
+    formatRecordTime,
+  } = useVoiceRecording({
+    sendMessage,
+    triggerHaptic,
+    inputActionMode,
+  });
 
-  const videoRecorderRef = useRef<MediaRecorder | null>(null);
-  const videoChunksRef = useRef<Blob[]>([]);
-  const videoIntervalRef = useRef<any>(null);
-  const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
+  // Encapsulated video note recording hook
+  const {
+    isRecordingVideo,
+    videoRecordTime,
+    videoPreviewRef,
+    startVideoRecording,
+    stopVideoRecording,
+  } = useVideoNoteRecording({
+    sendMessage,
+  });
 
   // Call stream refs
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -739,27 +763,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     return () => clearTimeout(timer);
   }, [inputText, activeRoomId, editingMessage, persistDraft]);
 
-  // Memoized message map for O(1) replies lookup
-  const messageMap = React.useMemo(() => {
-    return new Map(messages.map((m) => [m.id, m]));
-  }, [messages]);
-
-  const currentPinnedMessageId = activeRoomId ? pinnedMessages[activeRoomId] : null;
-  const currentPinnedMessage = currentPinnedMessageId ? messageMap.get(currentPinnedMessageId) || null : null;
-
-  const togglePinMessage = (msgId: string) => {
-    if (!activeRoomId) return;
-    setPinnedMessages((prev) => {
-      if (prev[activeRoomId] === msgId) {
-        const next = { ...prev };
-        delete next[activeRoomId];
-        showToast('Сообщение откреплено');
-        return next;
-      }
-      showToast('Сообщение закреплено');
-      return { ...prev, [activeRoomId]: msgId };
-    });
-  };
 
   const COMPACT_SIDEBAR_WIDTH = 72;
   const SNAP_THRESHOLD = 175;
@@ -828,68 +831,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     };
   }, [isResizingSidebar, sidebarWidth]);
 
-  const handleForwardToRoom = (targetRoomId: string) => {
-    if (!forwardingMessage) return;
-
-    // 1. Forward message to target room with full forwardedFrom metadata
-    forwardMessage(targetRoomId, forwardingMessage);
-
-    // 2. Close modal and reset selection (stay in current chat smoothly)
-    setForwardingMessage(null);
-    setIsSelectMode(false);
-    setSelectedMessageIds(new Set());
-
-    const targetRoom = rooms.find((r) => r.id === targetRoomId);
-    const roomName = targetRoom ? getRoomDisplayName(targetRoom) : 'чат';
-
-    // 3. Show smooth Telegram notification with "Перейти" action
-    showToast({
-      text: `Сообщение переслано в ${roomName}`,
-      actionLabel: 'Перейти',
-      onAction: () => {
-        setActiveRoomId(targetRoomId);
-        setMobileView('chat');
-      }
-    });
-  };
-
-  const handleDeleteMessageAnimated = useCallback((messageId: string) => {
-    const element = document.getElementById(`msg-${messageId}`);
-    const bubble = (element?.querySelector('[data-bubble="true"]') || element) as HTMLElement | null;
-    if (bubble) {
-      triggerTelegramDisintegrate(bubble, () => {
-        deleteMessage(messageId);
-      });
-    } else {
-      deleteMessage(messageId);
-    }
-  }, [deleteMessage]);
-
-  const handleDeleteSelectedAnimated = useCallback(() => {
-    const ids = Array.from(selectedMessageIds);
-    if (ids.length === 0) return;
-
-    const bubbles: HTMLElement[] = [];
-    ids.forEach((id) => {
-      const element = document.getElementById(`msg-${id}`);
-      const bubble = (element?.querySelector('[data-bubble="true"]') || element) as HTMLElement | null;
-      if (bubble) {
-        bubbles.push(bubble);
-      }
-    });
-
-    if (bubbles.length > 0) {
-      triggerTelegramDisintegrate(bubbles, () => {
-        ids.forEach((id) => deleteMessage(id));
-      });
-    } else {
-      ids.forEach((id) => deleteMessage(id));
-    }
-
-    setIsSelectMode(false);
-    setSelectedMessageIds(new Set());
-    showToast(ids.length > 1 ? 'Сообщения удалены' : 'Сообщение удалено');
-  }, [selectedMessageIds, deleteMessage, showToast]);
 
   // Filter messages using our rich applyFilters system
   const filteredMessages = React.useMemo(() => {
@@ -1192,13 +1133,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSelectMode]);
+  }, [isSelectMode, setIsSelectMode, setSelectedMessageIds]);
 
   // Clean up timers on unmount
   useEffect(() => {
+    const currentTypingTimeout = typingTimeoutRef.current;
     return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
+      if (currentTypingTimeout) clearTimeout(currentTypingTimeout);
       stopRingtone();
     };
   }, []);
@@ -1594,353 +1535,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     if (file) acceptIncomingFile(file);
   };
 
-  // Audio Note recording with Web Audio Waveform Capture & Slide-to-Cancel / Lock / Preview
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      let mimeType = 'audio/webm';
-      if (typeof MediaRecorder !== 'undefined') {
-        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
-        else if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
-        else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
-        else if (MediaRecorder.isTypeSupported('audio/aac')) mimeType = 'audio/aac';
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      rawAudioAmplitudesRef.current = [];
-      setLiveVolumeLevels([]);
-      setIsVoiceLocked(false);
-      setIsVoicePaused(false);
-      setVoiceDragOffset({ x: 0, y: 0 });
-      setRecordedVoicePreview(null);
-      voiceStopActionRef.current = 'send';
-      voiceStartTimeRef.current = Date.now();
-
-      // Initialize real-time Web Audio Analyser
-      const analyser = createAudioLiveAnalyser(stream);
-      audioAnalyserRef.current = analyser;
-
-      if (analyser) {
-        audioVolumeIntervalRef.current = setInterval(() => {
-          const vol = analyser.getInstantVolume();
-          rawAudioAmplitudesRef.current.push(vol);
-          setLiveVolumeLevels((prev) => [...prev.slice(-15), vol]);
-        }, 90);
-      }
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        if (audioVolumeIntervalRef.current) {
-          clearInterval(audioVolumeIntervalRef.current);
-          audioVolumeIntervalRef.current = null;
-        }
-        audioAnalyserRef.current?.close();
-        audioAnalyserRef.current = null;
-
-        const action = voiceStopActionRef.current;
-        const actualMimeType = mediaRecorder.mimeType || mimeType || 'audio/webm';
-        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
-        const normalizedWaveform = normalizeWaveform(rawAudioAmplitudesRef.current, 30, 8, 100);
-        const duration = Math.max(1, recordTime);
-
-        if (action === 'send') {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const base64 = reader.result as string;
-            const extension = actualMimeType.includes('mp4') ? 'mp4' : actualMimeType.includes('ogg') ? 'ogg' : actualMimeType.includes('aac') ? 'aac' : 'webm';
-            sendMessage('', undefined, {
-              name: `Голосовое сообщение.${extension}`,
-              type: 'audio',
-              data: base64,
-              size: audioBlob.size,
-              rawBlob: audioBlob,
-              waveform: normalizedWaveform,
-              duration
-            });
-          };
-          reader.readAsDataURL(audioBlob);
-          stream.getTracks().forEach((track) => track.stop());
-        } else if (action === 'preview') {
-          const previewUrl = URL.createObjectURL(audioBlob);
-          setRecordedVoicePreview({
-            blob: audioBlob,
-            url: previewUrl,
-            waveform: normalizedWaveform,
-            duration,
-            mimeType: actualMimeType
-          });
-          stream.getTracks().forEach((track) => track.stop());
-        } else {
-          // action === 'cancel'
-          stream.getTracks().forEach((track) => track.stop());
-        }
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordTime(0);
-
-      recordIntervalRef.current = setInterval(() => {
-        setRecordTime((t) => t + 1);
-      }, 1000);
-    } catch (err) {
-      console.error('Record microphone error:', err);
-      alert('Не удалось получить доступ к микрофону.');
-    }
-  };
-
-  const toggleVoicePause = () => {
-    if (!mediaRecorderRef.current || !isRecording) return;
-    if (mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.pause();
-      if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
-      if (audioVolumeIntervalRef.current) clearInterval(audioVolumeIntervalRef.current);
-      setIsVoicePaused(true);
-      triggerHaptic('light');
-    } else if (mediaRecorderRef.current.state === 'paused') {
-      mediaRecorderRef.current.resume();
-      recordIntervalRef.current = setInterval(() => {
-        setRecordTime((t) => t + 1);
-      }, 1000);
-      if (audioAnalyserRef.current) {
-        audioVolumeIntervalRef.current = setInterval(() => {
-          const vol = audioAnalyserRef.current?.getInstantVolume() ?? 10;
-          rawAudioAmplitudesRef.current.push(vol);
-          setLiveVolumeLevels((prev) => [...prev.slice(-15), vol]);
-        }, 90);
-      }
-      setIsVoicePaused(false);
-      triggerHaptic('light');
-    }
-  };
-
-  const stopRecording = (action: 'send' | 'preview' | 'cancel' = 'send') => {
-    voiceStopActionRef.current = action;
-    if (recordIntervalRef.current) {
-      clearInterval(recordIntervalRef.current);
-      recordIntervalRef.current = null;
-    }
-    if (audioVolumeIntervalRef.current) {
-      clearInterval(audioVolumeIntervalRef.current);
-      audioVolumeIntervalRef.current = null;
-    }
-
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-    }
-    setIsRecording(false);
-    setIsVoiceLocked(false);
-    setIsVoicePaused(false);
-    setVoiceDragOffset({ x: 0, y: 0 });
-    setLiveVolumeLevels([]);
-  };
-
-  const sendRecordedVoicePreview = () => {
-    if (!recordedVoicePreview) return;
-    const { blob, mimeType, waveform, duration, url } = recordedVoicePreview;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      const extension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : mimeType.includes('aac') ? 'aac' : 'webm';
-      sendMessage('', undefined, {
-        name: `Голосовое сообщение.${extension}`,
-        type: 'audio',
-        data: base64,
-        size: blob.size,
-        rawBlob: blob,
-        waveform,
-        duration
-      });
-      URL.revokeObjectURL(url);
-      setRecordedVoicePreview(null);
-    };
-    reader.readAsDataURL(blob);
-  };
-
-  const cancelRecordedVoicePreview = () => {
-    if (recordedVoicePreview) {
-      URL.revokeObjectURL(recordedVoicePreview.url);
-      setRecordedVoicePreview(null);
-    }
-  };
-
-  const handleVoicePointerDown = (e: React.PointerEvent) => {
-    if (inputActionMode !== 'voice') return;
-    if (e.button !== 0) return;
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    voicePointerStartPosRef.current = { x: e.clientX, y: e.clientY };
-    isVoiceHoldingRef.current = true;
-    startRecording();
-  };
-
-  const handleVoicePointerMove = (e: React.PointerEvent) => {
-    if (!isVoiceHoldingRef.current || !voicePointerStartPosRef.current || isVoiceLocked) return;
-    const dx = e.clientX - voicePointerStartPosRef.current.x;
-    const dy = e.clientY - voicePointerStartPosRef.current.y;
-    setVoiceDragOffset({ x: dx, y: dy });
-
-    if (dx < -80) {
-      triggerHaptic('warning');
-      isVoiceHoldingRef.current = false;
-      stopRecording('cancel');
-      return;
-    }
-
-    if (dy < -55) {
-      triggerHaptic('success');
-      setIsVoiceLocked(true);
-      isVoiceHoldingRef.current = false;
-      setVoiceDragOffset({ x: 0, y: 0 });
-    }
-  };
-
-  const handleVoicePointerUp = (e: React.PointerEvent) => {
-    if (!isVoiceHoldingRef.current) return;
-    isVoiceHoldingRef.current = false;
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-
-    if (!isVoiceLocked && isRecording) {
-      const elapsedMs = Date.now() - voiceStartTimeRef.current;
-      if (elapsedMs < 600) {
-        setIsVoiceLocked(true);
-      } else {
-        stopRecording('send');
-      }
-    }
-  };
-
-  const formatRecordTime = (seconds: number) => {
-    const min = Math.floor(seconds / 60);
-    const sec = Math.floor(seconds % 60);
-    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
-  };
-
-  // Video Circle Note recording (up to 60 seconds)
-  const startVideoRecording = async () => {
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('Запись видео-кружков требует защищенного соединения (HTTPS или localhost).');
-        return;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: {
-          facingMode: 'user',
-          width: { ideal: 480, max: 720 },
-          height: { ideal: 480, max: 720 },
-          frameRate: { ideal: 30, max: 30 }
-        }
-      });
-
-      setVideoStream(stream);
-      setIsRecordingVideo(true);
-      setVideoRecordTime(0);
-      videoChunksRef.current = [];
-
-      setTimeout(() => {
-        if (videoPreviewRef.current) {
-          videoPreviewRef.current.srcObject = stream;
-        }
-      }, 100);
-
-      let mimeType = 'video/webm';
-      if (typeof MediaRecorder !== 'undefined') {
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) mimeType = 'video/webm;codecs=vp8,opus';
-        else if (MediaRecorder.isTypeSupported('video/webm')) mimeType = 'video/webm';
-        else if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4';
-      }
-
-      const recorderOptions: MediaRecorderOptions = {
-        mimeType: mimeType || undefined,
-        videoBitsPerSecond: 1_200_000
-      };
-
-      const mediaRecorder = new MediaRecorder(stream, recorderOptions);
-      videoRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          videoChunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const actualMimeType = mediaRecorder.mimeType || mimeType || 'video/webm';
-        const videoBlob = new Blob(videoChunksRef.current, { type: actualMimeType });
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          const extension = actualMimeType.includes('mp4') ? 'mp4' : actualMimeType.includes('ogg') ? 'ogg' : 'webm';
-          sendMessage('', undefined, {
-            name: `Видео-кружок.${extension}`,
-            type: 'video_note',
-            data: base64,
-            size: videoBlob.size,
-            rawBlob: videoBlob,
-            duration: videoRecordTime || 1
-          });
-        };
-        reader.readAsDataURL(videoBlob);
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      mediaRecorder.start();
-
-      videoIntervalRef.current = setInterval(() => {
-        setVideoRecordTime((t) => {
-          if (t >= 59) {
-            stopVideoRecording(true);
-            return 60;
-          }
-          return t + 1;
-        });
-      }, 1000);
-    } catch (err) {
-      console.error('Record video circle error:', err);
-      alert('Не удалось получить доступ к камере/микрофону.');
-    }
-  };
-
-  const stopVideoRecording = (shouldSend = true) => {
-    if (videoIntervalRef.current) {
-      clearInterval(videoIntervalRef.current);
-      videoIntervalRef.current = null;
-    }
-
-    if (videoRecorderRef.current && isRecordingVideo) {
-      if (!shouldSend) {
-        videoRecorderRef.current.onstop = () => {
-          videoRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
-        };
-      }
-      videoRecorderRef.current.stop();
-    } else if (videoStream) {
-      videoStream.getTracks().forEach((track) => track.stop());
-    }
-
-    setIsRecordingVideo(false);
-    setVideoStream(null);
-  };
 
   const getRoomColor = (room: Room) => {
     if (room.type === 'group') return 'bg-[#3390ec]';
@@ -2101,26 +1695,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     setCurrentMatchIndex(0);
   }, []);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent | { clientX: number; clientY: number; preventDefault?: () => void }, msg: Message) => {
-    if (e && typeof e.preventDefault === 'function') {
-      e.preventDefault();
-    }
-    if (isSelectMode) {
-      setSelectedMessageIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(msg.id)) next.delete(msg.id);
-        else next.add(msg.id);
-        return next;
-      });
-      return;
-    }
-    setContextMenuTarget({
-      message: msg,
-      x: e.clientX,
-      y: e.clientY,
-      isSelf: msg.sender === currentUser
-    });
-  }, [isSelectMode, currentUser]);
 
   const handleNavigateFromGlobalSearch = useCallback((targetRoomId: string, targetMessageId?: string) => {
     setActiveRoomId(targetRoomId);

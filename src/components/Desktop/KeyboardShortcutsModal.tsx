@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { usePlatform } from '../../context/PlatformContext';
+import { usePlatform } from '../../hooks/usePlatform';
 import {
   IconX,
   IconKeyboard,

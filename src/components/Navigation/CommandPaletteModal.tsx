@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { Room, UserId } from '../../types';
-import { usePlatform } from '../../context/PlatformContext';
+import { usePlatform } from '../../hooks/usePlatform';
 import {
   IconSearch,
   IconX,

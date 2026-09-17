@@ -2,7 +2,7 @@ export type OSPlatform = 'windows' | 'macos' | 'linux' | 'ios' | 'android' | 'we
 export type DeviceType = 'desktop' | 'mobile' | 'tablet';
 export type HybridViewMode = 'auto' | 'desktop' | 'mobile';
 
-export type HapticFeedbackType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'selection';
+export type HapticFeedbackType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'selection' | 'error';
 
 export interface PlatformContextType {
   os: OSPlatform;

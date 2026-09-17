@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePlatform } from '../../context/PlatformContext';
+import { usePlatform } from '../../hooks/usePlatform';
 import {
   IconX,
   IconDownload,

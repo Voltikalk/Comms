@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { TelegramRegistrationWizard } from './TelegramRegistrationWizard';
 import { Skiper26ThemeToggle } from './ui/skiper26';
+import { Skiper8 } from './ui/skiper8';
 
 interface LoginScreenProps {
   darkMode: boolean;
@@ -33,6 +34,7 @@ const PRESET_ACCOUNTS = [
 export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMode }) => {
   const [authMethod, setAuthMethod] = useState<'password' | 'qr'>('password');
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
+  const [showPreloader, setShowPreloader] = useState<boolean>(true);
   
   // Login Form States
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -168,11 +170,44 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
       onMouseLeave={handleMouseLeave}
       className="min-h-full h-full overflow-y-auto w-full flex flex-col items-center justify-center p-4 sm:p-6 pt-[max(1.5rem,env(safe-area-inset-top,1.5rem))] pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] auth-canvas text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden font-body"
     >
+      {/* Skiper UI 08 - Words Preloader (Dennis Snellenberg / Apple Style) */}
+      {showPreloader && (
+        <Skiper8
+          words={[
+            'Привет',
+            'Hello',
+            'Bonjour',
+            'Ciao',
+            'Olà',
+            'やあ',
+            'Hallå',
+            'Guten Tag',
+            'Secure Comms',
+          ]}
+          subtitle="TELEGRAM WEB REALTIME"
+          theme={darkMode ? 'dark' : 'light'}
+          onComplete={() => setShowPreloader(false)}
+        />
+      )}
+
       {/* Refined Monochromatic Ambient Glow Orbs */}
       <div className="auth-glow-top pointer-events-none" />
       <div className="auth-glow-bottom pointer-events-none" />
 
-      {/* Top Bar: Skiper 26 Theme Toggle */}
+      {/* Top Bar Left: Skiper 8 Replay Button */}
+      <div className="fixed top-[max(1rem,env(safe-area-inset-top,1rem))] left-4 z-40 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => setShowPreloader(true)}
+          className="py-1.5 px-3 rounded-full text-xs font-medium bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1.5 backdrop-blur-md cursor-pointer active:scale-95 ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
+          title="Запустить заставку Skiper 08"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#3390EC]" />
+          <span>Интро Skiper 8</span>
+        </button>
+      </div>
+
+      {/* Top Bar Right: Skiper 26 Theme Toggle */}
       <div className="fixed top-[max(1rem,env(safe-area-inset-top,1rem))] right-4 z-40 pointer-events-auto">
         {toggleDarkMode && (
           <Skiper26ThemeToggle 
@@ -197,7 +232,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
             {/* Top specular subtle rim line */}
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-white/30 dark:via-white/20 to-transparent pointer-events-none" />
 
-            {/* Interactive 3D Parallax Mascot / Logo with Cerulean Glow */}
+            {/* Interactive 3D Parallax Mascot / Logo with Cerulean Glow & Skiper 8 trigger */}
             <motion.div
               animate={{
                 rotateX: mouseTilt.rx,
@@ -206,6 +241,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
               transition={{ type: 'spring', stiffness: 350, damping: 22 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => setShowPreloader(true)}
+              title="Нажмите для повторного воспроизведения заставки Skiper 08"
               className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#2B7ECC] to-[#3390EC] text-white flex items-center justify-center shadow-lg shadow-[#3390EC]/30 mb-4 cursor-pointer select-none ring-4 ring-[#3390EC]/15"
             >
               <Send className="w-9 h-9 text-white -translate-x-0.5 translate-y-0.5" />

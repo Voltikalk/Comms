@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { usePlatform } from '../../context/PlatformContext';
+import { usePlatform } from '../../hooks/usePlatform';
 import {
   IconMessageCircle2,
   IconSparkles,

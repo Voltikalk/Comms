@@ -91,7 +91,28 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 59 — WebSocket Connection & Origin Fix, JWT Session Recovery & Zero-Vulnerability Audit [v3.29.0]):
+### 📌 Текущая стадия разработки (Status: Phase 61 — Skiper UI 08 Words Preloader, Dennis Snellenberg Curved Morph & Auth Suite Integration [v3.31.0]):
+* ✅ **Интеграция компонента `@skiper-ui/skiper8` (Words Preloader Suite)**:
+  * Создан компонент [`src/components/ui/skiper8.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ui/skiper8.tsx):
+    * Реализует премиальный прелоадер в эстетике Dennis Snellenberg (`dennissnellenberg.com`) и Apple Design с динамической сменой мультиязычных приветствий («Привет», «Hello», «Bonjour», «Ciao», «Olà», «やあ», «Hallå», «Guten Tag», «Secure Comms»).
+    * Пульсирующая неоновая точка-индикатор Telegram Blue (`#3390EC`).
+    * Живой расчет и морфинг SVG-кривой Безье на выходе (`M0 0 L... Q...`) с динамическим расчетом под ширину и высоту вьюпорта (`window.innerWidth/innerHeight`).
+    * Плавный слайд-ап выход контейнера с физикой `[0.76, 0, 0.24, 1]`.
+    * Поддержка светлой и темной тем, кастомных наборов слов, субтитров и колбэка завершения `onComplete`.
+* ✅ **Внедрение на страницу входа (`LoginScreen.tsx`)**:
+  * Входная заставка с плавным автоматическим проигрыванием при первом визите.
+  * Интерактивная кнопка в левой верхней панели («✨ Интро Skiper 8») и кликабельный 3D-маскот для мгновенного повторного воспроизведения анимации.
+* ✅ **Внедрение на страницу регистрации (`TelegramRegistrationWizard.tsx`)**:
+  * Специализированный набор приветствий нового пользователя («Регистрация», «Welcome», «Bienvenue», «Benvenuto», «Willkommen», «Создание профиля», «Comms ID»).
+  * Кнопка запуска заставки в верхней панели мастера регистрации.
+* ✅ **Конфигурация реестров Shadcn (`components.json`)**:
+  * Добавлен реестр `@skiper-ui`: `https://skiper-ui.com/r/{name}.json`.
+* ✅ **Контроль качества**:
+  * 121/121 юнит-тестов проходят (11 suites) в Vitest (100% pass).
+  * 0 ошибок TypeScript и сборщика Vite (production-бандл собран за 1.66s).
+  * 0 ошибок и 0 предупреждений Oxlint (167 файлов).
+
+### 📌 Предыдущая стадия разработки (Status: Phase 60 — Dead Code Elimination, Mobile LAN CORS, God-Component Decomposition & Zero-Warning Cleanse [v3.30.0]):
 * ✅ **Устранение сбоя подключения к серверу («Нет соединения с сервером · сообщения не отправляются»)**:
   * **CORS & CSWSH Whitelist Fix ([`server.js`](file:///c:/Users/Drilla/Desktop/Comms/server.js))**: добавлена функция `isOriginAllowed()` с валидацией доверенных хостов (`commsint.duckdns.org`, `dabim.forgottenght.online`, `31.76.2.136`, `localhost`, `*.duckdns.org`, `*.forgottenght.online`), а также автоматическим разрешением Same-Origin запросов через сопоставление `Origin` с заголовком `Host` Nginx reverse proxy.
   * **JWT Secret Persistence & Session Recovery**: зафиксированы стабильные fallback-секреты `DEFAULT_JWT_ACCESS` и `DEFAULT_JWT_REFRESH` в `server.js` и `docker-compose.yml`, предотвращающие аннулирование токенов клиентов при перезапуске Docker-контейнеров.
@@ -292,10 +313,11 @@ Comms/
 │   ├── kolobki.ts                         # 50 оригинальных 60 FPS анимаций ICQ Колобков
 │   └── wallpapers.ts                      # Коллекция обоев чата (фото, градиенты, паттерны)
 ├── context/
-│   ├── PlatformContext.tsx                # Единый контекст гибридной платформы (ОС, PWA, Ping, Haptic)
-│   ├── AuthContext.tsx                    # Supabase Auth Context и сессии
+│   ├── PlatformContext.tsx                # Единый провайдер гибридной платформы (ОС, PWA, Ping, Haptic)
+│   ├── PlatformContextBase.ts             # React Context базовый инстанс платформы
 │   ├── SocketContext.tsx                  # Real-time сокеты, сообщения, опросы, WebRTC звонки
-│   └── StoriesContext.tsx                 # Изолированный контекст управления историями
+│   ├── StoriesContext.tsx                 # Провайдер управления историями
+│   └── StoriesContextBase.ts              # React Context базовый инстанс историй
 ├── lib/
 │   ├── platform.test.ts                   # 5 юнит-тестов гибридной платформы и виброотклика
 │   ├── audio-waveform.ts                  # Анализ спектра Web Audio API, RMS нормализация в 30 баров
@@ -312,9 +334,14 @@ Comms/
 │   ├── animations.ts                      # Пресеты Framer Motion, GSAP, AOS и Lottie
 │   └── supabase/                          # Клиент Supabase, кеш, запросы и типизация
 ├── hooks/
+│   ├── useVoiceRecording.ts               # Хук аудиозаписи (MediaRecorder, Web Audio Analyser, свайпы)
+│   ├── useVideoNoteRecording.ts           # Хук записи круглых видео-сообщений 60 FPS
+│   ├── useChatInteractions.ts             # Хук интеракций (ответы, правки, закрепления, удаление Таноса)
+│   ├── usePlatform.ts                     # Хук доступа к PlatformContext
+│   ├── useStories.ts                      # Хук управления историями StoriesContext
+│   ├── useVideoPlayerContext.ts           # Хук доступа к VideoPlayerContext
 │   ├── useSearchMessages.ts               # Хук быстрого поиска с таймингом и подсветкой
 │   ├── useVideoPlayer.ts                  # Хук управления воспроизведением видеоплеера
-│   ├── useAuth.ts                         # Хук доступа к AuthContext
 │   ├── useMediaQuery.ts                   # Хуки брейкпоинтов
 │   └── useTouchInteractions.ts            # Хуки свайп-навигации
 ├── components/
@@ -367,6 +394,7 @@ Comms/
 │   │   ├── GradientBackground.tsx         # Фоновые градиенты
 │   │   └── ParticleBackground.tsx         # Интерактивные фоновые частицы
 │   └── ui/
+│       ├── skiper8.tsx                    # Words Preloader в стиле Dennis Snellenberg / Apple
 │       ├── skiper26.tsx                   # View Transitions API радиальное раскрытие темы
 │       ├── skiper4.tsx                    # Framer Motion морфинг-переключатель темы Солнце/Луна
 │       ├── Button.tsx                     # Кнопки дизайн-системы с вариантами и ripple
@@ -375,10 +403,7 @@ Comms/
 │       └── LoadingSpinner.tsx             # Индикаторы загрузки
 └── pages/
     ├── SearchPage.tsx                     # Главный экран глобального FTS поиска сообщений
-    ├── AdminArchive.tsx                   # Панель управления долговременной архивацией
-    ├── LoginPage.tsx                      # Страница входа
-    ├── RegisterPage.tsx                   # Страница регистрации
-    └── ResetPasswordPage.tsx              # Страница восстановления пароля
+    └── AdminArchive.tsx                   # Панель управления долговременной архивацией
 ```
 
 ---
@@ -439,6 +464,7 @@ Comms/
 * **Архитектура ([`src/components/VideoPlayer/`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/))**: кастомный HTML5-плеер в стилистике Telegram Web с поддержкой авто-определения ориентации (вертикальные 9:16 Reels / горизонтальные 16:9), управления скоростью (`0.5x`–`2x`), слайдером громкости, хоткеями (Space/K/F/M/P/ArrowLeft/ArrowRight), Picture-in-Picture и полноэкранным режимом.
 
 ### 4.7. Движок тем Skiper UI, обоев, размытия и затемнения
+* **Skiper UI 08 ([`src/components/ui/skiper8.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper8.tsx))**: премиальный прелоадер слов *Words Preloader* (Dennis Snellenberg / Apple style). Включает мультиязычные приветствия, неоновую точку-индикатор, адаптивный расчет живой SVG-кривой Безье (`initialPath` / `targetPath`) и слайд-ап выход `[0.76, 0, 0.24, 1]` на страницах входа и регистрации.
 * **Skiper UI 26 ([`src/components/ui/skiper26.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper26.tsx))**: круговое радиальное раскрытие темы через View Transitions API (`document.startViewTransition`) из координат клика.
 * **Skiper 4 ([`src/components/ui/skiper4.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ui/skiper4.tsx))**: переключатель тем с морфингом полумесяца и лучей солнца (Framer Motion).
 * **Обои чата ([`src/components/Theme/ThemeSettingsModal.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Theme/ThemeSettingsModal.tsx))**: коллекция фото-обоев, градиентов и паттернов с независимыми ползунками размытия `blur` (0–20px) и затемнения `dimming` (0–80%) с компенсацией масштабирования `scale(1.12)`.
@@ -1585,7 +1611,48 @@ npm run storybook
   * **Исправление вызова контекстного меню сообщений (Bugfix: TypeError e.preventDefault)**:
     * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
   * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
-    * В [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) обработчик `POST /api/auth/login` научился автоматически отсекать префикс `@` в логине, динамически находить пользователя в Supabase PostgreSQL при отсутствии в кеше памяти, безопасно сопоставлять пароль (bcrypt/plain) и при необходимости проверять пользователя через Supabase Auth (`signInWithPassword`).
+### [v3.31.0] — 17 сентября 2026 г.
+* **Интеграция `@skiper-ui/skiper8` (Words Preloader Suite) на экранах входа и регистрации**:
+  * **Создание компонента `Skiper8` ([`src/components/ui/skiper8.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ui/skiper8.tsx))**:
+    * Реализован Words Preloader по образцу Dennis Snellenberg (`dennissnellenberg.com`) и дизайн-системы Apple: последовательная анимация появления слов с эффектом opacity/slide, светящаяся неоновая точка Telegram Blue (`#3390EC`).
+    * Живой расчет и плавный морфинг кривой Безье в SVG (`initialPath` с кривизной `Q${width/2} ${height + 300}` в `targetPath` `Q${width/2} ${height}`) с динамическим отслеживанием размеров окна браузера (`window.innerWidth/innerHeight`).
+    * Плавный слайд-ап выход экрана загрузки с кривой ускорения `[0.76, 0, 0.24, 1]`.
+    * Поддержка светлой и темной тем, кастомизации набора слов, субтитров и колбэка завершения.
+  * **Внедрение на экран входа (`LoginScreen.tsx`)**:
+    * Добавлено автоматическое воспроизведение мультиязычной заставки («Привет», «Hello», «Bonjour», «Ciao», «Olà», «やあ», «Hallå», «Guten Tag», «Secure Comms»).
+    * Добавлена кнопка «✨ Интро Skiper 8» в левом верхнем углу и кликабельность 3D-маскота для повторного воспроизведения заставки.
+  * **Внедрение на экран регистрации (`TelegramRegistrationWizard.tsx`)**:
+    * Добавлена специализированная заставка регистрации нового пользователя («Регистрация», «Welcome», «Bienvenue», «Benvenuto», «Willkommen», «Создание профиля», «Comms ID») и кнопка повторного запуска в панели мастера.
+  * **Конфигурация Shadcn (`components.json`)**:
+    * В `registries` зарегистрирован источник `@skiper-ui`: `https://skiper-ui.com/r/{name}.json`.
+  * **Контроль качества**:
+    * Vitest: 121/121 тестов успешно пройдены (11 suites).
+    * Oxlint: 0 предупреждений, 0 ошибок на 167 файлах проекта.
+    * Vite build: 0 ошибок сборки (`dist` собран за 1.66s).
+
+### [v3.30.0] — 17 сентября 2026 г.
+* **Архитектурный рефакторинг, ликвидация мертвого кода, мобильный CORS, декомпозиция God-компонента и нулевой линтинг (Phase 60)**:
+  * **Ликвидация мертвого кода и устаревших зависимостей**:
+    * Полностью удален legacy-стек Mongoose/MongoDB (`src/config/database.ts`, `src/models/*`) и зависимость `mongoose` из `package.json`.
+    * Удален дублирующий неиспользуемый стек авторизации: `src/pages/LoginPage.tsx`, `src/hooks/useAuth.ts`, `src/context/AuthContext.tsx`, `src/services/supabase-auth.service.ts`.
+    * Удалена серверная Node.js-утилита `src/utils/token.utils.ts`.
+  * **Серверная надежность и поддержка мобильного Wi-Fi CORS (`server.js`)**:
+    * Расширена функция `isOriginAllowed()`: добавлена поддержка локальных подсетей LAN (`192.168.*`, `10.*`, `172.16-31.*`) для стабильной работы со смартфонов при локальной разработке.
+    * Socket.io переведен на динамическую валидацию Origin callback в `new Server`.
+  * **Декомпозиция `ChatScreen.tsx` на чистые специализированные хуки**:
+    * Создан [`src/hooks/useVoiceRecording.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/hooks/useVoiceRecording.ts) (MediaRecorder, Web Audio Analyser, свайп-жесты отмены и блокировки, пауза, предпросмотр).
+    * Создан [`src/hooks/useVideoNoteRecording.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/hooks/useVideoNoteRecording.ts) (видео-сообщения до 60с, управление камерой, конвертация в Blob).
+    * Создан [`src/hooks/useChatInteractions.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/hooks/useChatInteractions.ts) (ответы, редактирование, закрепление, пересылка, множественный выбор, контекстное меню и эффект распада Таноса).
+    * Размер `ChatScreen.tsx` сокращен на 426 строк (с 2618 до 2192 строк).
+  * **Устранение предупреждений React Fast Refresh и чистота кодовой базы**:
+    * Вынесены базовые контексты: `PlatformContextBase.ts`, `StoriesContextBase.ts`, `VideoPlayerContextBase.ts` с изолированными хуками `usePlatform.ts`, `useStories.ts`, `useVideoPlayerContext.ts`.
+    * Достигнут эталонный показатель: **0 предупреждений и 0 ошибок** в `oxlint` на всех 166 файлах проекта.
+  * **Безопасность конфигурации Docker (`docker-compose.yml`)**:
+    * Удалены захардкоженные дефолтные сервисные ключи и анонимные токены Supabase.
+  * **Контроль качества**:
+    * Vitest: 121/121 тестов проходят (11 suites).
+    * Vite build: 0 ошибок, сборка за 1.15s.
+
 ### [v3.25.0] — 6 сентября 2026 г.
 * **Полная нормализация вьюпорта iOS, перенос мобильной навигации в Portal и разделение чанков сборки (Vite Bundle Splitting & iOS Viewport Complete Fix)**:
   * **Устранена первопричина отступа снизу на смартфонах**:

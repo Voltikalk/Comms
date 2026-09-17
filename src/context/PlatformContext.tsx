@@ -1,13 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type {
   OSPlatform,
   DeviceType,
   HybridViewMode,
   HapticFeedbackType,
-  PlatformContextType
+  PlatformContextType,
 } from '../types/platform.types';
-
-const PlatformContext = createContext<PlatformContextType | null>(null);
+import { PlatformContext } from './PlatformContextBase';
 
 function detectOS(): OSPlatform {
   if (typeof window === 'undefined') return 'web';
@@ -245,12 +244,4 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
-};
-
-export const usePlatform = (): PlatformContextType => {
-  const context = useContext(PlatformContext);
-  if (!context) {
-    throw new Error('usePlatform must be used within a PlatformProvider');
-  }
-  return context;
 };

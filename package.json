@@ -35,7 +35,6 @@
     "jsonwebtoken": "^9.0.3",
     "lottie-web": "^5.13.0",
     "lucide-react": "^1.23.0",
-    "mongoose": "^9.9.2",
     "multer": "^2.2.0",
     "pako": "^3.0.1",
     "react": "^19.2.7",

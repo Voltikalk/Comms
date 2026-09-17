@@ -15,7 +15,7 @@ import {
   IconDotsVertical,
   IconSearch
 } from '@tabler/icons-react';
-import { useStories } from '../../context/StoriesContext';
+import { useStories } from '../../hooks/useStories';
 import {
   STORY_GRADIENTS,
   STORY_FONT_FAMILIES,

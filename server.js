@@ -117,7 +117,10 @@ function isOriginAllowed(origin, hostHeader) {
       h.endsWith('.forgottenght.online') ||
       h === '31.76.2.136' ||
       h === 'localhost' ||
-      h === '127.0.0.1'
+      h === '127.0.0.1' ||
+      h.startsWith('192.168.') ||
+      h.startsWith('10.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h)
     ) {
       return true;
     }
@@ -861,7 +864,14 @@ app.get('/api/users/search', async (req, res) => {
 
 const io = new Server(httpServer, {
   cors: {
-    origin: ALLOWED_ORIGINS,
+    origin: (origin, callback) => {
+      // Dynamic origin validation: allow same-origin, curl/tools, or validated origins
+      if (!origin || isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS: Unauthorized Socket Origin'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true
   },

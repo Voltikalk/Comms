@@ -19,6 +19,7 @@ import {
   Sliders
 } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
+import { Skiper8 } from './ui/skiper8';
 
 export interface TelegramRegistrationWizardProps {
   darkMode?: boolean;
@@ -82,6 +83,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
   const [direction, setDirection] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [showPreloader, setShowPreloader] = useState<boolean>(true);
 
   // Step 1: Email
   const [email, setEmail] = useState<string>('');
@@ -394,12 +396,29 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-50 dark:bg-[#0e1621] text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden">
+      {/* Skiper UI 08 - Words Preloader (Dennis Snellenberg / Apple Style) */}
+      {showPreloader && (
+        <Skiper8
+          words={[
+            'Регистрация',
+            'Welcome',
+            'Bienvenue',
+            'Benvenuto',
+            'Willkommen',
+            'Создание профиля',
+            'Comms ID',
+          ]}
+          subtitle="РЕГИСТРАЦИЯ В COMMS"
+          theme={darkMode ? 'dark' : 'light'}
+          onComplete={() => setShowPreloader(false)}
+        />
+      )}
       
       {/* Subtle Background Glow Orbs */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-[#3390ec]/10 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-[#0066FF]/10 blur-[100px] pointer-events-none" />
 
-      {/* Top Bar: Back button (Step > 1) & Theme toggle */}
+      {/* Top Bar: Back button (Step > 1), Skiper 8 Replay & Theme toggle */}
       <div className="fixed top-4 left-4 right-4 max-w-lg mx-auto flex items-center justify-between z-40 pointer-events-auto">
         {currentStep > 1 ? (
           <button
@@ -422,6 +441,16 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
         ) : (
           <div className="w-10 h-10" />
         )}
+
+        <button
+          type="button"
+          onClick={() => setShowPreloader(true)}
+          className="py-1.5 px-3 rounded-full text-xs font-medium bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-300 transition-all flex items-center gap-1.5 backdrop-blur-md cursor-pointer active:scale-95 shadow-xs"
+          title="Запустить заставку Skiper 08"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#3390EC]" />
+          <span>Интро Skiper 8</span>
+        </button>
 
         {toggleDarkMode && (
           <button

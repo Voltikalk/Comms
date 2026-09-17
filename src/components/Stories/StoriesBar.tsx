@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { IconPlus } from '@tabler/icons-react';
-import { useStories } from '../../context/StoriesContext';
+import { useStories } from '../../hooks/useStories';
 import { USER_NAMES, DEFAULT_USER_PROFILES } from '../../constants';
 import type { Story } from '../../types/story.types';
 
