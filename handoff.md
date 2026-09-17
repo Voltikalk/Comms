@@ -1611,6 +1611,17 @@ npm run storybook
   * **Исправление вызова контекстного меню сообщений (Bugfix: TypeError e.preventDefault)**:
     * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
   * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
+### [v3.33.1] — 18 сентября 2026 г.
+* **Устранение ложной перезагрузки страницы при клике на логотип ([`src/components/LoginScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/LoginScreen.tsx))**:
+  * **Убрано**:
+    * Убран обработчик `onClick={() => setShowPreloader(true)}` на 3D-маскоте бумажного самолетика, который повторно перекрывал экран заставкой Skiper 8 (создавая впечатление перезагрузки страницы).
+  * **Улучшено**:
+    * Логотип сохраняет интерактивный 3D-наклон при движении курсора (`mouseTilt`) и легкий spring-эффект при наведении и нажатии (`whileHover={{ scale: 1.05 }}`, `whileTap={{ scale: 0.95 }}`), но больше не сбрасывает и не перекрывает экран.
+  * **Контроль качества**:
+    * Oxlint: 0 предупреждений, 0 ошибок на всех 167 файлах.
+    * Vitest: 121/121 тестов успешно пройдены (11 suites).
+    * Vite build: успешная сборка production-бандла без ошибок.
+
 ### [v3.33.0] — 18 сентября 2026 г.
 * **Ликвидация входа по QR-коду и оптимизация экрана авторизации ([`src/components/LoginScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/LoginScreen.tsx))**:
   * **Убрано**:

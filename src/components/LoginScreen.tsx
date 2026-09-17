@@ -175,7 +175,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
             {/* Top specular subtle rim line */}
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-white/30 dark:via-white/20 to-transparent pointer-events-none" />
 
-            {/* Interactive 3D Parallax Mascot / Logo with Cerulean Glow & Skiper 8 trigger */}
+            {/* Interactive 3D Parallax Mascot / Logo with Cerulean Glow */}
             <motion.div
               animate={{
                 rotateX: mouseTilt.rx,
@@ -184,9 +184,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
               transition={{ type: 'spring', stiffness: 350, damping: 22 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setShowPreloader(true)}
-              title="Нажмите для повторного воспроизведения заставки Skiper 08"
-              className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#2B7ECC] to-[#3390EC] text-white flex items-center justify-center shadow-lg shadow-[#3390EC]/30 mb-4 cursor-pointer select-none ring-4 ring-[#3390EC]/15"
+              className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#2B7ECC] to-[#3390EC] text-white flex items-center justify-center shadow-lg shadow-[#3390EC]/30 mb-4 select-none ring-4 ring-[#3390EC]/15"
             >
               <Send className="w-9 h-9 text-white -translate-x-0.5 translate-y-0.5" />
             </motion.div>
