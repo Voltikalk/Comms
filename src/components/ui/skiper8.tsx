@@ -1,223 +1,142 @@
+'use client';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
-export interface Skiper8Props {
-  words?: string[];
-  onComplete?: () => void;
-  speed?: number;
-  firstWordDelay?: number;
-  showDot?: boolean;
-  className?: string;
-  theme?: 'dark' | 'light' | 'auto';
-  subtitle?: string;
-}
-
-const DEFAULT_WORDS = [
-  'Привет',
-  'Hello',
-  'Bonjour',
-  'Ciao',
-  'Olà',
-  'やあ',
-  'Hallå',
-  'Guten Tag',
-  'Secure Comms',
-];
-
-const textOpacityVariants: Variants = {
+const opacity: Variants = {
   initial: {
     opacity: 0,
-    y: 16,
-    scale: 0.96,
   },
-  animate: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      duration: 0.28,
-      ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
-    },
-  },
-  exit: {
-    opacity: 0,
-    y: -16,
-    scale: 0.96,
-    transition: {
-      duration: 0.22,
-      ease: [0.7, 0, 0.84, 0] as [number, number, number, number],
-    },
+  enter: {
+    opacity: 0.75,
+    transition: { duration: 1, delay: 0.2 },
   },
 };
 
-const slideUpVariants: Variants = {
+const slideUp: Variants = {
   initial: {
     top: 0,
   },
   exit: {
     top: '-100vh',
     transition: {
-      duration: 0.85,
+      duration: 0.8,
       ease: [0.76, 0, 0.24, 1] as [number, number, number, number],
-      delay: 0.25,
+      delay: 0.2,
     },
   },
 };
 
+export interface Skiper8Props {
+  words?: string[];
+  onComplete?: () => void;
+  className?: string;
+}
+
+const DEFAULT_WORDS = [
+  'Hello',
+  'Bonjour',
+  'Ciao',
+  'Olà',
+  'やあ',
+  'Hallå',
+  'Guten tag',
+  'Hallo',
+];
+
 /**
  * Skiper UI 08 - Words Preloader
- * Inspired by Dennis Snellenberg (dennissnellenberg.com) & Apple design language.
- * Features multilingual typography text reveals, live viewport SVG bezier curve morph,
- * and high-end cubic-bezier page exit transition.
+ * 1:1 Authentic Recreation of Dennis Snellenberg (dennissnellenberg.com) & Olivier Larose preloader.
+ * Features exact typography (42px, white dot indicator, 0.75 opacity), rapid word sequence,
+ * SVG quadratic bezier curved bottom pull-up, and cubic-bezier(0.76, 0, 0.24, 1) exit.
  */
 export const Skiper8: React.FC<Skiper8Props> = ({
   words = DEFAULT_WORDS,
   onComplete,
-  speed = 170,
-  firstWordDelay = 700,
-  showDot = true,
   className = '',
-  theme = 'dark',
-  subtitle,
 }) => {
-  const [index, setIndex] = useState<number>(0);
-  const [dimension, setDimension] = useState<{ width: number; height: number }>({
-    width: 0,
-    height: 0,
-  });
-  const [isExiting, setIsExiting] = useState<boolean>(false);
+  const [index, setIndex] = useState(0);
+  const [dimension, setDimension] = useState({ width: 0, height: 0 });
+  const [isActive, setIsActive] = useState(true);
 
-  // Responsive dimension tracker
   useEffect(() => {
-    const updateDimensions = () => {
-      setDimension({
-        width: typeof window !== 'undefined' ? window.innerWidth : 1920,
-        height: typeof window !== 'undefined' ? window.innerHeight : 1080,
-      });
-    };
+    setDimension({ width: window.innerWidth, height: window.innerHeight });
 
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    const handleResize = () => {
+      setDimension({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Words cycling timer
   useEffect(() => {
-    if (index === words.length - 1) {
-      const exitTimer = setTimeout(() => {
-        setIsExiting(true);
-        if (onComplete) {
-          // Trigger onComplete slightly after exit begins
-          setTimeout(onComplete, 950);
-        }
-      }, 550);
-      return () => clearTimeout(exitTimer);
-    }
-
+    if (index === words.length - 1) return;
     const timer = setTimeout(
       () => {
-        setIndex((prev) => prev + 1);
+        setIndex(index + 1);
       },
-      index === 0 ? firstWordDelay : speed
+      index === 0 ? 1000 : 150
     );
+    return () => clearTimeout(timer);
+  }, [index, words.length]);
+
+  useEffect(() => {
+    // Total duration before curved slide-up exit starts:
+    // 1000ms (first word) + 150ms per subsequent word + 350ms pause on last word
+    const totalDuration = 1000 + (words.length - 1) * 150 + 350;
+    const timer = setTimeout(() => {
+      setIsActive(false);
+    }, totalDuration);
 
     return () => clearTimeout(timer);
-  }, [index, words.length, firstWordDelay, speed, onComplete]);
+  }, [words.length]);
 
-  const width = dimension.width || (typeof window !== 'undefined' ? window.innerWidth : 1920);
-  const height = dimension.height || (typeof window !== 'undefined' ? window.innerHeight : 1080);
+  const initialPath = `M0 0 L${dimension.width} 0 L${dimension.width} ${dimension.height} Q${dimension.width / 2} ${dimension.height + 300} 0 ${dimension.height}  L0 0`;
+  const targetPath = `M0 0 L${dimension.width} 0 L${dimension.width} ${dimension.height} Q${dimension.width / 2} ${dimension.height} 0 ${dimension.height}  L0 0`;
 
-  // Dennis Snellenberg curved SVG bezier path calculation
-  const initialPath = `M0 0 L${width} 0 L${width} ${height} Q${width / 2} ${height + 300} 0 ${height} L0 0`;
-  const targetPath = `M0 0 L${width} 0 L${width} ${height} Q${width / 2} ${height} 0 ${height} L0 0`;
-
-  const curveVariants: Variants = {
+  const curve: Variants = {
     initial: {
       d: initialPath,
-      transition: { duration: 0.7, ease: [0.76, 0, 0.24, 1] as [number, number, number, number] },
+      transition: {
+        duration: 0.7,
+        ease: [0.76, 0, 0.24, 1] as [number, number, number, number],
+      },
     },
     exit: {
       d: targetPath,
-      transition: { duration: 0.7, ease: [0.76, 0, 0.24, 1] as [number, number, number, number], delay: 0.3 },
+      transition: {
+        duration: 0.7,
+        ease: [0.76, 0, 0.24, 1] as [number, number, number, number],
+        delay: 0.3,
+      },
     },
   };
 
-  const bgColor =
-    theme === 'light'
-      ? '#f8fafc'
-      : '#0a0e17'; // Deep Telegram space navy / obsidian black
-
   return (
-    <AnimatePresence mode="wait">
-      {!isExiting && (
+    <AnimatePresence mode="wait" onExitComplete={onComplete}>
+      {isActive && (
         <motion.div
-          key="skiper8-words-preloader"
-          variants={slideUpVariants}
+          variants={slideUp}
           initial="initial"
           exit="exit"
-          className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center cursor-wait select-none overflow-hidden ${className}`}
-          style={{ backgroundColor: bgColor }}
-          aria-live="polite"
-          aria-busy="true"
+          className={`h-screen w-screen flex items-center justify-center fixed top-0 left-0 z-[9999] bg-[#141516] select-none ${className}`}
         >
-          {width > 0 && (
+          {dimension.width > 0 && (
             <>
-              {/* Words Text Reveal Centerpiece */}
-              <div className="relative z-10 flex flex-col items-center justify-center px-4">
-                <div className="flex items-center gap-3 sm:gap-4.5">
-                  {showDot && (
-                    <motion.span
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: [1, 1.25, 1], opacity: 1 }}
-                      transition={{
-                        scale: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' },
-                        opacity: { duration: 0.3 },
-                      }}
-                      className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full bg-[#3390EC] shadow-[0_0_12px_#3390EC]"
-                      aria-hidden="true"
-                    />
-                  )}
-
-                  <AnimatePresence mode="wait">
-                    <motion.h2
-                      key={`word-${index}-${words[index]}`}
-                      variants={textOpacityVariants}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                      className="text-3xl sm:text-5xl md:text-6xl font-bold font-heading tracking-tight text-white flex items-center"
-                    >
-                      <span className="bg-gradient-to-r from-white via-slate-100 to-white/70 bg-clip-text text-transparent">
-                        {words[index]}
-                      </span>
-                    </motion.h2>
-                  </AnimatePresence>
-                </div>
-
-                {subtitle && (
-                  <motion.p
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 0.6, y: 0 }}
-                    transition={{ delay: 0.2, duration: 0.4 }}
-                    className="mt-3 text-xs sm:text-sm font-medium text-slate-400 tracking-wider uppercase font-mono"
-                  >
-                    {subtitle}
-                  </motion.p>
-                )}
-              </div>
-
-              {/* Liquid Curved Bottom Morph SVG */}
-              <svg
-                className="absolute top-0 left-0 w-full pointer-events-none"
-                style={{ height: `calc(100% + 300px)` }}
-                preserveAspectRatio="none"
-                viewBox={`0 0 ${width} ${height + 300}`}
+              <motion.p
+                variants={opacity}
+                initial="initial"
+                animate="enter"
+                className="flex text-white text-[32px] sm:text-[42px] items-center absolute z-[1] font-normal tracking-normal select-none pointer-events-none leading-none"
               >
+                <span className="block w-[10px] h-[10px] bg-white rounded-full mr-[10px] shrink-0" />
+                {words[index]}
+              </motion.p>
+              <svg className="absolute top-0 w-full h-[calc(100%+300px)] pointer-events-none">
                 <motion.path
-                  variants={curveVariants}
+                  variants={curve}
                   initial="initial"
                   exit="exit"
-                  fill={bgColor}
+                  fill="#141516"
                 />
               </svg>
             </>

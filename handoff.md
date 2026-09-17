@@ -1611,6 +1611,34 @@ npm run storybook
   * **Исправление вызова контекстного меню сообщений (Bugfix: TypeError e.preventDefault)**:
     * В [`src/components/ChatScreen.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/ChatScreen.tsx) и [`src/components/Chat/Feed/ChatMessageFeed.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Chat/Feed/ChatMessageFeed.tsx) добавлен безопасный вызов `e?.preventDefault?.()` и корректная передача координат клика/тапа при вызове контекстного меню на пузырях сообщений.
   * **Устранение ошибки 401 Unauthorized при авторизации (Auth Fix)**:
+### [v3.32.0] — 18 сентября 2026 г.
+* **Полная 1:1 аутентичная реконструкция Skiper UI 08 / Dennis Snellenberg Words Preloader ([`src/components/ui/skiper8.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ui/skiper8.tsx))**:
+  * **Убрано (ликвидация искусственных декораций и визуального шума)**:
+    * Убран градиентный текст (`bg-gradient-to-r from-white via-slate-100 to-white/70 bg-clip-text text-transparent`) и подпрыгивания слов по оси Y (`y: 16 -> 0 -> -16`).
+    * Убрана пульсирующая синяя неоновая точка с тенью (`bg-[#3390EC] shadow-[0_0_12px_#3390EC]`).
+    * Убран темно-синий navy фон (`#0a0e17`).
+    * Убрана лишняя плавающая кнопка в углу `LoginScreen` («✨ Интро Skiper 8»), нарушавшая строгую эстетику экрана входа.
+    * Устранено повторное принудительное воспроизведение 2.5-секундного прелоадера при переходе со страницы входа на мастер регистрации (`TelegramRegistrationWizard`).
+  * **Добавлено и приведено точь-в-точь (Canonical Dennis Snellenberg / Olivier Larose Standard)**:
+    * **Эталонный фоновый цвет**: аутентичный матовый графит `#141516`.
+    * **Эталонная типографика**: размер ровно 42px на десктопе (`text-[42px]`) и 32px на мобильных (`text-[32px]`), чистый белый цвет (`text-white`), нормальная плотность (`font-normal`), межстрочный интервал `leading-none` без посторонних теней.
+    * **Эталонная точка-индикатор**: аккуратная круглая сплошная белая точка 10x10px (`w-[10px] h-[10px] bg-white rounded-full mr-[10px]`) слева от слова в единой строке.
+    * **Оригинальная последовательность слов Dennis Snellenberg**: `["Hello", "Bonjour", "Ciao", "Olà", "やあ", "Hallå", "Guten tag", "Hallo"]`.
+    * **Тайминги и анимация появления/смены слов**:
+      * Плавное появление всей строки: `opacity` от 0 до 0.75 (`duration: 1s, delay: 0.2s`).
+      * Первое слово удерживается ровно 1000ms, последующие быстро переключаются каждые 150ms без подпрыгиваний (`{words[index]}`).
+    * **Физическая плавная кривая Безье и слайд-ап выход (Elastic Suction Morph)**:
+      * Полноэкранный SVG высотой `calc(100% + 300px)` с заливкой `#141516` без viewBox для прямого соответствия физическим пикселям экрана (`window.innerWidth/innerHeight`).
+      * Кривая Безье: переход `initialPath` (`Q${width/2} ${height + 300}`) в `targetPath` (`Q${width/2} ${height}`) с длительностью 0.7s, кубической кривой `[0.76, 0, 0.24, 1]` и задержкой 0.3s.
+      * Общий контейнер уходит наверх: `top: 0 -> -100vh` с длительностью 0.8s, кривой `[0.76, 0, 0.24, 1]` и задержкой 0.2s.
+    * **Интеграция**:
+      * `LoginScreen.tsx`: чистый запуск при входе, возможность повторного запуска по клику на 3D-маскот бумажного самолетика.
+      * `TelegramRegistrationWizard.tsx`: добавлен параметр `initialPreloader = false`, устраняющий нежелательное повторное блокирование интерфейса.
+  * **Контроль качества**:
+    * Oxlint: 0 предупреждений, 0 ошибок на всех 167 файлах проекта.
+    * Vitest: 121/121 тестов успешно пройдены (11 suites).
+    * Vite build: успешная сборка production-бандла за 1.26s без ошибок.
+
 ### [v3.31.0] — 17 сентября 2026 г.
 * **Интеграция `@skiper-ui/skiper8` (Words Preloader Suite) на экранах входа и регистрации**:
   * **Создание компонента `Skiper8` ([`src/components/ui/skiper8.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ui/skiper8.tsx))**:

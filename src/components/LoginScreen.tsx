@@ -172,40 +172,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
     >
       {/* Skiper UI 08 - Words Preloader (Dennis Snellenberg / Apple Style) */}
       {showPreloader && (
-        <Skiper8
-          words={[
-            'Привет',
-            'Hello',
-            'Bonjour',
-            'Ciao',
-            'Olà',
-            'やあ',
-            'Hallå',
-            'Guten Tag',
-            'Secure Comms',
-          ]}
-          subtitle="TELEGRAM WEB REALTIME"
-          theme={darkMode ? 'dark' : 'light'}
-          onComplete={() => setShowPreloader(false)}
-        />
+        <Skiper8 onComplete={() => setShowPreloader(false)} />
       )}
 
       {/* Refined Monochromatic Ambient Glow Orbs */}
       <div className="auth-glow-top pointer-events-none" />
       <div className="auth-glow-bottom pointer-events-none" />
-
-      {/* Top Bar Left: Skiper 8 Replay Button */}
-      <div className="fixed top-[max(1rem,env(safe-area-inset-top,1rem))] left-4 z-40 pointer-events-auto">
-        <button
-          type="button"
-          onClick={() => setShowPreloader(true)}
-          className="py-1.5 px-3 rounded-full text-xs font-medium bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1.5 backdrop-blur-md cursor-pointer active:scale-95 ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
-          title="Запустить заставку Skiper 08"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#3390EC]" />
-          <span>Интро Skiper 8</span>
-        </button>
-      </div>
 
       {/* Top Bar Right: Skiper 26 Theme Toggle */}
       <div className="fixed top-[max(1rem,env(safe-area-inset-top,1rem))] right-4 z-40 pointer-events-auto">
