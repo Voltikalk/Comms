@@ -3,6 +3,9 @@
 @import "./styles/animations.css";
 @import "./styles/responsive.css";
 @import "./styles/video-player.css";
+@import "./styles/telegram-tokens.css";
+@import "./styles/telegram-icons.css";
+@import "./styles/telegram-peer-colors.css";
 
 @import "tailwindcss";
 

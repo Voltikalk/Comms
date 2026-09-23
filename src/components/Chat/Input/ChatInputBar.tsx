@@ -7,27 +7,8 @@ import { VoicePreviewPlayer } from '../../Audio/VoicePreviewPlayer';
 import { TelegramEmojiPickerModal } from '../../TelegramEmojiPickerModal';
 import { TgsStickerPlayer } from '../../Stickers/TgsStickerPlayer';
 import { USER_NAMES } from '../../../constants';
-import {
-  IconX,
-  IconEdit,
-  IconPaperclip,
-  IconMoodSmile,
-  IconCamera,
-  IconChartBar,
-  IconMicrophone,
-  IconSend,
-  IconCheck
-} from '@tabler/icons-react';
-
-const ROOM_AVATAR_COLORS: Record<string, string> = {
-  vlad: 'bg-gradient-to-tr from-blue-500 to-indigo-600',
-  anya: 'bg-gradient-to-tr from-rose-400 to-pink-500',
-  sergey: 'bg-gradient-to-tr from-amber-500 to-orange-600',
-  elena: 'bg-gradient-to-tr from-emerald-500 to-teal-600',
-  alex: 'bg-gradient-to-tr from-purple-500 to-violet-600',
-  family: 'bg-gradient-to-tr from-sky-400 to-blue-600',
-  general: 'bg-gradient-to-tr from-violet-500 to-purple-600',
-};
+import { TgIcon } from '../../ui/TgIcon';
+import { TgAvatar } from '../../ui/TgAvatar';
 
 export interface ChatInputBarProps {
   selectedFile: any;
@@ -180,7 +161,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
               title="Удалить прикрепленный файл"
             >
-              <IconX size={18} />
+              <TgIcon name="close" className="text-base" />
             </button>
           </div>
         )}
@@ -190,7 +171,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
           <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-xl rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[3.5px] border-[#3390ec] border border-slate-200/80 dark:border-white/10 animate-pop-in">
             <div className="min-w-0 pl-1 flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-[#3390ec]/15 flex items-center justify-center text-[#3390ec] shrink-0">
-                <IconEdit size={16} stroke={2.4} />
+                <TgIcon name="edit" className="text-base" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -209,7 +190,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
               title="Отменить редактирование (Esc)"
             >
-              <IconX size={16} />
+              <TgIcon name="close" className="text-sm" />
             </button>
           </div>
         )}
@@ -231,7 +212,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
               title="Отменить ответ"
             >
-              <IconX size={16} />
+              <TgIcon name="close" className="text-sm" />
             </button>
           </div>
         )}
@@ -256,11 +237,12 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                         : 'hover:bg-black/5 dark:hover:bg-white/5'
                     }`}
                   >
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${ROOM_AVATAR_COLORS[candidate.userId] || 'bg-slate-500'}`}>
-                      {(candidate.profile?.avatarUrl)
-                        ? <img src={candidate.profile.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
-                        : candidate.displayName.slice(0, 1).toUpperCase()}
-                    </span>
+                    <TgAvatar 
+                      id={candidate.userId} 
+                      name={candidate.displayName} 
+                      src={candidate.profile?.avatarUrl} 
+                      size={32} 
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px] font-semibold text-slate-900 dark:text-white truncate leading-tight">
                         {candidate.displayName}
@@ -365,7 +347,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Прикрепить"
               >
-                <IconPaperclip size={20} />
+                <TgIcon name="attach" className="text-xl" />
               </button>
 
               <textarea
@@ -399,7 +381,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Эмодзи"
               >
-                <IconMoodSmile size={20} />
+                <TgIcon name="smile" className="text-xl" />
               </button>
 
               {/* Video Note Circle Direct Trigger */}
@@ -409,7 +391,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Видео-кружок"
               >
-                <IconCamera size={20} />
+                <TgIcon name="round-video" className="text-xl" />
               </button>
 
               {/* Poll */}
@@ -419,7 +401,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Создать опрос"
               >
-                <IconChartBar size={20} />
+                <TgIcon name="poll" className="text-xl" />
               </button>
             </form>
           )}
@@ -442,7 +424,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full tg-btn-primary flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95 relative group select-none"
                 title="Удерживайте для записи голоса (свайп вверх — замочек, влево — отмена, правый клик — кружок)"
               >
-                <IconMicrophone size={20} />
+                <TgIcon name="microphone" className="text-xl text-white" />
               </button>
             ) : (
               <button
@@ -456,7 +438,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full tg-btn-primary flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95 relative group"
                 title="Записать видео-кружок (правый клик: голосовое)"
               >
-                <IconCamera size={20} />
+                <TgIcon name="round-video" className="text-xl text-white" />
               </button>
             )
           ) : isRecording && !isVoiceLocked ? (
@@ -470,7 +452,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95"
               title="Отпустить для отправки"
             >
-              <IconSend size={20} />
+              <TgIcon name="send" className="text-xl text-white" />
             </button>
           ) : !isRecording && !recordedVoicePreview ? (
             <button
@@ -480,9 +462,9 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               title={editingMessage ? 'Сохранить изменения (Enter)' : 'Отправить'}
             >
               {editingMessage ? (
-                <IconCheck size={22} stroke={2.6} />
+                <TgIcon name="check" className="text-xl text-white font-bold" />
               ) : (
-                <IconSend size={20} />
+                <TgIcon name="send" className="text-xl text-white" />
               )}
             </button>
           ) : null}

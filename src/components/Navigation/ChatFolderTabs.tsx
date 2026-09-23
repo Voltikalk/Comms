@@ -1,14 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { usePlatform } from '../../hooks/usePlatform';
-import {
-  IconMessageCircle,
-  IconUser,
-  IconUsers,
-  IconBell,
-  IconBookmark,
-  IconChevronLeft,
-  IconChevronRight
-} from '@tabler/icons-react';
+import { TgIcon } from '../ui/TgIcon';
 
 export type ChatFolderId = 'all' | 'direct' | 'groups' | 'unread' | 'saved';
 
@@ -27,31 +19,31 @@ const FOLDER_TABS: { id: ChatFolderId; label: string; icon: React.ReactNode; sho
   {
     id: 'all',
     label: 'Все',
-    icon: <IconMessageCircle size={14} />,
+    icon: <TgIcon name="folder-tabs-chats" className="text-sm" />,
     shortcut: 'Alt+1',
   },
   {
     id: 'direct',
     label: 'Личные',
-    icon: <IconUser size={14} />,
+    icon: <TgIcon name="folder-tabs-user" className="text-sm" />,
     shortcut: 'Alt+2',
   },
   {
     id: 'groups',
     label: 'Группы',
-    icon: <IconUsers size={14} />,
+    icon: <TgIcon name="folder-tabs-group" className="text-sm" />,
     shortcut: 'Alt+3',
   },
   {
     id: 'unread',
     label: 'Непрочитанные',
-    icon: <IconBell size={14} />,
+    icon: <TgIcon name="notifications-filled" className="text-sm" />,
     shortcut: 'Alt+4',
   },
   {
     id: 'saved',
     label: 'Избранное',
-    icon: <IconBookmark size={14} />,
+    icon: <TgIcon name="saved-messages" className="text-sm" />,
     shortcut: 'Alt+5',
   },
 ];
@@ -171,7 +163,7 @@ export const ChatFolderTabs: React.FC<ChatFolderTabsProps> = ({
             className="w-5 h-5 rounded-full bg-white dark:bg-[#242f3d] shadow-md border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-[#3390ec] dark:hover:text-[#5ac8fa] hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Прокрутить влево"
           >
-            <IconChevronLeft size={13} stroke={2.5} />
+            <TgIcon name="arrow-left" className="text-xs" />
           </button>
         </div>
       )}
@@ -185,7 +177,7 @@ export const ChatFolderTabs: React.FC<ChatFolderTabsProps> = ({
             className="w-5 h-5 rounded-full bg-white dark:bg-[#242f3d] shadow-md border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-[#3390ec] dark:hover:text-[#5ac8fa] hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Прокрутить вправо"
           >
-            <IconChevronRight size={13} stroke={2.5} />
+            <TgIcon name="arrow-right" className="text-xs" />
           </button>
         </div>
       )}

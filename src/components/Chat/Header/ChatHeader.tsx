@@ -1,26 +1,8 @@
 import React, { useState } from 'react';
 import type { Room } from '../../../types';
 import type { FilterOptions } from '../../../lib/filter-utils';
-import {
-  IconChevronLeft,
-  IconSearch,
-  IconPhone,
-  IconVideo,
-  IconDotsVertical,
-  IconX,
-  IconPin,
-  IconCopy,
-  IconShare3,
-  IconTrash,
-  IconChevronUp,
-  IconChevronDown,
-  IconWorld,
-  IconUsers,
-  IconBell,
-  IconBellOff,
-  IconPalette,
-  IconUser
-} from '@tabler/icons-react';
+import { TgIcon } from '../../ui/TgIcon';
+import { TgAvatar } from '../../ui/TgAvatar';
 
 export interface ChatHeaderProps {
   activeRoom: Room | null;
@@ -69,7 +51,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isPeerOnline,
   activeRoomTypingUsers,
   getRoomAvatar,
-  getRoomColor,
+  getRoomColor: _getRoomColor,
   onBackToRooms,
   // Selection
   isSelectMode,
@@ -117,10 +99,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <button
                 type="button"
                 onClick={onCancelSelectMode}
-                className="p-1.5 rounded-full text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+                className="w-9 h-9 rounded-full text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors"
                 title="Отменить (Esc)"
               >
-                <IconX size={22} />
+                <TgIcon name="close" className="text-xl" />
               </button>
 
               <span className="text-[15px] font-bold text-slate-900 dark:text-white">
@@ -134,40 +116,40 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 type="button"
                 onClick={onPinSelected}
                 disabled={selectedMessageIds.size === 0}
-                className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
+                className="w-9 h-9 rounded-full text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 flex items-center justify-center cursor-pointer transition-colors"
                 title="Закрепить"
               >
-                <IconPin size={20} />
+                <TgIcon name="pin" className="text-lg" />
               </button>
 
               <button
                 type="button"
                 onClick={onCopySelected}
                 disabled={selectedMessageIds.size === 0}
-                className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
+                className="w-9 h-9 rounded-full text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 flex items-center justify-center cursor-pointer transition-colors"
                 title="Копировать"
               >
-                <IconCopy size={20} />
+                <TgIcon name="copy" className="text-lg" />
               </button>
 
               <button
                 type="button"
                 onClick={onForwardSelected}
                 disabled={selectedMessageIds.size === 0}
-                className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
+                className="w-9 h-9 rounded-full text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 flex items-center justify-center cursor-pointer transition-colors"
                 title="Переслать"
               >
-                <IconShare3 size={20} />
+                <TgIcon name="forward" className="text-lg" />
               </button>
 
               <button
                 type="button"
                 onClick={onDeleteSelected}
                 disabled={selectedMessageIds.size === 0}
-                className="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 disabled:opacity-30 cursor-pointer transition-colors"
+                className="w-9 h-9 rounded-full text-rose-500 hover:bg-rose-500/10 disabled:opacity-30 flex items-center justify-center cursor-pointer transition-colors"
                 title="Удалить"
               >
-                <IconTrash size={20} />
+                <TgIcon name="delete" className="text-lg" />
               </button>
             </div>
           </div>
@@ -175,7 +157,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           /* Ultra-clean Telegram / iOS Minimalist Search Bar */
           <div className="w-full min-w-0 flex items-center gap-2">
             <div className="flex-1 min-w-0 flex items-center h-9 px-3 bg-black/5 dark:bg-white/5 rounded-full border border-slate-200/60 dark:border-white/10 focus-within:border-[#3390ec] transition-colors">
-              <IconSearch size={16} className="text-slate-400 shrink-0 mr-2" />
+              <TgIcon name="search" className="text-base text-slate-400 shrink-0 mr-2" />
               <input
                 type="text"
                 value={searchQuery}
@@ -190,30 +172,30 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   onClick={() => onSearchQueryChange('')}
                   className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 >
-                  <IconX size={14} />
+                  <TgIcon name="close" className="text-sm" />
                 </button>
               )}
             </div>
 
             {/* Navigation Arrows & Counter */}
             {totalSearchMatches > 0 ? (
-              <div className="flex items-center gap-1 shrink-0 bg-black/5 dark:bg-white/5 px-2 py-1 rounded-full text-xs font-mono text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-1 shrink-0 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-full text-xs font-mono text-slate-600 dark:text-slate-300">
                 <span>{currentMatchIndex + 1} из {totalSearchMatches}</span>
                 <button
                   type="button"
                   onClick={onPrevMatch}
-                  className="p-0.5 hover:text-[#3390ec] cursor-pointer"
+                  className="p-0.5 hover:text-[#3390ec] cursor-pointer flex items-center"
                   title="Предыдущее совпадение"
                 >
-                  <IconChevronUp size={14} />
+                  <TgIcon name="up" className="text-xs" />
                 </button>
                 <button
                   type="button"
                   onClick={onNextMatch}
-                  className="p-0.5 hover:text-[#3390ec] cursor-pointer"
+                  className="p-0.5 hover:text-[#3390ec] cursor-pointer flex items-center"
                   title="Следующее совпадение"
                 >
-                  <IconChevronDown size={14} />
+                  <TgIcon name="down" className="text-xs" />
                 </button>
               </div>
             ) : searchQuery.trim() ? (
@@ -224,10 +206,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={onCloseSearch}
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer shrink-0 transition-colors"
+              className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center cursor-pointer shrink-0 transition-colors"
               title="Закрыть поиск (Esc)"
             >
-              <IconX size={18} />
+              <TgIcon name="close" className="text-base" />
             </button>
           </div>
         ) : (
@@ -238,29 +220,28 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <button
                 type="button"
                 onClick={onBackToRooms}
-                className="md:hidden p-1.5 -ml-1.5 rounded-full text-slate-500 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors shrink-0"
+                className="md:hidden w-9 h-9 -ml-1.5 rounded-full text-slate-500 hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center cursor-pointer transition-colors shrink-0"
                 title="Назад"
               >
-                <IconChevronLeft size={22} />
+                <TgIcon name="arrow-left" className="text-xl" />
               </button>
 
               <div 
                 onClick={onOpenUserInfo}
                 className="relative shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
               >
-                {getRoomAvatar(activeRoom) ? (
-                  <img 
-                    src={getRoomAvatar(activeRoom)} 
-                    alt={activeRoomDisplayName} 
-                    className="w-10 h-10 rounded-full object-cover shadow-xs" 
-                  />
-                ) : (
-                  <div className={`w-10 h-10 rounded-full ${getRoomColor(activeRoom)} text-white flex items-center justify-center font-bold text-base shadow-xs`}>
-                    {activeRoom.type === 'direct' ? activeRoomDisplayName.charAt(0).toUpperCase() : <IconUsers size={20} />}
+                {activeRoom.id === 'saved-messages' ? (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-b from-[#40b1fc] to-[#2587e9] text-white flex items-center justify-center shadow-xs">
+                    <TgIcon name="avatar-saved-messages" className="text-xl" />
                   </div>
-                )}
-                {activeRoom.type === 'direct' && isPeerOnline && (
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-[#17212b] shadow-xs" />
+                ) : (
+                  <TgAvatar 
+                    id={activeRoom.id}
+                    name={activeRoomDisplayName} 
+                    src={getRoomAvatar(activeRoom)} 
+                    size={40} 
+                    isOnline={activeRoom.type === 'direct' && isPeerOnline}
+                  />
                 )}
               </div>
 
@@ -273,7 +254,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                     {activeRoomDisplayName}
                   </h2>
                   {isRoomMuted && (
-                    <IconBellOff size={13} className="text-slate-400 shrink-0" title="Без звука" />
+                    <TgIcon name="muted" className="text-xs text-slate-400 shrink-0" title="Без звука" />
                   )}
                 </div>
 
@@ -307,19 +288,19 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   <button
                     type="button"
                     onClick={onStartAudioCall}
-                    className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-[#3390ec] hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+                    className="w-10 h-10 rounded-full text-slate-500 dark:text-slate-400 hover:text-[#3390ec] hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center cursor-pointer transition-colors"
                     title="Аудиозвонок"
                   >
-                    <IconPhone size={20} />
+                    <TgIcon name="phone" className="text-xl" />
                   </button>
 
                   <button
                     type="button"
                     onClick={onStartVideoCall}
-                    className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-[#3390ec] hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+                    className="w-10 h-10 rounded-full text-slate-500 dark:text-slate-400 hover:text-[#3390ec] hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center cursor-pointer transition-colors"
                     title="Видеозвонок"
                   >
-                    <IconVideo size={20} />
+                    <TgIcon name="round-video" className="text-xl" />
                   </button>
                 </>
               )}
@@ -327,20 +308,20 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <button
                 type="button"
                 onClick={onStartSearching}
-                className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-[#3390ec] hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+                className="w-10 h-10 rounded-full text-slate-500 dark:text-slate-400 hover:text-[#3390ec] hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center cursor-pointer transition-colors"
                 title="Поиск сообщений"
               >
-                <IconSearch size={20} />
+                <TgIcon name="search" className="text-xl" />
               </button>
 
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowDropdown(!showDropdown)}
-                  className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+                  className="w-10 h-10 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center cursor-pointer transition-colors"
                   title="Опции"
                 >
-                  <IconDotsVertical size={20} />
+                  <TgIcon name="more" className="text-xl" />
                 </button>
 
                 {showDropdown && (
@@ -355,7 +336,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                         }}
                         className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2.5 cursor-pointer transition-colors"
                       >
-                        {isRoomMuted ? <IconBell size={17} /> : <IconBellOff size={17} />}
+                        <TgIcon name={isRoomMuted ? "unmute" : "mute"} className="text-base text-[#3390ec]" />
                         <span>{isRoomMuted ? 'Включить звук' : 'Отключить звук'}</span>
                       </button>
 
@@ -367,7 +348,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                         }}
                         className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2.5 cursor-pointer transition-colors"
                       >
-                        <IconPalette size={17} />
+                        <TgIcon name="brush" className="text-base text-[#3390ec]" />
                         <span>Оформление чата</span>
                       </button>
 
@@ -379,7 +360,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                         }}
                         className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2.5 cursor-pointer transition-colors"
                       >
-                        <IconUser size={17} />
+                        <TgIcon name="user" className="text-base text-[#3390ec]" />
                         <span>Информация</span>
                       </button>
 
@@ -393,7 +374,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                         }}
                         className="w-full px-3 py-2 text-left text-xs text-rose-500 hover:bg-rose-500/10 flex items-center gap-2.5 cursor-pointer transition-colors"
                       >
-                        <IconTrash size={17} />
+                        <TgIcon name="delete" className="text-base" />
                         <span>Очистить историю</span>
                       </button>
                     </div>
@@ -494,7 +475,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             onClick={onOpenGlobalSearch}
             className="ml-auto px-2.5 py-1 rounded-full text-xs text-slate-500 dark:text-slate-400 hover:text-[#3390ec] dark:hover:text-[#3390ec] shrink-0 transition-colors flex items-center gap-1 cursor-pointer font-medium"
           >
-            <IconWorld size={14} />
+            <TgIcon name="search" className="text-xs" />
             <span className="hidden sm:inline">Во всех чатах</span>
             <span className="sm:hidden">Везде</span>
           </button>

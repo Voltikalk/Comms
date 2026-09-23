@@ -1,17 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSocket } from '../context/SocketContext';
-import { 
-  Eye, 
-  EyeOff, 
-  ArrowRight, 
-  Send, 
-  Sparkles, 
-  ShieldCheck,
-} from 'lucide-react';
 import { TelegramRegistrationWizard } from './TelegramRegistrationWizard';
 import { Skiper26ThemeToggle } from './ui/skiper26';
 import { Skiper8 } from './ui/skiper8';
+import { TgIcon } from './ui/TgIcon';
 
 interface LoginScreenProps {
   darkMode: boolean;
@@ -26,26 +19,27 @@ const PRESET_ACCOUNTS = [
   { id: 'sister', name: 'Сестра', email: 'sister@telegram.org', pass: 'sispass', color: 'from-[#8B5CF6] to-[#6D28D9]', status: '✨ Слушает музыку' }
 ];
 
+type AuthTab = 'qr' | 'form';
+
 export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMode }) => {
+  const [authTab, setAuthTab] = useState<AuthTab>('qr');
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [showPreloader, setShowPreloader] = useState<boolean>(true);
   
-  // Login Form States
+  // Form States
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [isCapsLockOn, setIsCapsLockOn] = useState<boolean>(false);
-  const [showDevPresets, setShowDevPresets] = useState<boolean>(false);
-
-  // 3D Tilt effect on Mascot
-  const [mouseTilt, setMouseTilt] = useState<{ rx: number; ry: number }>({ rx: 0, ry: 0 });
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [rememberMe, setRememberMe] = useState<boolean>(true);
+  const [isPasswordFocused, setIsPasswordFocused] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { login, error: serverError } = useSocket();
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   // Sync server errors
   useEffect(() => {
@@ -54,29 +48,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
     }
   }, [serverError]);
 
-  // Mouse Parallax for Mascot Tilt
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width / 2;
-    const y = e.clientY - rect.top - rect.height / 2;
-    setMouseTilt({
-      rx: -(y / 28),
-      ry: x / 28,
-    });
-  };
-
-  const handleMouseLeave = () => {
-    setMouseTilt({ rx: 0, ry: 0 });
-  };
-
   // Handle Sign In Submit
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setError(null);
 
     if (!loginIdentifier.trim()) {
-      setError('Введите Email или Username');
+      setError('Введите логин или телефон');
       return;
     }
 
@@ -120,7 +98,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
     setIsCapsLockOn(e.getModifierState('CapsLock'));
   };
 
-  // If user selected Registration, display the dedicated multi-step Telegram Registration Wizard
+  // If user selected Registration
   if (isRegisterMode) {
     return (
       <TelegramRegistrationWizard
@@ -135,23 +113,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
   }
 
   return (
-    <div 
-      ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className="min-h-full h-full overflow-y-auto w-full flex flex-col items-center justify-center p-4 sm:p-6 pt-[max(1.5rem,env(safe-area-inset-top,1.5rem))] pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] auth-canvas text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden font-body"
-    >
-      {/* Skiper UI 08 - Words Preloader (Dennis Snellenberg / Apple Style) */}
+    <div className="min-h-full h-full w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-[#ffffff] dark:bg-[#0f0f0f] text-[#000000] dark:text-[#ffffff] relative select-none overflow-x-hidden font-sans transition-colors duration-200">
+      
+      {/* Skiper UI 08 - Words Preloader */}
       {showPreloader && (
         <Skiper8 onComplete={() => setShowPreloader(false)} />
       )}
 
-      {/* Refined Monochromatic Ambient Glow Orbs */}
-      <div className="auth-glow-top pointer-events-none" />
-      <div className="auth-glow-bottom pointer-events-none" />
-
-      {/* Top Bar Right: Skiper 26 Theme Toggle */}
-      <div className="fixed top-[max(1rem,env(safe-area-inset-top,1rem))] right-4 z-40 pointer-events-auto">
+      {/* Top Bar: Theme Switcher */}
+      <div className="fixed top-4 right-4 z-40">
         {toggleDarkMode && (
           <Skiper26ThemeToggle 
             darkMode={darkMode} 
@@ -162,191 +132,297 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
         )}
       </div>
 
-      {/* Main Centered Container with Double-Bezel (Doppelrand) Architecture */}
-      <motion.div 
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-[420px] relative z-10"
-      >
-        <div className="tg-double-bezel-shell">
-          <div className="tg-double-bezel-core p-6 sm:p-8 flex flex-col items-center text-center relative overflow-hidden">
-            
-            {/* Top specular subtle rim line */}
-            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-white/30 dark:via-white/20 to-transparent pointer-events-none" />
+      {/* Central Authentic Telegram Web Container */}
+      <div className="w-full max-w-[440px] flex flex-col items-center text-center relative z-10 py-6">
+        
+        {/* Telegram Logo Plane */}
+        <div className="relative mb-6">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-[#3390ec] flex items-center justify-center shadow-lg shadow-[#3390ec]/25 relative">
+            <img 
+              src="/assets/telegram-logo.svg" 
+              alt="Telegram" 
+              className="w-14 h-14 sm:w-16 sm:h-16 -translate-x-0.5 translate-y-0.5" 
+            />
+          </div>
+        </div>
 
-            {/* Interactive 3D Parallax Mascot / Logo with Cerulean Glow */}
+        <AnimatePresence mode="wait">
+          {authTab === 'qr' ? (
+            /* ==========================================================================
+               AUTHENTIC TELEGRAM QR CODE LOGIN MODE
+               ========================================================================== */
             <motion.div
-              animate={{
-                rotateX: mouseTilt.rx,
-                rotateY: mouseTilt.ry,
-              }}
-              transition={{ type: 'spring', stiffness: 350, damping: 22 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#2B7ECC] to-[#3390EC] text-white flex items-center justify-center shadow-lg shadow-[#3390EC]/30 mb-4 select-none ring-4 ring-[#3390EC]/15"
+              key="tab-qr"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.25 }}
+              className="w-full flex flex-col items-center"
             >
-              <Send className="w-9 h-9 text-white -translate-x-0.5 translate-y-0.5" />
-            </motion.div>
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight mb-2 text-[#000000] dark:text-[#ffffff]">
+                Войти в Telegram по QR-коду
+              </h1>
+              <p className="text-sm text-[#707579] dark:text-[#aaaaaa] mb-6 max-w-xs">
+                Быстрый и безопасный вход с мобильного устройства
+              </p>
 
-            <h1 className="text-2xl sm:text-[26px] font-bold font-heading text-slate-900 dark:text-white mb-1.5 tracking-tight">
-              Вход в Comms
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-6">
-              Ультрапремиальный защищенный мессенджер
-            </p>
+              {/* QR Code Container with Center Plane */}
+              <div className="relative w-64 h-64 p-3 bg-white rounded-3xl shadow-sm border border-[#dadce0] dark:border-[#303030] flex items-center justify-center mb-6 overflow-hidden">
+                {/* Authentic Simulated Telegram Animated QR SVG */}
+                <svg viewBox="0 0 200 200" className="w-full h-full text-black">
+                  <rect width="200" height="200" fill="white" />
+                  {/* Outer corner squares */}
+                  <rect x="15" y="15" width="45" height="45" rx="8" fill="none" stroke="#212121" strokeWidth="8" />
+                  <rect x="25" y="25" width="25" height="25" rx="4" fill="#212121" />
+                  <rect x="140" y="15" width="45" height="45" rx="8" fill="none" stroke="#212121" strokeWidth="8" />
+                  <rect x="150" y="25" width="25" height="25" rx="4" fill="#212121" />
+                  <rect x="15" y="140" width="45" height="45" rx="8" fill="none" stroke="#212121" strokeWidth="8" />
+                  <rect x="25" y="150" width="25" height="25" rx="4" fill="#212121" />
+                  {/* Decorative QR matrix pattern */}
+                  <circle cx="80" cy="30" r="5" fill="#212121" />
+                  <circle cx="100" cy="30" r="5" fill="#212121" />
+                  <circle cx="120" cy="30" r="5" fill="#212121" />
+                  <circle cx="80" cy="50" r="5" fill="#212121" />
+                  <circle cx="120" cy="50" r="5" fill="#212121" />
+                  <circle cx="30" cy="80" r="5" fill="#212121" />
+                  <circle cx="50" cy="80" r="5" fill="#212121" />
+                  <circle cx="150" cy="80" r="5" fill="#212121" />
+                  <circle cx="170" cy="80" r="5" fill="#212121" />
+                  <circle cx="30" cy="110" r="5" fill="#212121" />
+                  <circle cx="170" cy="110" r="5" fill="#212121" />
+                  <circle cx="80" cy="150" r="5" fill="#212121" />
+                  <circle cx="100" cy="150" r="5" fill="#212121" />
+                  <circle cx="120" cy="150" r="5" fill="#212121" />
+                  <circle cx="80" cy="170" r="5" fill="#212121" />
+                  <circle cx="120" cy="170" r="5" fill="#212121" />
+                  <circle cx="150" cy="150" r="5" fill="#212121" />
+                  <circle cx="170" cy="170" r="5" fill="#212121" />
+                </svg>
 
-            {/* Login Form */}
-            <div className="w-full">
-                {/* Login Form */}
-                <form onSubmit={handleLoginSubmit} className="w-full space-y-3.5">
-                  <div className="w-full text-left">
-                    <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5 pl-1">
-                      Логин или Email
-                    </label>
-                    <input
-                      type="text"
-                      value={loginIdentifier}
-                      onChange={(e) => {
-                        setLoginIdentifier(e.target.value);
-                        setSelectedAccountId(null);
-                        setError(null);
-                      }}
-                      placeholder="vlad или vlad@telegram.org"
-                      disabled={isLoading}
-                      className="w-full px-4 py-3 rounded-2xl text-[14px] bg-slate-100/80 dark:bg-[#0E1621]/90 border border-slate-200/80 dark:border-white/[0.08] focus:border-[#3390EC] focus:ring-4 focus:ring-[#3390EC]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-inner"
-                    />
-                  </div>
+                {/* Laser scan line effect */}
+                <motion.div 
+                  className="absolute inset-x-3 h-0.5 bg-[#3390ec]/80 shadow-[0_0_8px_#3390ec]"
+                  animate={{ top: ['10%', '90%', '10%'] }}
+                  transition={{ duration: 2.8, ease: 'easeInOut', repeat: Infinity }}
+                />
 
-                  <div className="w-full text-left relative">
-                    <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5 pl-1">
-                      Пароль
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showLoginPassword ? 'text' : 'password'}
-                        value={loginPassword}
-                        onChange={(e) => {
-                          setLoginPassword(e.target.value);
-                          setError(null);
-                        }}
-                        onKeyUp={handlePasswordKeyUp}
-                        placeholder="••••••••"
-                        disabled={isLoading}
-                        className="w-full pl-4 pr-11 py-3 rounded-2xl text-[14px] bg-slate-100/80 dark:bg-[#0E1621]/90 border border-slate-200/80 dark:border-white/[0.08] focus:border-[#3390EC] focus:ring-4 focus:ring-[#3390EC]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-inner"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer transition-colors"
-                      >
-                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Caps Lock Indicator Warning */}
-                  {isCapsLockOn && (
-                    <div className="text-[11px] text-amber-500 text-left px-1.5 font-medium flex items-center gap-1.5 bg-amber-500/10 py-1 px-2 rounded-lg">
-                      <span>⚠️ Caps Lock включен</span>
-                    </div>
-                  )}
-
-                  {error && (
-                    <p className="text-xs text-rose-500 text-left px-1 font-medium bg-rose-500/10 py-1.5 px-3 rounded-xl">
-                      {error}
-                    </p>
-                  )}
-
-                  {/* Island Button with Button-in-Button Architecture */}
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isLoading || !loginIdentifier.trim()}
-                      className={`w-full group tg-island-btn tg-island-btn-primary py-3.5 px-6 rounded-full text-sm font-semibold transition-all ${
-                        loginIdentifier.trim()
-                          ? 'opacity-100 cursor-pointer'
-                          : 'opacity-50 cursor-not-allowed shadow-none'
-                      }`}
-                    >
-                      <span>{isLoading ? 'Выполняется вход...' : 'Войти в Comms'}</span>
-                      <div className="tg-btn-inner-icon">
-                        <ArrowRight className="w-4 h-4 text-white" />
-                      </div>
-                    </button>
-                  </div>
-
-                  {/* Clean Register Prompt */}
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsRegisterMode(true)}
-                      className="w-full py-2.5 px-4 rounded-full text-xs font-semibold text-[#3390EC] dark:text-[#64B5F6] hover:bg-[#3390EC]/10 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Создать новый аккаунт</span>
-                    </button>
-                  </div>
-                </form>
-
-                {/* Collapsible Dev Mode Presets */}
-                <div className="w-full mt-5 pt-3.5 border-t border-slate-200/60 dark:border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setShowDevPresets(!showDevPresets)}
-                    className="mx-auto text-[11px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1.5 cursor-pointer py-1 px-3 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                  >
-                    <span>Тестовые профили для демо</span>
-                    <span className="text-[9px]">{showDevPresets ? '▲' : '▼'}</span>
-                  </button>
-
-                  <AnimatePresence>
-                    {showDevPresets && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="mt-3 overflow-hidden"
-                      >
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {PRESET_ACCOUNTS.map((acc) => (
-                            <button
-                              key={acc.id}
-                              type="button"
-                              onClick={() => handleSelectPreset(acc)}
-                              disabled={isLoading}
-                              title={`${acc.name} — ${acc.status}`}
-                              className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all cursor-pointer ${
-                                selectedAccountId === acc.id
-                                  ? 'bg-[#3390EC]/15 border-[#3390EC]'
-                                  : 'bg-black/[0.02] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] hover:border-[#3390EC]/50 hover:bg-[#3390EC]/5'
-                              }`}
-                            >
-                              <div className={`w-7 h-7 rounded-full bg-gradient-to-tr ${acc.color} text-white flex items-center justify-center text-[11px] font-bold mb-1 shadow-xs`}>
-                                {acc.name.charAt(0)}
-                              </div>
-                              <span className="text-[10px] font-medium text-slate-700 dark:text-slate-300 truncate w-full text-center">
-                                {acc.name}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                {/* Telegram Paper Plane Badge in center */}
+                <div className="absolute w-12 h-12 rounded-full bg-[#3390ec] flex items-center justify-center shadow-md ring-4 ring-white">
+                  <img src="/assets/telegram-logo.svg" alt="TG" className="w-6 h-6 -translate-x-0.2" />
                 </div>
               </div>
 
-            {/* Security Footer Note */}
-            <div className="mt-6 pt-4 border-t border-black/[0.04] dark:border-white/[0.05] w-full flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#3390EC]" />
-              <span>Comms Web End-to-End Encryption</span>
-            </div>
+              {/* Numbered Steps list matching Telegram Web */}
+              <ol className="text-left text-[13px] text-[#707579] dark:text-[#aaaaaa] space-y-2 mb-6 max-w-sm px-4">
+                <li className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#3390ec] text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                    1
+                  </span>
+                  <span>Откройте Telegram на своем телефоне</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#3390ec] text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                    2
+                  </span>
+                  <span>
+                    Перейдите в <strong className="text-[#000] dark:text-[#fff]">Настройки</strong> &gt; <strong className="text-[#000] dark:text-[#fff]">Устройства</strong> &gt; <strong className="text-[#000] dark:text-[#fff]">Подключить устройство</strong>
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#3390ec] text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                    3
+                  </span>
+                  <span>Наведите камеру смартфона на этот экран для подтверждения</span>
+                </li>
+              </ol>
 
+              {/* Action: Switch to Login by Phone/Password */}
+              <button
+                type="button"
+                onClick={() => setAuthTab('form')}
+                className="w-full py-3.5 px-6 rounded-2xl text-sm font-semibold text-[#3390ec] hover:bg-[#3390ec]/10 active:scale-[0.98] transition-all cursor-pointer tracking-wide uppercase"
+              >
+                ВОЙТИ ПО НОМЕРУ ТЕЛЕФОНА ИЛИ ЛОГИНУ
+              </button>
+            </motion.div>
+          ) : (
+            /* ==========================================================================
+               AUTHENTIC TELEGRAM FORM LOGIN MODE (PHONE / USERNAME + 2FA)
+               ========================================================================== */
+            <motion.div
+              key="tab-form"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.25 }}
+              className="w-full flex flex-col items-center"
+            >
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight mb-2 text-[#000000] dark:text-[#ffffff]">
+                Вход в аккаунт
+              </h1>
+              <p className="text-sm text-[#707579] dark:text-[#aaaaaa] mb-6 max-w-xs">
+                Пожалуйста, укажите имя пользователя или телефон
+              </p>
+
+              {/* Interactive 2FA Monkey Reaction Avatar */}
+              <div className="w-16 h-16 rounded-full bg-[#3390ec]/10 flex items-center justify-center mb-4 text-3xl select-none transition-transform duration-200">
+                {isPasswordFocused ? (showLoginPassword ? '🙈' : '🐵') : '🐵'}
+              </div>
+
+              <form ref={formRef} onSubmit={handleLoginSubmit} className="w-full space-y-4">
+                
+                {/* Floating-Label Identifier Input */}
+                <div className="relative text-left">
+                  <input
+                    type="text"
+                    id="tg-identifier"
+                    value={loginIdentifier}
+                    onChange={(e) => {
+                      setLoginIdentifier(e.target.value);
+                      setSelectedAccountId(null);
+                      setError(null);
+                    }}
+                    disabled={isLoading}
+                    placeholder=" "
+                    className="peer w-full h-12 px-4 pt-4 pb-1 rounded-xl text-sm bg-transparent border border-[#dadce0] dark:border-[#303030] focus:border-[#3390ec] dark:focus:border-[#3390ec] outline-hidden text-[#000] dark:text-[#fff] transition-colors"
+                  />
+                  <label
+                    htmlFor="tg-identifier"
+                    className="absolute left-4 top-3 text-[#707579] dark:text-[#aaaaaa] text-sm pointer-events-none transition-all duration-150 origin-left peer-focus:-translate-y-2.5 peer-focus:scale-75 peer-focus:text-[#3390ec] peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-75"
+                  >
+                    Логин, телефон или Email
+                  </label>
+                </div>
+
+                {/* Floating-Label Password Input with Monkey Tracker */}
+                <div className="relative text-left">
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    id="tg-password"
+                    value={loginPassword}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      setError(null);
+                    }}
+                    onFocus={() => setIsPasswordFocused(true)}
+                    onBlur={() => setIsPasswordFocused(false)}
+                    onKeyUp={handlePasswordKeyUp}
+                    disabled={isLoading}
+                    placeholder=" "
+                    className="peer w-full h-12 pl-4 pr-11 pt-4 pb-1 rounded-xl text-sm bg-transparent border border-[#dadce0] dark:border-[#303030] focus:border-[#3390ec] dark:focus:border-[#3390ec] outline-hidden text-[#000] dark:text-[#fff] transition-colors"
+                  />
+                  <label
+                    htmlFor="tg-password"
+                    className="absolute left-4 top-3 text-[#707579] dark:text-[#aaaaaa] text-sm pointer-events-none transition-all duration-150 origin-left peer-focus:-translate-y-2.5 peer-focus:scale-75 peer-focus:text-[#3390ec] peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-75"
+                  >
+                    Пароль аккаунта
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#707579] hover:text-[#3390ec] p-1.5 cursor-pointer transition-colors"
+                    title={showLoginPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                  >
+                    <TgIcon name={showLoginPassword ? 'eye-crossed' : 'eye'} className="text-lg" />
+                  </button>
+                </div>
+
+                {/* Caps Lock Indicator */}
+                {isCapsLockOn && (
+                  <div className="text-[12px] text-amber-600 dark:text-amber-400 text-left px-2 font-medium">
+                    ⚠️ Включен Caps Lock
+                  </div>
+                )}
+
+                {/* Keep Me Signed In Checkbox */}
+                <div className="flex items-center gap-2.5 px-1 py-1 text-left cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>
+                  <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${rememberMe ? 'bg-[#3390ec] border-[#3390ec] text-white' : 'border-[#dadce0] dark:border-[#5b5b5a]'}`}>
+                    {rememberMe && <TgIcon name="check" className="text-xs" />}
+                  </div>
+                  <span className="text-[13px] text-[#707579] dark:text-[#aaaaaa]">
+                    Запомнить меня
+                  </span>
+                </div>
+
+                {/* Error Banner */}
+                {error && (
+                  <div className="text-xs text-[#e53935] bg-[#e53935]/10 py-2 px-3 rounded-xl text-left font-medium">
+                    {error}
+                  </div>
+                )}
+
+                {/* Telegram Primary Button */}
+                <button
+                  type="submit"
+                  disabled={isLoading || !loginIdentifier.trim()}
+                  className="w-full h-12 rounded-2xl bg-[#3390ec] hover:bg-[#2f84d9] active:scale-[0.98] text-white text-sm font-semibold tracking-wide uppercase transition-all shadow-md shadow-[#3390ec]/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <span>ВХОД...</span>
+                  ) : (
+                    <>
+                      <span>ДАЛЕЕ</span>
+                      <TgIcon name="arrow-right" className="text-base" />
+                    </>
+                  )}
+                </button>
+
+                {/* Back to QR code */}
+                <button
+                  type="button"
+                  onClick={() => setAuthTab('qr')}
+                  className="w-full py-2.5 text-xs font-semibold text-[#3390ec] hover:underline cursor-pointer uppercase tracking-wider"
+                >
+                  ВХОД ПО QR-КОДУ
+                </button>
+              </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Demo Fast Account Switcher */}
+        <div className="w-full mt-6 pt-4 border-t border-[#dadce0]/50 dark:border-[#303030]/60">
+          <p className="text-[11px] text-[#707579] dark:text-[#aaaaaa] mb-2.5">
+            Быстрый вход для тестирования (1 клик):
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {PRESET_ACCOUNTS.map((acc) => (
+              <button
+                key={acc.id}
+                type="button"
+                onClick={() => handleSelectPreset(acc)}
+                disabled={isLoading}
+                title={`${acc.name} — ${acc.status}`}
+                className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
+                  selectedAccountId === acc.id
+                    ? 'bg-[#3390ec]/15 border-[#3390ec]'
+                    : 'bg-black/[0.02] dark:bg-white/[0.03] border-transparent hover:border-[#3390ec]/40 hover:bg-[#3390ec]/5'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-full bg-gradient-to-tr ${acc.color} text-white flex items-center justify-center text-xs font-bold mb-1 shadow-xs`}>
+                  {acc.name.charAt(0)}
+                </div>
+                <span className="text-[11px] font-medium text-[#000] dark:text-[#fff] truncate w-full text-center">
+                  {acc.name}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
-      </motion.div>
+
+        {/* Registration Prompt */}
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setIsRegisterMode(true)}
+            className="text-xs font-semibold text-[#3390ec] hover:underline cursor-pointer flex items-center justify-center gap-1 mx-auto"
+          >
+            <TgIcon name="add-user" className="text-sm" />
+            <span>Создать новый аккаунт</span>
+          </button>
+        </div>
+
+      </div>
 
     </div>
   );

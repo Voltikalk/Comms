@@ -1,13 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { usePlatform } from '../../hooks/usePlatform';
-import {
-  IconMessageCircle2,
-  IconSparkles,
-  IconSearch,
-  IconUsers,
-  IconSettings
-} from '@tabler/icons-react';
+import { TgIcon } from '../ui/TgIcon';
 
 export type MobileTab = 'chats' | 'stories' | 'search' | 'rooms' | 'settings';
 
@@ -35,7 +29,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     {
       id: 'chats',
       label: 'Чаты',
-      icon: <IconMessageCircle2 className="w-5 h-5" />,
+      icon: <TgIcon name="folder-tabs-chats" className="text-xl" />,
       badge: unreadCount > 0 ? (
         <span className="absolute -top-1.5 -right-2 px-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#3390ec] text-white text-[10px] font-bold border-2 border-white dark:border-[#17212b] shadow-xs animate-pop-in">
           {unreadCount > 99 ? '99+' : unreadCount}
@@ -45,7 +39,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     {
       id: 'stories',
       label: 'Истории',
-      icon: <IconSparkles className="w-5 h-5" />,
+      icon: <TgIcon name="play-story" className="text-xl" />,
       badge: hasUnreadStories ? (
         <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-[#3390ec] via-[#ac8bdd] to-[#e6604c] border-2 border-white dark:border-[#17212b] animate-pulse" />
       ) : null,
@@ -53,17 +47,17 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     {
       id: 'search',
       label: 'Поиск',
-      icon: <IconSearch className="w-5 h-5" />,
+      icon: <TgIcon name="search" className="text-xl" />,
     },
     {
       id: 'rooms',
       label: 'Группы',
-      icon: <IconUsers className="w-5 h-5" />,
+      icon: <TgIcon name="folder-tabs-group" className="text-xl" />,
     },
     {
       id: 'settings',
       label: 'Настройки',
-      icon: <IconSettings className="w-5 h-5" />,
+      icon: <TgIcon name="settings" className="text-xl" />,
     },
   ];
 

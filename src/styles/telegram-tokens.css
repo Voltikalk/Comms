@@ -1,0 +1,333 @@
+/* ==========================================================================
+   TELEGRAM WEB A — OFFICIAL DESIGN TOKENS & SYSTEM VARIABLES
+   Extracted directly from Telegram Web A (web.telegram.org/a)
+   ========================================================================== */
+
+:root {
+  /* Surface & Background */
+  --color-background: #ffffff;
+  --color-background-compact-menu: rgba(255, 255, 255, 0.73);
+  --color-background-compact-menu-reactions: rgba(255, 255, 255, 0.92);
+  --color-background-compact-menu-hover: rgba(0, 0, 0, 0.7);
+  --color-background-menu-separator: rgba(0, 0, 0, 0.1);
+  --color-background-selected: #f4f4f5;
+  --color-background-secondary: #f4f4f5;
+  --color-background-secondary-accent: #e4e4e5;
+  --color-background-sidebar: #ffffff;
+  --color-background-own: #eeffde;
+  --color-background-own-selected: #d4ffab;
+
+  /* Text & Accents */
+  --color-text: #000000;
+  --color-text-rgb: 0, 0, 0;
+  --color-text-lighter: #2e3939;
+  --color-text-secondary: #707579;
+  --color-icon-secondary: #707579;
+  --color-text-secondary-rgb: 112, 117, 121;
+  --color-text-meta: #686c72;
+  --color-text-meta-colored: #4fae4e;
+  --color-text-green: #4fae4e;
+  --color-borders: #dadce0;
+  --color-borders-input: #dadce0;
+  --color-borders-alternate: rgba(0, 0, 0, 0.1);
+  --color-borders-read-story: #c4c9cc;
+  --color-dividers: #c8c6cc;
+
+  /* Primary Brand Blues */
+  --color-primary: #3390ec;
+  --color-primary-shade: #2f84d9;
+  --color-primary-shade-darker: #2b79c6;
+  --color-primary-shade-rgb: 46.92, 132.48, 217.12;
+  --color-primary-opacity: rgba(51, 144, 236, 0.2);
+  --color-primary-opacity-hover: rgba(51, 144, 236, 0.25);
+  --color-primary-tint: rgba(51, 144, 236, 0.1);
+  --color-telegram-blue: #3390ec;
+
+  /* Interactive States */
+  --color-active: #00c73e;
+  --color-success: #00c73e;
+  --accent-color: var(--color-primary);
+  --accent-background-color: var(--color-primary-tint);
+  --accent-background-active-color: var(--color-primary-opacity-hover);
+  --color-error: #e53935;
+  --color-error-shade: #d33431;
+  --color-links: #3390ec;
+  --color-own-links: #2b7ecc;
+  --color-placeholders: #a2acb4;
+  --color-code: #4a729a;
+  --color-code-bg: rgba(112, 117, 121, 0.08);
+
+  /* Message Reactions & Meta */
+  --color-message-reaction: #ebf3fd;
+  --color-message-reaction-hover: #c5def9;
+  --color-message-reaction-own: #cef0ba;
+  --color-message-reaction-hover-own: #b5e0a4;
+  --color-message-meta-own: #4fae4e;
+
+  /* Chat Item States */
+  --color-chat-hover: #f4f4f5;
+  --color-chat-active: #3390ec;
+  --color-item-hover: #f4f4f5;
+  --color-item-active: #ededed;
+  --color-default-shadow: rgba(114, 114, 114, 0.25);
+  --color-scrollbar: rgba(90, 90, 90, 0.3);
+
+  /* Geometry & Layout Radii */
+  --border-radius-button: 1rem;
+  --border-radius-button-tiny: 0.875rem;
+  --border-radius-modal: 1.5rem;
+  --border-radius-toast: 1rem;
+  --border-radius-island: 1.5rem;
+  --border-radius-pane: 1.5rem;
+  --border-radius-default: 1rem;
+  --border-radius-default-small: 0.625rem;
+  --border-radius-messages: 0.9375rem;       /* 15px */
+  --border-radius-messages-small: 0.375rem; /* 6px inner tail corner */
+
+  /* Widths & Heights */
+  --messages-container-width: 47.5rem;
+  --right-column-width: 26.5rem;
+  --folders-sidebar-width: 4.5rem;
+  --middle-header-height: 3.5rem;
+  --composer-pill-radius: 1.5rem;
+  --composer-control-radius: 1.25rem;
+  --composer-height: 3rem;
+  --composer-main-button-width: 2.75rem;
+  --composer-main-button-height: 2.75rem;
+
+  /* Shadows */
+  --shadow-island: 0 1px 4px 0 rgba(0, 0, 0, 0.08);
+  --shadow-pane: 0 1px 5px -1px rgba(0, 0, 0, 0.21);
+  --shadow-chat-list-panel: 0 1px 8px 0 rgba(0, 0, 0, 0.1);
+
+  /* Transitions */
+  --slide-transition: 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  --layer-transition: 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Dark Theme Overrides */
+html.dark, body.dark, .theme-dark {
+  --color-background: #212121;
+  --color-background-compact-menu: rgba(33, 33, 33, 0.87);
+  --color-background-compact-menu-reactions: rgba(33, 33, 33, 0.87);
+  --color-background-compact-menu-hover: rgba(0, 0, 0, 0.4);
+  --color-background-menu-separator: rgba(255, 255, 255, 0.1);
+  --color-background-secondary: #0f0f0f;
+  --color-background-secondary-accent: #191919;
+  --color-background-sidebar: #17212b;
+  --color-background-own: #2b5278; /* Authentic Telegram Cerulean Blue Dark Bubble */
+  --color-background-own-selected: #34618e;
+  --color-background-selected: #2c2c2c;
+
+  --color-text: #ffffff;
+  --color-text-rgb: 255, 255, 255;
+  --color-text-secondary: #aaaaaa;
+  --color-text-secondary-rgb: 170, 170, 170;
+  --color-icon-secondary: #aaaaaa;
+  --color-borders: #303030;
+  --color-borders-input: #5b5b5a;
+  --color-dividers: #3b3b3d;
+
+  --color-primary: #3390ec;
+  --color-links: #64b5f6;
+  --color-own-links: #ffffff;
+  --color-chat-hover: #2c2c2c;
+  --color-chat-active: #3390ec;
+  --color-item-hover: #2c2c2c;
+  --color-item-active: #292929;
+  --color-code: #8774e1;
+  --color-code-own: #ffffff;
+  --color-code-bg: rgba(0, 0, 0, 0.5);
+
+  --color-message-reaction: #2b2a35;
+  --color-message-reaction-hover: #343147;
+  --color-message-reaction-own: #385b7e;
+  --color-message-reaction-hover-own: #426991;
+  --color-message-meta-own: rgba(255, 255, 255, 0.7);
+
+  --color-default-shadow: rgba(16, 16, 16, 0.6);
+  --color-scrollbar: rgba(180, 180, 180, 0.25);
+}
+
+/* ==========================================================================
+   TELEGRAM BUTTON COMPONENT SUITE
+   ========================================================================== */
+.tg-btn {
+  cursor: pointer;
+  border-radius: var(--border-radius-button);
+  font-weight: 500;
+  white-space: nowrap;
+  border: 0;
+  flex-shrink: 0;
+  justify-content: center;
+  align-items: center;
+  padding: 0.625rem 1.25rem;
+  line-height: 1.2;
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.15s;
+  display: inline-flex;
+  position: relative;
+  overflow: hidden;
+  outline: none !important;
+  text-decoration: none !important;
+}
+
+.tg-btn:active {
+  transform: scale(0.98);
+}
+
+.tg-btn-primary {
+  color: #ffffff;
+  background-color: var(--color-primary);
+}
+.tg-btn-primary:hover {
+  background-color: var(--color-primary-shade);
+}
+.tg-btn-primary:active {
+  background-color: var(--color-primary-shade-darker);
+}
+
+.tg-btn-translucent {
+  color: var(--color-primary);
+  background-color: transparent;
+}
+.tg-btn-translucent:hover {
+  background-color: rgba(51, 144, 236, 0.1);
+}
+
+.tg-btn-round {
+  border-radius: 50%;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+}
+
+.tg-btn-pill {
+  border-radius: 1.5rem;
+  padding: 0.5rem 1.25rem;
+}
+
+/* ==========================================================================
+   TELEGRAM COMPOSER PILL & FLOATING ACTIONS
+   ========================================================================== */
+.composer-pill {
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--composer-pill-radius);
+  background: var(--color-background);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.dark .composer-pill {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.composer-action-button-pill {
+  width: var(--composer-main-button-width);
+  height: var(--composer-main-button-height);
+  border-radius: 50%;
+  color: #ffffff;
+  background-color: var(--color-primary);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s, background-color 0.15s;
+  box-shadow: 0 2px 6px rgba(51, 144, 236, 0.35);
+}
+.composer-action-button-pill:hover {
+  background-color: var(--color-primary-shade);
+  transform: scale(1.04);
+}
+.composer-action-button-pill:active {
+  transform: scale(0.96);
+}
+
+/* ==========================================================================
+   OFFICIAL TELEGRAM SPOILER EFFECT
+   ========================================================================== */
+.Spoiler--concealed {
+  cursor: pointer;
+  background-image: url(/assets/spoiler-dots-black.png);
+  background-size: auto min(100%, 1.125rem);
+  border-radius: 0.375rem;
+  display: inline-block;
+  vertical-align: baseline;
+  user-select: none;
+}
+
+html.dark .Spoiler--concealed,
+.theme-dark .Spoiler--concealed {
+  background-image: url(/assets/spoiler-dots-white.png);
+}
+
+.Spoiler--animated {
+  animation: 1.75s linear infinite pulse-opacity-light;
+}
+
+.Spoiler__content {
+  opacity: 1;
+  transition: opacity 0.25s ease-in-out;
+}
+
+.Spoiler--concealed .Spoiler__content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes pulse-opacity-light {
+  0% { opacity: 0.85; }
+  25% { opacity: 1; }
+  50% { opacity: 0.35; }
+  75% { opacity: 1; }
+  100% { opacity: 0.85; }
+}
+
+/* ==========================================================================
+   OFFICIAL TELEGRAM MESSAGE BUBBLE GEOMETRY
+   ========================================================================== */
+.tg-msg-bubble {
+  border-radius: var(--border-radius-messages);
+  max-width: 480px;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Incoming message: tail on bottom-left */
+.tg-msg-bubble-in {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  border-bottom-left-radius: var(--border-radius-messages-small);
+}
+
+/* Outgoing message: tail on bottom-right */
+.tg-msg-bubble-out {
+  background-color: var(--color-background-own);
+  color: var(--color-text);
+  border-bottom-right-radius: var(--border-radius-messages-small);
+}
+
+/* Message Meta (Timestamp + Status Icon) */
+.tg-msg-meta {
+  float: right;
+  margin-left: 0.5rem;
+  margin-top: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  line-height: 1;
+  color: var(--color-text-meta);
+  user-select: none;
+}
+
+.tg-msg-bubble-out .tg-msg-meta {
+  color: var(--color-message-meta-own);
+}
+
+/* Quote/Reply preview border */
+.tg-reply-block {
+  border-left: 3px solid var(--accent-color, var(--color-primary));
+  padding-left: 0.5rem;
+  margin-bottom: 0.375rem;
+  border-radius: 2px 4px 4px 2px;
+  background-color: rgba(51, 144, 236, 0.06);
+}

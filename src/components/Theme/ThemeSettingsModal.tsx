@@ -357,17 +357,25 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               <span className="text-[10px] font-medium">Своё фото</span>
 
               {selectedWallpaperId === 'custom' && customWallpaper && (
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveCustom();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleRemoveCustom();
+                    }
                   }}
                   className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:text-rose-400 cursor-pointer"
                   title="Удалить"
                 >
                   <IconTrash size={11} />
-                </button>
+                </div>
               )}
             </button>
 

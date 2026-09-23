@@ -5,22 +5,13 @@ import { USER_NAMES, DEFAULT_USER_PROFILES } from '../constants';
 import { parseAndRenderRichText } from '../lib/markdown-parser';
 import { normalizeWaveform, generateFallbackWaveform } from '../lib/audio-waveform';
 import type { Message, UserId } from '../types';
+import { TgIcon } from './ui/TgIcon';
+import { TgAvatar } from './ui/TgAvatar';
 import { 
   IconDownload, 
   IconPlayerPlayFilled, 
   IconPlayerPauseFilled, 
-  IconFileText, 
   IconX,
-  IconCheck,
-  IconChecks,
-  IconTrash,
-  IconShare3,
-  IconPhoto,
-  IconVideo,
-  IconMicrophone,
-  IconMoodSmile,
-  IconCamera,
-  IconChartBar
 } from '@tabler/icons-react';
 import { VideoPlayer } from './VideoPlayer';
 import { PollCard } from './Poll/PollCard';
@@ -550,7 +541,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           >
             {isSelected ? (
               <div className="w-5.5 h-5.5 rounded-full bg-[#3390ec] flex items-center justify-center text-white shadow-xs animate-check-bounce">
-                <IconCheck size={14} stroke={3} />
+                <TgIcon name="check" className="text-xs" />
               </div>
             ) : (
               <div className="w-5.5 h-5.5 rounded-full border-2 border-slate-400 dark:border-white/40 bg-white/20 dark:bg-black/20 hover:border-slate-600 dark:hover:border-white/80 transition-colors" />
@@ -561,12 +552,12 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
         {/* Peer Avatar in Groups */}
         {!isSelf && (
           showSenderLabel ? (
-            <div 
-              className="w-8 h-8 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-xs font-bold shrink-0 mr-1.5 mb-0.5 shadow-xs select-none"
-              title={senderName}
-            >
-              {senderName.charAt(0).toUpperCase()}
-            </div>
+            <TgAvatar
+              id={message.sender}
+              name={senderName}
+              size={32}
+              className="mr-1.5 mb-0.5"
+            />
           ) : (
             <div className="w-8 shrink-0 mr-1.5" />
           )
@@ -588,7 +579,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             {/* Separate Forwarded Badge (Telegram Style) */}
             {forwardedSenderName && !isVideoNote && !isSticker && (
               <div className="px-3 pt-1.5 pb-0.5 text-[11.5px] font-medium text-[#3390ec] dark:text-[#70b1ff] flex items-center gap-1.5 cursor-default select-none border-b border-black/5 dark:border-white/5 mb-0.5">
-                <IconShare3 size={13} className="shrink-0 scale-x-[-1] text-[#3390ec] dark:text-[#70b1ff]" />
+                <TgIcon name="forward" className="text-sm shrink-0 text-[#3390ec] dark:text-[#70b1ff]" />
                 <span className="opacity-95">
                   Переслано от <strong className="font-semibold">{forwardedSenderName}</strong>
                 </span>
@@ -657,44 +648,44 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                         <span className="truncate">{cleanText}</span>
                       ) : parentMessage.poll ? (
                         <span className="truncate flex items-center gap-1">
-                          <IconChartBar size={13} className="shrink-0" />
+                          <TgIcon name="poll" className="text-xs shrink-0" />
                           <span>Опрос: {parentMessage.poll.question}</span>
                         </span>
                       ) : parentMessage.file ? (
                         parentMessage.file.type === 'sticker' || (parentMessage.file.name && parentMessage.file.name.includes('sticker')) ? (
                           <span className="flex items-center gap-1">
-                            <IconMoodSmile size={13} className="shrink-0 text-amber-500" />
+                            <TgIcon name="smile" className="text-xs shrink-0 text-amber-500" />
                             <span>Стикер</span>
                           </span>
                         ) : parentMessage.file.type === 'image' ? (
                           <span className="flex items-center gap-1">
-                            <IconPhoto size={13} className="shrink-0 text-[#3390ec]" />
+                            <TgIcon name="photo" className="text-xs shrink-0 text-[#3390ec]" />
                             <span>Фотография</span>
                           </span>
                         ) : parentMessage.file.type === 'video_note' ? (
                           <span className="flex items-center gap-1">
-                            <IconCamera size={13} className="shrink-0 text-[#3390ec]" />
+                            <TgIcon name="round-video" className="text-xs shrink-0 text-[#3390ec]" />
                             <span>Видеосообщение</span>
                           </span>
                         ) : parentMessage.file.type === 'video' ? (
                           <span className="flex items-center gap-1">
-                            <IconVideo size={13} className="shrink-0 text-[#3390ec]" />
+                            <TgIcon name="round-video" className="text-xs shrink-0 text-[#3390ec]" />
                             <span>Видео</span>
                           </span>
                         ) : parentMessage.file.type === 'audio' ? (
                           <span className="flex items-center gap-1">
-                            <IconMicrophone size={13} className="shrink-0 text-emerald-500" />
+                            <TgIcon name="microphone" className="text-xs shrink-0 text-emerald-500" />
                             <span>Голосовое сообщение</span>
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 truncate">
-                            <IconFileText size={13} className="shrink-0 text-[#3390ec]" />
+                            <TgIcon name="document" className="text-xs shrink-0 text-[#3390ec]" />
                             <span className="truncate">{parentMessage.file.name || 'Вложение'}</span>
                           </span>
                         )
                       ) : parentMessage.sticker ? (
                         <span className="flex items-center gap-1">
-                          <IconMoodSmile size={13} className="shrink-0 text-amber-500" />
+                          <TgIcon name="smile" className="text-xs shrink-0 text-amber-500" />
                           <span>Стикер</span>
                         </span>
                       ) : (
@@ -780,8 +771,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   {message.isEdited && <span className="opacity-75 text-[8px]">изм.</span>}
                   <span>{formatTime(message.timestamp)}</span>
                   {isSelf && !isPending && (
-                    <span className="text-[#4fae4e] dark:text-[#82b1ff]">
-                      {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
+                    <span className="text-[#4fae4e] dark:text-[#82b1ff] inline-flex items-center">
+                      {deliveryStatus === 'read' ? <TgIcon name="message-read" className="text-sm" /> : <TgIcon name="message-succeeded" className="text-sm" />}
                     </span>
                   )}
                 </div>
@@ -841,8 +832,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                     {message.isEdited && <span className="opacity-75 text-[8px] mr-1">изм.</span>}
                     <span className="font-mono">{formatTime(message.timestamp)}</span>
                     {isSelf && !isPending && (
-                      <span className="ml-1 text-[#4fae4e] dark:text-[#82b1ff]">
-                        {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
+                      <span className="ml-1 text-[#4fae4e] dark:text-[#82b1ff] inline-flex items-center">
+                        {deliveryStatus === 'read' ? <TgIcon name="message-read" className="text-sm" /> : <TgIcon name="message-succeeded" className="text-sm" />}
                       </span>
                     )}
                   </div>
@@ -880,8 +871,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                     {message.isEdited && <span className="opacity-75 text-[8px]">изм.</span>}
                     <span>{formatTime(message.timestamp)}</span>
                     {isSelf && !isPending && (
-                      <span className="ml-0.5 text-[#4fae4e] dark:text-[#82b1ff]">
-                        {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
+                      <span className="ml-0.5 text-[#4fae4e] dark:text-[#82b1ff] inline-flex items-center">
+                        {deliveryStatus === 'read' ? <TgIcon name="message-read" className="text-sm" /> : <TgIcon name="message-succeeded" className="text-sm" />}
                       </span>
                     )}
                   </div>
@@ -1033,11 +1024,11 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                         }`}>
                           <span className="font-sans">{formatTime(message.timestamp)}</span>
                           {isSelf && !isPending && (
-                            <span className="ml-0.5">
+                            <span className="ml-0.5 inline-flex items-center">
                               {deliveryStatus === 'read' ? (
-                                <IconChecks size={13} stroke={2} />
+                                <TgIcon name="message-read" className="text-sm" />
                               ) : (
-                                <IconCheck size={13} stroke={2} />
+                                <TgIcon name="message-succeeded" className="text-sm" />
                               )}
                             </span>
                           )}
@@ -1054,7 +1045,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               <div className="p-2">
                 <div className="flex items-center gap-3 p-2.5 bg-black/5 dark:bg-white/5 rounded-xl min-w-[220px]" onClick={(e) => e.stopPropagation()}>
                   <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center shrink-0">
-                    <IconFileText size={20} />
+                    <TgIcon name="document" className="text-xl" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-semibold truncate block">{message.file.name}</span>
@@ -1071,7 +1062,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                       className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer text-slate-600 dark:text-slate-400"
                       title="Скачать файл"
                     >
-                      <IconDownload size={18} />
+                      <TgIcon name="download" className="text-base" />
                     </a>
                   )}
                 </div>
@@ -1139,9 +1130,9 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                       {isSelf && !isPending && (
                         <span className="ml-0.5 inline-flex items-center">
                           {deliveryStatus === 'read' ? (
-                            <IconChecks size={13} stroke={2} />
+                            <TgIcon name="message-read" className="text-sm leading-none" />
                           ) : (
-                            <IconCheck size={13} stroke={2} />
+                            <TgIcon name="message-succeeded" className="text-sm leading-none" />
                           )}
                         </span>
                       )}
@@ -1201,7 +1192,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-11 h-11 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mb-3">
-              <IconTrash size={22} />
+              <TgIcon name="delete" className="text-2xl" />
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
               Удалить сообщение?

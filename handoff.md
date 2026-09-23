@@ -1720,6 +1720,35 @@ npm run storybook
     * В `public/sw.js`: версия кеша поднята до `comms-cache-v4` для принудительного сброса устаревших файлов в мобильных браузерах.
   * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
 
+### [v3.25.0] — 18 сентября 2026 г.
+* **1:1 Parity с официальным Telegram Web A (Asset Suite, Icon Font, Peer Colors, QR Auth & Components)**:
+  * **Интеграция официальных ассетов и шрифтов Telegram Web A**:
+    * В `public/fonts/`: перенесены официальные шрифты `telegram-icons.woff2`, `telegram-icons.woff`, `Nunito-ExtraBold.woff2`, `Roboto-Condensed-Regular.woff2`.
+    * В `public/assets/`: добавлены векторные логотипы `telegram-logo.svg`, текстуры спойлеров `spoiler-dots-black.png`, `spoiler-dots-white.png`, маски сообщений `telegram-bubble-mask.svg`, звезда `telegram-star.svg`.
+    * Создан `src/styles/telegram-icons.css`: подключен официальный `@font-face { font-family: icons; }` и сгенерированы 250+ CSS-классов `.icon-*` (`icon-menu`, `icon-search`, `icon-message-read`, `icon-message-succeeded`, `icon-attach`, `icon-microphone`, `icon-send`, `icon-round-video`, `icon-saved-messages`, `icon-phone`, `icon-download` и др.).
+    * Создан `src/styles/telegram-peer-colors.css`: извлечены официальные 26 цветовых переменных пиров (`.peer-color-0` ... `.peer-color-25`) и многоцветные градиенты Telegram.
+    * Создан `src/styles/telegram-tokens.css`: токены светлой и темной тем Telegram Web A, классы кнопок `.tg-btn`, `.tg-btn-primary`, шейдеры спойлеров `.Spoiler--concealed` с пульсацией, формы ввода `.tg-input-capsule`.
+  * **Создание базовых UI-компонентов Telegram Web**:
+    * `src/components/ui/TgIcon.tsx`: строго типизированный компонент иконки Telegram Web с автодополнением и поддержкой любых официальных глифов.
+    * `src/components/ui/TgAvatar.tsx`: аутентичный аватар с детерминированным расчетом 26 peer-градиентов, шрифтом Nunito, индикатором онлайна и анимированным кольцом историй.
+  * **Редизайн экрана авторизации (`LoginScreen.tsx`) под Telegram Web A**:
+    * По умолчанию отображается экран входа по QR-коду со сканирующим лазерным лучом, центральным логотипом Telegram и пошаговой инструкцией.
+    * Переключение на вход по номеру телефона/логину с плавающими лейблами Telegram.
+    * Интерактивный статус-аватар обезьянки 2FA (Monkey Avatar), реагирующий на ввод пароля и скрытие/показ символов.
+    * Сохранены 1-click демо-аккаунты (`vlad`, `anya`, `mom`, `dad`, `sister`).
+  * **Перевод ключевых компонентов чата на Telegram Web A**:
+    * `ChatSidebar.tsx`: интеграция `TgIcon` и `TgAvatar` в шапку меню, поиск, список комнат, превью сообщений и плавающую кнопку создания чата (FAB).
+    * `ChatHeader.tsx`: интеграция `TgIcon` (кнопки звонков, поиск, меню опций, режим выделения сообщений) и `TgAvatar`.
+    * `MessageBubble.tsx`: официальные двойные и одинарные галочки Telegram (`icon-message-read`, `icon-message-succeeded`), аватары авторов в группах, иконки типов вложений в цитатах и модальное окно удаления.
+    * `ChatInputBar.tsx`: официальные иконки скрепки (`attach`), смайлов (`smile`), кружочков (`round-video`), опросов (`poll`), микрофона (`microphone`) и отправки (`send`).
+    * `ChatFolderTabs.tsx`: официальные иконки вкладок папок (`folder-tabs-chats`, `folder-tabs-user`, `folder-tabs-group`, `saved-messages`, `notifications-filled`).
+    * `MobileBottomNav.tsx`: аутентичные иконки нижней мобильной панели навигации Telegram.
+  * **Контроль качества**:
+    * Все 121 юнит-тест Vitest успешно пройдены (`121/121 passed`).
+    * 0 ошибок и 0 предупреждений Oxlint (`Found 0 warnings and 0 errors`).
+    * Production-сборка `tsc -b && vite build` успешно собрана за 2.06с без ошибок.
+  * Актуализирован файл [`handoff.md`](https://github.com/Voltikalk/Comms/blob/main/handoff.md).
+
 ### [v3.24.0] — 6 сентября 2026 г.
 * **Физическое прижатие мобильной навигации к низу (`fixed bottom-0`) и инвалидация кеша**:
   * **Прижатие панели навигации к физическому низу экрана**:

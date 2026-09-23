@@ -5,26 +5,8 @@ import type { MobileTab } from '../../Mobile/MobileBottomNav';
 import { StoriesBar } from '../../Stories/StoriesBar';
 import { ChatFolderTabs } from '../../Navigation/ChatFolderTabs';
 import { MobileBottomNav } from '../../Mobile/MobileBottomNav';
-import {
-  IconMenu2,
-  IconSearch,
-  IconUser,
-  IconDeviceMobile,
-  IconPalette,
-  IconDownload,
-  IconKeyboard,
-  IconTrash,
-  IconLogout,
-  IconBookmark,
-  IconEdit,
-  IconChecks,
-  IconUsers,
-  IconPhoto,
-  IconMicrophone,
-  IconFileText,
-  IconVideo,
-  IconChartBar
-} from '@tabler/icons-react';
+import { TgIcon } from '../../ui/TgIcon';
+import { TgAvatar } from '../../ui/TgAvatar';
 
 export interface ChatSidebarProps {
   isDesktopView: boolean;
@@ -100,7 +82,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onSelectRoom,
   getRoomDisplayName,
   getRoomAvatar,
-  getRoomColor,
+  getRoomColor: _getRoomColor,
   isRoomOnline,
   unreadCount,
   getLastMessagePreview,
@@ -143,10 +125,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <button
             type="button"
             onClick={() => setShowMenuDropdown(!showMenuDropdown)}
-            className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors shrink-0"
+            className="w-10 h-10 rounded-full text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center cursor-pointer transition-colors shrink-0"
             title="Меню"
           >
-            <IconMenu2 size={20} />
+            <TgIcon name="menu" className="text-xl" />
           </button>
 
           {/* Menu Dropdown */}
@@ -166,17 +148,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   className="px-3.5 py-2.5 mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3"
                 >
                   <div className="relative shrink-0">
-                    {currentUserProfile?.avatarUrl ? (
-                      <img 
-                        src={currentUserProfile.avatarUrl} 
-                        alt="Avatar" 
-                        className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-[#3390ec]/20" 
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-sm font-bold shadow-xs">
-                        {currentUserName?.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <TgAvatar 
+                      name={currentUserName || 'User'} 
+                      src={currentUserProfile?.avatarUrl} 
+                      size={40} 
+                    />
                     {currentUserProfile?.statusEmoji && (
                       <span className="absolute -bottom-1 -right-1 text-xs">
                         {currentUserProfile.statusEmoji}
@@ -189,7 +165,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
                         {currentUserName}
                       </span>
-                      <IconEdit size={14} className="text-[#3390ec] shrink-0" />
+                      <TgIcon name="edit" className="text-sm text-[#3390ec] shrink-0" />
                     </div>
                     <span className="text-[10.5px] text-slate-400 truncate block">
                       {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите для настройки')}
@@ -209,7 +185,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconSearch size={18} className="text-[#3390ec]" />
+                      <TgIcon name="search" className="text-lg text-[#3390ec]" />
                       <span>Поиск по сообщениям</span>
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">FTS</span>
@@ -225,7 +201,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                     >
                       <span className="flex items-center gap-2.5">
-                        <IconEdit size={18} className="text-[#3390ec]" />
+                        <TgIcon name="new-chat-filled" className="text-lg text-[#3390ec]" />
                         <span>Новое сообщение</span>
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">New</span>
@@ -241,7 +217,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconUser size={18} className="text-[#3390ec]" />
+                      <TgIcon name="user" className="text-lg text-[#3390ec]" />
                       <span>Мой профиль</span>
                     </span>
                   </button>
@@ -255,7 +231,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconDeviceMobile size={18} className="text-[#3390ec]" />
+                      <TgIcon name="phone" className="text-lg text-[#3390ec]" />
                       <span>Открыть на телефоне</span>
                     </span>
                   </button>
@@ -269,7 +245,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconPalette size={18} className="text-[#3390ec]" />
+                      <TgIcon name="brush" className="text-lg text-[#3390ec]" />
                       <span>Оформление и обои</span>
                     </span>
                   </button>
@@ -283,7 +259,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconBookmark size={18} className="text-[#3390ec]" />
+                      <TgIcon name="saved-messages" className="text-lg text-[#3390ec]" />
                       <span>Архив сообщений (Admin)</span>
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">DB</span>
@@ -298,7 +274,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconDownload size={18} className="text-[#3390ec]" />
+                      <TgIcon name="download" className="text-lg text-[#3390ec]" />
                       <span>Установить приложение</span>
                     </span>
                   </button>
@@ -312,7 +288,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconKeyboard size={18} className="text-[#3390ec]" />
+                      <TgIcon name="keyboard" className="text-lg text-[#3390ec]" />
                       <span>Горячие клавиши</span>
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">?</span>
@@ -328,7 +304,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     }}
                     className="w-full px-3 py-2 text-left text-xs font-medium text-rose-500 hover:bg-rose-500/10 rounded-xl flex items-center gap-2.5 cursor-pointer transition-colors"
                   >
-                    <IconTrash size={18} />
+                    <TgIcon name="delete" className="text-lg" />
                     <span>Очистить историю</span>
                   </button>
 
@@ -340,7 +316,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     }}
                     className="w-full px-3 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center gap-2.5 cursor-pointer transition-colors"
                   >
-                    <IconLogout size={18} />
+                    <TgIcon name="logout" className="text-lg" />
                     <span>Выйти</span>
                   </button>
                 </div>
@@ -351,7 +327,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           {/* Search Input for filtering rooms */}
           {!isCompactSidebar && (
             <div className="flex-1 relative flex items-center">
-              <IconSearch size={15} className="absolute left-3 text-slate-400 dark:text-slate-500 pointer-events-none" />
+              <TgIcon name="search" className="absolute left-3 text-slate-400 dark:text-slate-500 pointer-events-none text-base" />
               <input
                 type="text"
                 value={roomFilterQuery}
@@ -424,21 +400,18 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
                 {/* Avatar */}
                 <div className="relative shrink-0">
-                  {customAvatar ? (
-                    <img 
-                      src={customAvatar} 
-                      alt={displayName} 
-                      className="w-12 h-12 rounded-full object-cover shadow-xs ring-1 ring-black/[0.04] dark:ring-white/[0.06]" 
-                    />
-                  ) : (
-                    <div className={`w-12 h-12 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center font-bold text-lg shadow-xs`}>
-                      {room.type === 'direct' ? displayName.charAt(0).toUpperCase() : <IconUsers size={22} />}
+                  {room.id === 'saved-messages' ? (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-b from-[#40b1fc] to-[#2587e9] text-white flex items-center justify-center shadow-xs">
+                      <TgIcon name="avatar-saved-messages" className="text-2xl" />
                     </div>
-                  )}
-
-                  {/* Online Badge */}
-                  {room.type === 'direct' && isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-[#17212b] shadow-xs" />
+                  ) : (
+                    <TgAvatar
+                      id={room.id}
+                      name={displayName}
+                      src={customAvatar}
+                      size={48}
+                      isOnline={room.type === 'direct' && isOnline}
+                    />
                   )}
 
                   {/* Badge on avatar in compact mode */}
@@ -481,17 +454,17 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                             }
 
                             return (
-                              <div className="flex items-center gap-1 min-w-0 truncate">
+                              <div className="flex items-center gap-1.5 min-w-0 truncate">
                                 {preview.isMine && (
                                   <span className="text-current shrink-0 inline-flex items-center">
-                                    <IconChecks size={14} className={isActive ? 'text-white' : 'text-[#3390ec]'} />
+                                    <TgIcon name="message-read" className={`text-sm ${isActive ? 'text-white' : 'text-[#3390ec]'}`} />
                                   </span>
                                 )}
-                                {preview.isPhoto && <IconPhoto size={13} className="shrink-0" />}
-                                {preview.isVideo && <IconVideo size={13} className="shrink-0" />}
-                                {preview.isVoice && <IconMicrophone size={13} className="shrink-0" />}
-                                {preview.isFile && <IconFileText size={13} className="shrink-0" />}
-                                {preview.isPoll && <IconChartBar size={13} className="shrink-0" />}
+                                {preview.isPhoto && <TgIcon name="photo" className="text-sm shrink-0" />}
+                                {preview.isVideo && <TgIcon name="round-video" className="text-sm shrink-0" />}
+                                {preview.isVoice && <TgIcon name="microphone" className="text-sm shrink-0" />}
+                                {preview.isFile && <TgIcon name="document" className="text-sm shrink-0" />}
+                                {preview.isPoll && <TgIcon name="poll" className="text-sm shrink-0" />}
                                 <span className="truncate">{preview.text}</span>
                               </div>
                             );
@@ -516,7 +489,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           {rooms.length <= 1 && rooms[0]?.id === 'saved-messages' && (
             <div className="py-8 px-4 text-center my-auto flex flex-col items-center">
               <div className="w-14 h-14 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center mb-3">
-                <IconEdit size={24} />
+                <TgIcon name="edit" className="text-2xl" />
               </div>
               <p className="text-xs font-bold text-slate-800 dark:text-white mb-1">
                 У вас пока нет чатов
@@ -551,7 +524,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               className="w-12 h-12 rounded-full bg-[#3390ec] hover:bg-[#2880d9] active:scale-95 text-white shadow-xl shadow-[#3390ec]/35 flex items-center justify-center transition-all duration-200 cursor-pointer"
               title="Новое сообщение"
             >
-              <IconEdit size={22} className="stroke-[2.2]" />
+              <TgIcon name="edit" className="text-2xl" />
             </button>
           </div>
         )}
