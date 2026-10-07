@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "./styles/globals.css";
 @import "./styles/animations.css";
 @import "./styles/responsive.css";
@@ -7,13 +6,105 @@
 
 @import "tailwindcss";
 
-
-
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-  --font-sans: 'Plus Jakarta Sans', 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+/* ==========================================================================
+   COMMS — "Graphite" design tokens
+   One accent, neutral graphite surfaces, hairline borders, no glow blobs.
+   Every surface/colour in the app resolves through these variables, so the
+   light/dark switch (and the theme accent picker) re-skins everything at once.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --accent: #2f6bff;
+  --accent-strong: #1f57e6;
+  --accent-soft: #2f6bff;          /* accent used as text on surfaces */
+  --accent-muted: #e3ebff;         /* tinted fills (own bubble, active row) */
+  --accent-contrast: #ffffff;
+
+  --canvas: #eeeeea;               /* chat wallpaper base */
+  --surface: #ffffff;              /* sidebar, header, cards */
+  --elevated: #f4f4f1;             /* inputs, hovered rows, sub-cards */
+  --overlay: rgba(255, 255, 255, 0.82);
+  --ink: #0e0f12;
+  --ink-2: #4a4e57;
+  --muted: #8b8f98;
+  --line: rgba(14, 15, 18, 0.08);
+  --line-strong: rgba(14, 15, 18, 0.14);
+  --tick: #2f6bff;
+  --danger: #e5484d;
+
+  --bubble-self: #e3ebff;
+  --bubble-self-ink: #0b1430;
+  --bubble-peer: #ffffff;
+  --bubble-peer-ink: #0e0f12;
+
+  --shadow-sm: 0 1px 2px rgba(14, 15, 18, 0.06);
+  --shadow-md: 0 8px 24px -8px rgba(14, 15, 18, 0.14), 0 2px 6px -2px rgba(14, 15, 18, 0.06);
+  --shadow-lg: 0 24px 64px -16px rgba(14, 15, 18, 0.22), 0 4px 12px -4px rgba(14, 15, 18, 0.08);
+
+  --radius-bubble: 20px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* Back-compat aliases used by the theme modal */
+  --tg-theme-accent: var(--accent);
+  --tg-theme-accent-hover: var(--accent-strong);
+  --tg-theme-accent-subtle: color-mix(in oklab, var(--accent) 12%, transparent);
+  --tg-theme-accent-border: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --accent: #5b8cff;
+  --accent-strong: #7aa2ff;
+  --accent-soft: #8fb0ff;
+  --accent-muted: #1b2747;
+  --accent-contrast: #ffffff;
+
+  --canvas: #08080a;
+  --surface: #111113;
+  --elevated: #1a1a1d;
+  --overlay: rgba(17, 17, 19, 0.78);
+  --ink: #ededef;
+  --ink-2: #b4b6bd;
+  --muted: #7d808a;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --tick: #a9c1ff;
+  --danger: #ff6369;
+
+  --bubble-self: #1d2b52;
+  --bubble-self-ink: #eef2ff;
+  --bubble-peer: #18181b;
+  --bubble-peer-ink: #ededef;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 30px -10px rgba(0, 0, 0, 0.7), 0 2px 6px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 30px 80px -20px rgba(0, 0, 0, 0.85), 0 6px 16px -6px rgba(0, 0, 0, 0.6);
+}
+
+@theme inline {
+  --font-sans: 'Geist', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-muted: var(--accent-muted);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-tick: var(--tick);
+  --color-danger: var(--danger);
 }
 
 html, body {
@@ -24,23 +115,26 @@ html, body {
   min-height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  background-color: #92b896;
-  color: #000000;
+  background-color: var(--canvas);
+  color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-html.dark, body.dark {
-  background-color: #090d13;
-  color: #f5f5f5;
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  outline-offset: 2px;
 }
 
 #root {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
   max-width: 100%;
@@ -52,175 +146,177 @@ html.dark, body.dark {
 }
 
 /* =========================================
-   TELEGRAM AUTHENTIC COLOR SCHEME & SURFACES
+   SURFACES
    ========================================= */
 
-/* Left Sidebar */
 .tg-sidebar {
-  background-color: rgba(255, 255, 255, 0.86);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border-right: 1px solid #dfe5ec;
-}
-
-.dark .tg-sidebar {
-  background-color: rgba(23, 33, 43, 0.86);
-  border-right: 1px solid #101921;
+  background-color: var(--surface);
+  border-right: 1px solid var(--line);
 }
 
 /* Right User Info Panel */
 .tg-user-panel {
-  background-color: #ffffff;
-  border-left: 1px solid #dfe5ec;
+  background-color: var(--surface);
+  border-left: 1px solid var(--line);
 }
 
-.dark .tg-user-panel {
-  background-color: #17212b;
-  border-left: 1px solid #101921;
-}
-
-/* Telegram Chat Feed Canvas (Pattern) */
+/* Chat wallpaper: fine dot grid + a soft top light — quiet, not decorative */
 .tg-chat-canvas {
-  background-color: #94b998;
-  background-image: 
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.15) 1px, transparent 1px),
-    radial-gradient(circle at 0% 0%, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(135deg, #a4c9a8 0%, #8bb18f 100%);
-  background-size: 24px 24px, 16px 16px, 100% 100%;
+  background-color: var(--canvas);
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--ink) 9%, transparent) 1px, transparent 0),
+    radial-gradient(120% 80% at 50% 0%, color-mix(in oklab, var(--accent) 6%, transparent) 0%, transparent 60%);
+  background-size: 22px 22px, 100% 100%;
 }
 
 .dark .tg-chat-canvas {
-  background-color: #0e1621;
-  background-image: 
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(135deg, #0e1621 0%, #0a111a 100%);
-  background-size: 20px 20px, 100% 100%;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.045) 1px, transparent 0),
+    radial-gradient(120% 70% at 50% 0%, color-mix(in oklab, var(--accent) 8%, transparent) 0%, transparent 65%);
 }
 
-/* Header */
 .tg-header {
-  background-color: rgba(255, 255, 255, 0.82);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  background-color: var(--overlay);
+  backdrop-filter: saturate(160%) blur(20px);
+  -webkit-backdrop-filter: saturate(160%) blur(20px);
+  border-bottom: 1px solid var(--line);
 }
 
-.dark .tg-header {
-  background-color: rgba(23, 33, 43, 0.82);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
-}
-
-/* Telegram Input Capsule */
+/* Composer capsule */
 .tg-input-capsule {
-  background-color: rgba(255, 255, 255, 0.86);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 
-.dark .tg-input-capsule {
-  background-color: rgba(23, 33, 43, 0.86);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+.tg-input-capsule:focus-within {
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--line-strong));
+  box-shadow: var(--shadow-md), 0 0 0 4px color-mix(in oklab, var(--accent) 12%, transparent);
 }
 
-/* Floating Action / Context Pill */
 .tg-context-pill {
-  background-color: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.dark .tg-context-pill {
-  background-color: rgba(23, 33, 43, 0.96);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background-color: var(--overlay);
+  backdrop-filter: saturate(160%) blur(20px);
+  -webkit-backdrop-filter: saturate(160%) blur(20px);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-lg);
 }
 
 /* =========================================
-   TELEGRAM MESSAGE BUBBLES
+   MESSAGE BUBBLES
    ========================================= */
 
-/* Outgoing Bubble (Self) */
-.tg-bubble-self {
-  background-color: #eeffde;
-  color: #000000;
-  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) 0 var(--tg-bubble-radius);
-  box-shadow: 0 1px 3px rgba(16, 35, 47, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(0, 0, 0, 0.03);
-}
-
-.dark .tg-bubble-self {
-  background: linear-gradient(145deg, #2b5278 0%, var(--tg-bubble-self-bg) 100%);
-  color: #ffffff;
-  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) 0 var(--tg-bubble-radius);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* Incoming Bubble (Peer) */
+/* Radius geometry follows main's tail model (the tail corner is square, clusters get
+   inline radii from message-grouping.ts); fills come from the Graphite tokens. */
+.tg-bubble-self,
 .tg-bubble-peer {
-  background-color: #ffffff;
-  color: #000000;
+  letter-spacing: -0.006em;
+}
+
+.tg-bubble-self {
+  background-color: var(--bubble-self);
+  color: var(--bubble-self-ink);
+  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) 0 var(--tg-bubble-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.tg-bubble-peer {
+  background-color: var(--bubble-peer);
+  color: var(--bubble-peer-ink);
   border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) var(--tg-bubble-radius) 0;
-  box-shadow: 0 1px 3px rgba(16, 35, 47, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--line);
 }
 
-.dark .tg-bubble-peer {
-  background-color: #182533;
-  color: #f5f5f5;
-  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) var(--tg-bubble-radius) 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-:root {
-  --tg-theme-accent: #3390ec;
-  --tg-theme-accent-hover: #2678ca;
-  --tg-theme-accent-subtle: rgba(51, 144, 236, 0.12);
-  --tg-theme-accent-border: rgba(51, 144, 236, 0.35);
-}
-
-/* Telegram Primary Accent Buttons */
+/* Primary accent buttons */
 .tg-btn-primary {
-  background-color: var(--tg-theme-accent, #3390ec);
-  color: #ffffff;
-  transition: background-color 0.15s ease, transform 0.1s ease;
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+  transition: background-color 0.15s ease, transform 0.12s var(--ease-out);
 }
 
 .tg-btn-primary:hover {
-  background-color: var(--tg-theme-accent-hover, #2678ca);
+  background-color: var(--accent-strong);
 }
 
 .tg-btn-primary:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
-/* Date Separator Pill */
+/* Date separator */
 .tg-date-pill {
-  background-color: rgba(0, 0, 0, 0.35);
-  color: #ffffff;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: color-mix(in oklab, var(--surface) 72%, transparent);
+  color: var(--ink-2);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
   border-radius: 9999px;
-  padding: 3px 12px;
-  font-weight: 600;
+  padding: 3px 11px;
+  font-weight: 500;
   font-size: 11.5px;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
-.dark .tg-date-pill {
-  background-color: rgba(0, 0, 0, 0.45);
-  color: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Generic sheet / dialog surface */
+.ui-sheet {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+}
+
+.ui-scrim {
+  background: rgba(8, 8, 10, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.dark .ui-scrim {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+/* Menu rows (context menu, sheets) */
+.ui-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.ui-menu-item:hover,
+.ui-menu-item:focus-visible {
+  background-color: color-mix(in oklab, var(--ink) 6%, transparent);
+  outline: none;
+}
+
+.ui-menu-item > svg {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.ui-menu-item[data-danger="true"],
+.ui-menu-item[data-danger="true"] > svg {
+  color: var(--danger);
+}
+
+.ui-menu-item[data-danger="true"]:hover {
+  background-color: color-mix(in oklab, var(--danger) 10%, transparent);
+}
+
+.ui-kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
 }
 
 /* =========================================
@@ -371,10 +467,10 @@ html.dark, body.dark {
 /* Telegram Authentic Row Flash/Highlight on Search / Quote Jump */
 @keyframes tgRowFlash {
   0% {
-    background-color: rgba(51, 144, 236, 0.3);
+    background-color: color-mix(in oklab, var(--accent) 26%, transparent);
   }
   35% {
-    background-color: rgba(51, 144, 236, 0.22);
+    background-color: color-mix(in oklab, var(--accent) 18%, transparent);
   }
   100% {
     background-color: transparent;
@@ -387,7 +483,7 @@ html.dark, body.dark {
 }
 
 .tg-message-row-selected {
-  background-color: rgba(51, 144, 236, 0.15) !important;
+  background-color: color-mix(in oklab, var(--accent) 12%, transparent) !important;
   border-radius: 12px;
 }
 
@@ -413,8 +509,8 @@ html.dark, body.dark {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -422,19 +518,18 @@ html.dark, body.dark {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--line-strong);
   border-radius: 9999px;
-  transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--muted);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

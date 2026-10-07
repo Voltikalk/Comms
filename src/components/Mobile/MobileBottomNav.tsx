@@ -37,7 +37,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       label: 'Чаты',
       icon: <IconMessageCircle2 className="w-5 h-5" />,
       badge: unreadCount > 0 ? (
-        <span className="absolute -top-1.5 -right-2 px-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#3390ec] text-white text-[10px] font-bold border-2 border-white dark:border-[#17212b] shadow-xs animate-pop-in">
+        <span className="absolute -top-1.5 -right-2 px-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-accent text-white text-[10px] font-bold border-2 border-white dark:border-surface shadow-xs animate-pop-in">
           {unreadCount > 99 ? '99+' : unreadCount}
         </span>
       ) : null,
@@ -47,7 +47,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       label: 'Истории',
       icon: <IconSparkles className="w-5 h-5" />,
       badge: hasUnreadStories ? (
-        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-[#3390ec] via-[#ac8bdd] to-[#e6604c] border-2 border-white dark:border-[#17212b] animate-pulse" />
+        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-accent via-accent-soft to-[#e6604c] border-2 border-white dark:border-surface animate-pulse" />
       ) : null,
     },
     {
@@ -73,7 +73,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     <nav
       role="navigation"
       aria-label="Мобильная навигация"
-      className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-2xl border-t border-gray-200/80 dark:border-white/10 px-2 pt-1.5 flex items-center justify-around z-50 select-none transition-colors shadow-lg"
+      className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white/95 dark:bg-surface/95 backdrop-blur-2xl border-t border-gray-200/80 dark:border-white/10 px-2 pt-1.5 flex items-center justify-around z-50 select-none transition-colors shadow-lg"
       style={{
         paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom, 0.65rem))',
       }}
@@ -86,13 +86,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             onClick={() => handleTabClick(item.id)}
             className={`relative flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-1 rounded-xl transition-all cursor-pointer ${
               isActive
-                ? 'text-[#3390ec] dark:text-[#5ac8fa] font-bold scale-[1.04]'
+                ? 'text-accent dark:text-accent-soft font-bold scale-[1.04]'
                 : 'text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200'
             }`}
           >
             {/* Active glow capsule behind icon */}
             {isActive && (
-              <span className="absolute inset-x-1 inset-y-0.5 bg-[#3390ec]/10 dark:bg-[#3390ec]/20 rounded-xl -z-10 animate-fade-in" />
+              <span className="absolute inset-x-1 inset-y-0.5 bg-accent/10 dark:bg-accent/20 rounded-xl -z-10 animate-fade-in" />
             )}
             <div className="relative flex items-center justify-center">
               {item.icon}

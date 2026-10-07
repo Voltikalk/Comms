@@ -58,7 +58,7 @@ export const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="w-full max-w-lg overflow-y-auto max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] rounded-3xl border border-white/10 bg-slate-900/90 backdrop-blur-2xl shadow-2xl p-6 text-white space-y-5"
+          className="w-full max-w-lg overflow-y-auto max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] rounded-3xl border border-white/10 bg-zinc-900/90 backdrop-blur-2xl shadow-2xl p-6 text-white space-y-5"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
@@ -121,7 +121,7 @@ export const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({
                   setLocalContentType(e.target.value);
                   if (e.target.value) setLocalHasAttachments(true);
                 }}
-                className="w-full rounded-xl border border-white/10 bg-slate-950 p-2 text-white focus:border-cyan-400 focus:outline-none"
+                className="w-full rounded-xl border border-white/10 bg-zinc-950 p-2 text-white focus:border-cyan-400 focus:outline-none"
               >
                 <option value="">Любой контент (текст и файлы)</option>
                 <option value="image">📷 Только изображения (JPG, PNG, GIF)</option>

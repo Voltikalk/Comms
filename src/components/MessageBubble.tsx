@@ -15,7 +15,6 @@ import {
   IconFileText, 
   IconX,
   IconCheck,
-  IconTrash,
   IconShare3,
   IconPhoto,
   IconVideo,
@@ -28,7 +27,6 @@ import {
 import { usePlatform } from '../context/platform-context';
 import { VideoPlayer } from './VideoPlayer';
 import { PollCard } from './Poll/PollCard';
-import { triggerTelegramDisintegrate } from './effects/disintegrate';
 import { TgsStickerPlayer } from './Stickers/TgsStickerPlayer';
 import { findStickerByTitleOrId } from '../constants/stickers';
 import { TelegramVideoNotePlayer } from './Media/TelegramVideoNotePlayer';
@@ -85,7 +83,7 @@ const CircularProgress: React.FC<{ progress: number }> = ({ progress }) => {
           r={normalizedRadius}
           cx={radius}
           cy={radius}
-          className="text-[#3390ec]"
+          className="text-accent"
         />
       </svg>
       <span className="absolute text-[9px] font-bold font-mono text-white">
@@ -106,7 +104,8 @@ interface MessageBubbleProps {
   onOpenContextMenu: (message: Message, pos: { x: number; y: number }) => void;
   parentMessage?: Message | null;
   currentUser: UserId | null;
-  deleteMessage: (messageId: string) => void;
+  /** @deprecated deletion is confirmed and executed by ChatScreen via the context menu */
+  deleteMessage?: (messageId: string) => void;
   editMessage: (messageId: string, newText: string) => void;
   toggleReaction: (messageId: string, reaction: string) => void;
   roomParticipantCount: number;
@@ -135,7 +134,6 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   onOpenContextMenu,
   parentMessage,
   currentUser,
-  deleteMessage,
   editMessage,
   toggleReaction,
   roomParticipantCount: _roomParticipantCount,
@@ -153,7 +151,6 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
 }) => {
   const { triggerHaptic } = usePlatform();
   const [isEditing, setIsEditing] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editText, setEditText] = useState(message.text);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [isMediaLoading, setIsMediaLoading] = useState(true);
@@ -578,11 +575,11 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             title="Выбрать"
           >
             {isSelected ? (
-              <div className="w-5.5 h-5.5 rounded-full bg-[#3390ec] flex items-center justify-center text-white shadow-xs animate-check-bounce">
+              <div className="w-5.5 h-5.5 rounded-full bg-accent flex items-center justify-center text-white shadow-xs animate-check-bounce">
                 <IconCheck size={14} stroke={3} />
               </div>
             ) : (
-              <div className="w-5.5 h-5.5 rounded-full border-2 border-slate-400 dark:border-white/40 bg-white/20 dark:bg-black/20 hover:border-slate-600 dark:hover:border-white/80 transition-colors" />
+              <div className="w-5.5 h-5.5 rounded-full border-2 border-zinc-400 dark:border-white/40 bg-white/20 dark:bg-black/20 hover:border-zinc-600 dark:hover:border-white/80 transition-colors" />
             )}
           </button>
         )}
@@ -591,7 +588,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
         {!isSelf && (
           showSenderLabel ? (
             <div 
-              className="w-8 h-8 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-xs font-bold shrink-0 mr-1.5 mb-0.5 shadow-xs select-none"
+              className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0 mr-1.5 mb-0.5 shadow-xs select-none"
               title={senderName}
             >
               {senderName.charAt(0).toUpperCase()}
@@ -616,8 +613,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           >
             {/* Separate Forwarded Badge (Telegram Style) */}
             {forwardedSenderName && !isVideoNote && !isSticker && (
-              <div className="px-3 pt-1.5 pb-0.5 text-[11.5px] font-medium text-[#3390ec] dark:text-[#70b1ff] flex items-center gap-1.5 cursor-default select-none border-b border-black/5 dark:border-white/5 mb-0.5">
-                <IconShare3 size={13} className="shrink-0 scale-x-[-1] text-[#3390ec] dark:text-[#70b1ff]" />
+              <div className="px-3 pt-1.5 pb-0.5 text-[11.5px] font-medium text-accent dark:text-accent-soft flex items-center gap-1.5 cursor-default select-none border-b border-black/5 dark:border-white/5 mb-0.5">
+                <IconShare3 size={13} className="shrink-0 scale-x-[-1] text-accent dark:text-accent-soft" />
                 <span className="opacity-95">
                   Переслано от <strong className="font-semibold">{forwardedSenderName}</strong>
                 </span>
@@ -626,7 +623,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
 
             {/* Sender Label in Groups */}
             {!isSelf && showSenderLabel && !isVideoNote && !isSticker && !forwardedSenderName && (
-              <div className="px-3 pt-1 text-[12px] font-bold text-[#3390ec]">
+              <div className="px-3 pt-1 text-[12px] font-bold text-accent">
                 {senderName}
               </div>
             )}
@@ -697,17 +694,17 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                           </span>
                         ) : parentMessage.file.type === 'image' ? (
                           <span className="flex items-center gap-1">
-                            <IconPhoto size={13} className="shrink-0 text-[#3390ec]" />
+                            <IconPhoto size={13} className="shrink-0 text-accent" />
                             <span>Фотография</span>
                           </span>
                         ) : parentMessage.file.type === 'video_note' ? (
                           <span className="flex items-center gap-1">
-                            <IconCamera size={13} className="shrink-0 text-[#3390ec]" />
+                            <IconCamera size={13} className="shrink-0 text-accent" />
                             <span>Видеосообщение</span>
                           </span>
                         ) : parentMessage.file.type === 'video' ? (
                           <span className="flex items-center gap-1">
-                            <IconVideo size={13} className="shrink-0 text-[#3390ec]" />
+                            <IconVideo size={13} className="shrink-0 text-accent" />
                             <span>Видео</span>
                           </span>
                         ) : parentMessage.file.type === 'audio' ? (
@@ -717,7 +714,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 truncate">
-                            <IconFileText size={13} className="shrink-0 text-[#3390ec]" />
+                            <IconFileText size={13} className="shrink-0 text-accent" />
                             <span className="truncate">{parentMessage.file.name || 'Вложение'}</span>
                           </span>
                         )
@@ -806,7 +803,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 <div className={`mt-0.5 px-2.5 py-0.5 rounded-full bg-black/45 text-white backdrop-blur-xs text-[10px] font-mono flex items-center gap-1 select-none shadow-xs ${
                   isSelf ? 'self-end' : 'self-start'
                 }`}>
-                  <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="" checkClassName="text-[#4fae4e] dark:text-[#82b1ff]" />
+                  <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="" checkClassName="text-tick" />
                 </div>
               </div>
             )}
@@ -860,8 +857,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   )}
                 </div>
                 {!hasText && (
-                  <div className="flex items-center justify-end px-1 pt-1 text-[10px] text-slate-500 dark:text-slate-400 select-none">
-                    <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="font-mono" checkClassName="text-[#4fae4e] dark:text-[#82b1ff]" />
+                  <div className="flex items-center justify-end px-1 pt-1 text-[10px] text-zinc-500 dark:text-zinc-400 select-none">
+                    <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="font-mono" checkClassName="text-tick" />
                   </div>
                 )}
               </div>
@@ -894,7 +891,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 )}
                 {isPureImage && !message.file.isUploading && (
                   <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/50 text-[10px] text-white font-mono flex items-center gap-1">
-                    <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="" checkClassName="text-[#4fae4e] dark:text-[#82b1ff]" />
+                    <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="" checkClassName="text-tick" />
                   </div>
                 )}
               </div>
@@ -968,7 +965,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   <button
                     type="button"
                     onClick={toggleAudio}
-                    className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer active:scale-95 transition-transform"
+                    className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer active:scale-95 transition-transform"
                     title={isAudioPlaying ? 'Пауза' : 'Слушать'}
                   >
                     {isAudioPlaying ? (
@@ -1005,8 +1002,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                             className={`w-[2.5px] rounded-full transition-colors duration-100 ${
                               isPlayed
                                 ? isSelf 
-                                  ? 'bg-[#3390ec] dark:bg-white' 
-                                  : 'bg-[#3390ec]'
+                                  ? 'bg-accent dark:bg-white' 
+                                  : 'bg-accent'
                                 : isSelf 
                                   ? 'bg-black/20 dark:bg-white/30' 
                                   : 'bg-black/15 dark:bg-white/20'
@@ -1020,7 +1017,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                     {/* Bottom row: [0:02 1x]  ...  [19:50 ✓✓] */}
                     <div className="flex items-center justify-between text-[11px] leading-none select-none">
                       {/* Left: Duration & Speed */}
-                      <div className="flex items-center gap-1.5 text-[#6c7883] dark:text-[#8b9ba8]">
+                      <div className="flex items-center gap-1.5 text-muted dark:text-muted">
                         <span className="font-mono text-[10.5px]">
                           {isAudioPlaying 
                             ? formatAudioTime(audioCurrentTime) 
@@ -1039,8 +1036,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                       {isPureAudio && (
                         <div className={`flex items-center gap-0.5 text-[10.5px] ${
                           isSelf 
-                            ? 'text-[#4fae4e] dark:text-[#82b1ff]' 
-                            : 'text-[#8b9ba8] dark:text-[#708499]'
+                            ? 'text-tick dark:text-tick' 
+                            : 'text-muted dark:text-muted'
                         }`}>
                           <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="font-sans" />
                         </div>
@@ -1055,7 +1052,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             {isDocumentFile && message.file && (
               <div className="p-2">
                 <div className="flex items-center gap-3 p-2.5 bg-black/5 dark:bg-white/5 rounded-xl min-w-[220px]" onClick={(e) => e.stopPropagation()}>
-                  <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
                     <IconFileText size={20} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1070,7 +1067,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                       download={message.file.name}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer text-slate-600 dark:text-slate-400"
+                      className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer text-zinc-600 dark:text-zinc-400"
                       title="Скачать файл"
                     >
                       <IconDownload size={18} />
@@ -1099,7 +1096,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                           setIsEditing(false);
                         }
                       }}
-                      className="w-full bg-transparent border-b border-black/20 dark:border-white/20 py-1 text-[14px] focus:outline-none focus:border-[#3390ec]"
+                      className="w-full bg-transparent border-b border-black/20 dark:border-white/20 py-1 text-[14px] focus:outline-none focus:border-accent"
                       autoFocus
                     />
                     <div className="flex justify-end gap-2 text-[11px] font-semibold">
@@ -1133,8 +1130,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                     {/* Telegram Inline Timestamp & Double Checkmarks (Baseline-Aligned) */}
                     <span className={`inline-flex items-center gap-0.5 select-none ml-2 text-[11px] leading-none align-baseline whitespace-nowrap ${
                       isSelf 
-                        ? 'text-[#4fae4e] dark:text-[#82b1ff]' 
-                        : 'text-[#8b9ba8] dark:text-[#708499]'
+                        ? 'text-tick dark:text-tick' 
+                        : 'text-muted dark:text-muted'
                     }`}>
                       <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />
                     </span>
@@ -1157,18 +1154,18 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                         onClick={() => toggleReaction(message.id, emoji)}
                         className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-all hover:scale-110 active:scale-90 cursor-pointer select-none animate-reaction-pop ${
                           hasReacted 
-                            ? 'bg-[#3390ec]/25 ring-1.5 ring-[#3390ec] shadow-xs'
+                            ? 'bg-accent/25 ring-1.5 ring-accent shadow-xs'
                             : 'bg-black/5 dark:bg-white/10 hover:bg-black/10'
                         }`}
                       >
                         <HoverAnimatedEmoji emoji={emoji} size={18} />
-                        <span className="font-bold text-[10px] text-slate-700 dark:text-slate-200">{reactors.length}</span>
+                        <span className="font-bold text-[10px] text-zinc-700 dark:text-zinc-200">{reactors.length}</span>
                       </button>
 
                       {/* Who Reacted Tooltip (Telegram Style) */}
                       <div className="pointer-events-none absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 z-50 opacity-0 translate-y-1 group-hover/reaction:opacity-100 group-hover/reaction:translate-y-0 transition-all duration-150">
-                        <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#232e3c] shadow-xl border border-slate-200 dark:border-white/10 whitespace-nowrap max-w-[240px]">
-                          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                        <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-elevated shadow-xl border border-zinc-200 dark:border-white/10 whitespace-nowrap max-w-[240px]">
+                          <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
                             {emoji} {previewNames}
                           </span>
                         </div>
@@ -1182,57 +1179,6 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           </div>
         </div>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {isDeleteModalOpen && createPortal(
-        <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] select-none animate-pop-in"
-          onClick={() => setIsDeleteModalOpen(false)}
-        >
-          <div 
-            className="w-full max-w-[320px] tg-header rounded-2xl p-5 flex flex-col items-center text-center shadow-xl border border-slate-200 dark:border-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-11 h-11 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mb-3">
-              <IconTrash size={22} />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
-              Удалить сообщение?
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-5">
-              Сообщение будет удалено для всех участников диалога.
-            </p>
-            <div className="flex gap-2 w-full">
-              <button
-                type="button"
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-white/5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 cursor-pointer"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDeleteModalOpen(false);
-                  const element = document.getElementById(`msg-${message.id}`);
-                  const bubble = (element?.querySelector('[data-bubble="true"]') || element) as HTMLElement | null;
-                  if (bubble) {
-                    triggerTelegramDisintegrate(bubble, () => {
-                      deleteMessage(message.id);
-                    });
-                  } else {
-                    deleteMessage(message.id);
-                  }
-                }}
-                className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold cursor-pointer"
-              >
-                Удалить
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 });

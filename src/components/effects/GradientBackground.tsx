@@ -16,7 +16,7 @@ export const GradientBackground: React.FC<GradientBackgroundProps> = memo(({
     <div className={`auth-canvas-animated relative overflow-hidden flex items-center justify-center min-h-dvh w-full ${className}`}>
       
       {/* 1. Animated Color Mesh Gradient Canvas */}
-      <div className="absolute inset-0 bg-linear-to-br from-[#0066FF] via-[#7A33FF] to-[#9933FF] animate-gradient-slow opacity-95 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-br from-accent via-[#7A33FF] to-accent-soft animate-gradient-slow opacity-95 pointer-events-none" />
 
       {/* 2. Soft Ambient Blurred Glowing Blobs */}
       <div className="auth-blob blob-1" />

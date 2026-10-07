@@ -47,7 +47,7 @@ export const CardTitle: React.FC<{ children: React.ReactNode; className?: string
   className = '',
 }) => {
   return (
-    <h1 className={`text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight m-0 ${className}`}>
+    <h1 className={`text-xl sm:text-2xl md:text-3xl font-extrabold text-zinc-900 dark:text-white font-heading tracking-tight m-0 ${className}`}>
       {children}
     </h1>
   );
@@ -58,7 +58,7 @@ export const CardDescription: React.FC<{ children: React.ReactNode; className?: 
   className = '',
 }) => {
   return (
-    <p className={`text-xs sm:text-sm text-slate-500 dark:text-slate-300 font-body mt-1 sm:mt-1.5 ${className}`}>
+    <p className={`text-xs sm:text-sm text-zinc-500 dark:text-zinc-300 font-body mt-1 sm:mt-1.5 ${className}`}>
       {children}
     </p>
   );

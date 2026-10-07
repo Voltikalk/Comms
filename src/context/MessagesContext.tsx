@@ -716,11 +716,47 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [socket, isConnected, currentUser, roomOf, roomById, secrets, setError],
   );
 
+  // Messages the current user removed "for me only" (persisted per account).
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    if (!currentUser) return;
+    try {
+      const raw = localStorage.getItem(`chat_hidden_messages_${currentUser}`);
+      setHiddenMessageIds(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+    } catch {
+      setHiddenMessageIds(new Set());
+    }
+  }, [currentUser]);
+
+  const hideMessagesForMe = useCallback(
+    (messageIds: string[]) => {
+      if (messageIds.length === 0 || !currentUser) return;
+      setHiddenMessageIds((prev) => {
+        const next = new Set(prev);
+        messageIds.forEach((id) => next.add(id));
+        try {
+          // Keep the newest 2000 ids so localStorage never grows unbounded.
+          localStorage.setItem(`chat_hidden_messages_${currentUser}`, JSON.stringify(Array.from(next).slice(-2000)));
+        } catch {
+          // ignore quota errors
+        }
+        return next;
+      });
+    },
+    [currentUser],
+  );
+
   const deleteMessage = useCallback(
     (messageId: string) => {
       const target = messagesRef.current.find((m) => m.id === messageId);
       const roomId = target?.roomId ?? activeRoomIdRef.current;
       if (!roomId) return;
+      // The server only accepts deletes from the author; anything else is hidden locally.
+      if (target && currentUserRef.current && target.sender !== currentUserRef.current) {
+        hideMessagesForMe([messageId]);
+        return;
+      }
       setMessages((prev) => prev.filter((m) => !(m.id === messageId && m.roomId === roomId)));
       if (target?.queued && target.clientId && queue) {
         void queue.remove(target.clientId).then(refreshQueuedCount);
@@ -728,7 +764,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       if (socket && isConnected) socket.emit('delete_message', { messageId, roomId });
     },
-    [socket, isConnected, queue, refreshQueuedCount],
+    [socket, isConnected, queue, refreshQueuedCount, hideMessagesForMe],
   );
 
   const toggleReaction = useCallback(
@@ -817,16 +853,24 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     document.title = totalUnread > 0 ? `(${totalUnread}) Telegram Web` : 'Telegram Web';
   }, [totalUnread]);
 
-  const activeMessages = useMemo(() => messages.filter((m) => m.roomId === activeRoomId), [messages, activeRoomId]);
+  const visibleMessages = useMemo(
+    () => (hiddenMessageIds.size === 0 ? messages : messages.filter((m) => !hiddenMessageIds.has(m.id))),
+    [messages, hiddenMessageIds],
+  );
+  const activeMessages = useMemo(
+    () => visibleMessages.filter((m) => m.roomId === activeRoomId),
+    [visibleMessages, activeRoomId],
+  );
 
   const value = useMemo<MessagesContextValue>(
     () => ({
-      messages,
+      messages: visibleMessages,
       activeMessages,
       sendMessage: (...args) => void sendMessage(...args),
       forwardMessage,
       editMessage: (id, text) => void editMessage(id, text),
       deleteMessage,
+      hideMessagesForMe,
       toggleReaction,
       votePoll,
       closePoll,
@@ -846,12 +890,13 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       secretFingerprint,
     }),
     [
-      messages,
+      visibleMessages,
       activeMessages,
       sendMessage,
       forwardMessage,
       editMessage,
       deleteMessage,
+      hideMessagesForMe,
       toggleReaction,
       votePoll,
       closePoll,

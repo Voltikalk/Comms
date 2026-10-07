@@ -21,7 +21,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({ className = '' }) 
 
   const renderSpeakerIcon = () => {
     if (isMuted || volume === 0) {
-      return <IconVolumeOff size={18} className="text-slate-400 hover:text-rose-400 transition-colors" />;
+      return <IconVolumeOff size={18} className="text-zinc-400 hover:text-rose-400 transition-colors" />;
     }
     if (volume < 0.35) {
       return <IconVolume size={18} className="text-white" />;
@@ -57,7 +57,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({ className = '' }) 
         }}
         aria-label={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
         title={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
-        className="comms-video-control-btn focus-visible:ring-2 focus-visible:ring-[#3390ec] outline-none"
+        className="comms-video-control-btn focus-visible:ring-2 focus-visible:ring-accent outline-none"
       >
         {renderSpeakerIcon()}
       </button>
@@ -77,7 +77,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({ className = '' }) 
         aria-valuemax={100}
         aria-valuetext={`${Math.round((isMuted ? 0 : volume) * 100)}%`}
         title={`Громкость: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
-        className="comms-video-volume-slider focus-visible:ring-2 focus-visible:ring-[#3390ec] outline-none hidden sm:block"
+        className="comms-video-volume-slider focus-visible:ring-2 focus-visible:ring-accent outline-none hidden sm:block"
       />
     </div>
   );

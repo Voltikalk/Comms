@@ -82,8 +82,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
         aria-haspopup="true"
         aria-label="Настройки видео"
         title="Настройки"
-        className={`comms-video-control-btn focus-visible:ring-2 focus-visible:ring-[#3390ec] outline-none ${
-          isSettingsOpen ? 'text-[#3390ec]' : ''
+        className={`comms-video-control-btn focus-visible:ring-2 focus-visible:ring-accent outline-none ${
+          isSettingsOpen ? 'text-accent' : ''
         }`}
       >
         <IconSettings
@@ -110,10 +110,10 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                 className="comms-video-menu-item"
               >
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <IconGauge size={14} className="text-slate-400 shrink-0" />
+                  <IconGauge size={14} className="text-zinc-400 shrink-0" />
                   <span className="truncate">Скорость</span>
                 </div>
-                <div className="flex items-center gap-0.5 text-slate-400 text-[11px] font-sans font-medium shrink-0">
+                <div className="flex items-center gap-0.5 text-zinc-400 text-[11px] font-sans font-medium shrink-0">
                   <span>{playbackRate === 1 ? '1x' : `${playbackRate}x`}</span>
                   <IconChevronRight size={13} />
                 </div>
@@ -126,10 +126,10 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                 className="comms-video-menu-item"
               >
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <IconAdjustments size={14} className="text-slate-400 shrink-0" />
+                  <IconAdjustments size={14} className="text-zinc-400 shrink-0" />
                   <span className="truncate">Качество</span>
                 </div>
-                <div className="flex items-center gap-0.5 text-slate-400 text-[11px] font-sans font-medium uppercase shrink-0">
+                <div className="flex items-center gap-0.5 text-zinc-400 text-[11px] font-sans font-medium uppercase shrink-0">
                   <span>{quality}</span>
                   <IconChevronRight size={13} />
                 </div>
@@ -142,10 +142,10 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                 className="comms-video-menu-item"
               >
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <IconInfoCircle size={14} className="text-slate-400 shrink-0" />
+                  <IconInfoCircle size={14} className="text-zinc-400 shrink-0" />
                   <span className="truncate">Инфо</span>
                 </div>
-                <IconChevronRight size={13} className="text-slate-400 shrink-0" />
+                <IconChevronRight size={13} className="text-zinc-400 shrink-0" />
               </button>
             </div>
           )}
@@ -153,7 +153,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
           {/* 2. Speed Submenu */}
           {activeTab === 'speed' && (
             <div className="space-y-0.5">
-              <div className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 border-b border-white/10 mb-1">
+              <div className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 border-b border-white/10 mb-1">
                 <button
                   type="button"
                   onClick={() => setActiveTab('main')}
@@ -179,7 +179,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
           {/* 3. Quality Submenu */}
           {activeTab === 'quality' && (
             <div className="space-y-0.5">
-              <div className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 border-b border-white/10 mb-1">
+              <div className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 border-b border-white/10 mb-1">
                 <button
                   type="button"
                   onClick={() => setActiveTab('main')}
@@ -205,7 +205,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
           {/* 4. Info Submenu */}
           {activeTab === 'info' && (
             <div className="p-1 space-y-1 text-xs">
-              <div className="flex items-center gap-1 px-1 py-1 text-slate-400 border-b border-white/10 mb-1">
+              <div className="flex items-center gap-1 px-1 py-1 text-zinc-400 border-b border-white/10 mb-1">
                 <button
                   type="button"
                   onClick={() => setActiveTab('main')}
@@ -214,21 +214,21 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
                   ← Назад
                 </button>
               </div>
-              <div className="space-y-1 font-sans tabular-nums text-[11px] text-slate-300">
+              <div className="space-y-1 font-sans tabular-nums text-[11px] text-zinc-300">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Формат:</span>
+                  <span className="text-zinc-400">Формат:</span>
                   <span>MP4 / H.264</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Длительность:</span>
+                  <span className="text-zinc-400">Длительность:</span>
                   <span>{Math.round(duration)} сек</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Буфер:</span>
+                  <span className="text-zinc-400">Буфер:</span>
                   <span>{Math.round(buffered)}%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Позиция:</span>
+                  <span className="text-zinc-400">Позиция:</span>
                   <span>{Math.round(currentTime)} сек</span>
                 </div>
               </div>

@@ -81,23 +81,23 @@ export const StickerPicker: React.FC<StickerPickerProps> = ({
   };
 
   return (
-    <div className={`flex flex-col h-full select-none text-slate-900 dark:text-white ${className}`}>
+    <div className={`flex flex-col h-full select-none text-zinc-900 dark:text-white ${className}`}>
       {/* 1. Search Bar */}
-      <div className="p-2 border-b border-slate-200/60 dark:border-white/10 shrink-0">
-        <div className="flex items-center gap-1.5 bg-black/5 dark:bg-[#242f3d] px-2.5 py-1.5 rounded-xl">
-          <IconSearch size={15} className="text-slate-400 shrink-0" />
+      <div className="p-2 border-b border-zinc-200/60 dark:border-white/10 shrink-0">
+        <div className="flex items-center gap-1.5 bg-black/5 dark:bg-elevated px-2.5 py-1.5 rounded-xl">
+          <IconSearch size={15} className="text-zinc-400 shrink-0" />
           <input
             type="text"
             placeholder="Поиск стикеров по названию или эмодзи..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent border-none text-xs text-slate-900 dark:text-white focus:outline-none w-full placeholder-slate-400"
+            className="bg-transparent border-none text-xs text-zinc-900 dark:text-white focus:outline-none w-full placeholder-zinc-400"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="text-slate-400 hover:text-slate-200 cursor-pointer"
+              className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
             >
               <IconX size={14} />
             </button>
@@ -113,7 +113,7 @@ export const StickerPicker: React.FC<StickerPickerProps> = ({
         {/* Search Results */}
         {filteredStickers !== null ? (
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
+            <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2 px-1">
               Результаты поиска ({filteredStickers.length})
             </div>
             {filteredStickers.length > 0 ? (
@@ -129,7 +129,7 @@ export const StickerPicker: React.FC<StickerPickerProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+              <div className="py-8 text-center text-xs text-zinc-400 flex flex-col items-center gap-2">
                 <span className="text-2xl">🔍</span>
                 <span>Стикеры не найдены</span>
               </div>
@@ -144,8 +144,8 @@ export const StickerPicker: React.FC<StickerPickerProps> = ({
                   packRefs.current['recent'] = el;
                 }}
               >
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
-                  <IconClock size={14} className="text-[#3390ec]" />
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2 px-1">
+                  <IconClock size={14} className="text-accent" />
                   <span>Недавние стикеры</span>
                 </div>
                 <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
@@ -196,17 +196,17 @@ export const StickerPicker: React.FC<StickerPickerProps> = ({
                 }}
                 className="pt-1"
               >
-                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1 border-t border-slate-200/40 dark:border-white/5 pt-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2 px-1 border-t border-zinc-200/40 dark:border-white/5 pt-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm">{pack.icon}</span>
-                    <span className="text-slate-800 dark:text-slate-200">{pack.title}</span>
+                    <span className="text-zinc-800 dark:text-zinc-200">{pack.title}</span>
                     {pack.isAnimated && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-[#3390ec]/20 text-[#3390ec] text-[9px] font-bold">
+                      <span className="px-1.5 py-0.2 rounded-full bg-accent/20 text-accent text-[9px] font-bold">
                         3D
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-slate-400 font-mono">
+                  <span className="text-[10px] text-zinc-400 font-mono">
                     {pack.stickers.length} шт.
                   </span>
                 </div>
@@ -229,14 +229,14 @@ export const StickerPicker: React.FC<StickerPickerProps> = ({
       </div>
 
       {/* 3. Bottom Pack Tabs Bar (Horizontal Carousel 1:1 Telegram Web) */}
-      <div className="p-1.5 border-t border-slate-200/60 dark:border-white/10 flex items-center gap-1 overflow-x-auto tg-scrollbar shrink-0 bg-black/5 dark:bg-black/20 rounded-b-3xl">
+      <div className="p-1.5 border-t border-zinc-200/60 dark:border-white/10 flex items-center gap-1 overflow-x-auto tg-scrollbar shrink-0 bg-black/5 dark:bg-black/20 rounded-b-3xl">
         <button
           type="button"
           onClick={() => scrollToPack('recent')}
           className={`p-1.5 rounded-xl cursor-pointer transition-colors shrink-0 ${
             activePackId === 'recent'
-              ? 'bg-[#3390ec] text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/10'
+              ? 'bg-accent text-white shadow-xs'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/10'
           }`}
           title="Недавние"
         >
@@ -258,7 +258,7 @@ export const StickerPicker: React.FC<StickerPickerProps> = ({
           </button>
         )}
 
-        <div className="h-4 w-px bg-slate-300 dark:bg-white/20 mx-0.5 shrink-0" />
+        <div className="h-4 w-px bg-zinc-300 dark:bg-white/20 mx-0.5 shrink-0" />
 
         {STICKER_PACKS.map((pack) => (
           <button
@@ -267,8 +267,8 @@ export const StickerPicker: React.FC<StickerPickerProps> = ({
             onClick={() => scrollToPack(pack.id)}
             className={`w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer transition-all shrink-0 text-base ${
               activePackId === pack.id
-                ? 'bg-[#3390ec] text-white shadow-xs scale-105 ring-2 ring-[#3390ec]/30'
-                : 'hover:bg-black/5 dark:hover:bg-white/10 text-slate-300'
+                ? 'bg-accent text-white shadow-xs scale-105 ring-2 ring-accent/30'
+                : 'hover:bg-black/5 dark:hover:bg-white/10 text-zinc-300'
             }`}
             title={pack.title}
           >

@@ -43,8 +43,8 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen w-full bg-[#0e1621] text-white flex flex-col items-center justify-center p-6 text-center select-none font-sans">
-          <div className="max-w-md w-full bg-[#17212b] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-4">
+        <div className="min-h-screen w-full bg-canvas text-white flex flex-col items-center justify-center p-6 text-center select-none font-sans">
+          <div className="max-w-md w-full bg-surface border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl font-bold">
               ⚠️
             </div>
@@ -53,7 +53,7 @@ export class ErrorBoundary extends Component<Props, State> {
               Что-то пошло не так
             </h2>
 
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-zinc-400 leading-relaxed">
               Произошла ошибка при загрузке интерфейса. Нажмите кнопку ниже, чтобы перезагрузить приложение.
             </p>
 
@@ -67,14 +67,14 @@ export class ErrorBoundary extends Component<Props, State> {
               <button
                 type="button"
                 onClick={this.handleReload}
-                className="w-full py-3 text-xs font-bold rounded-xl bg-[#3390ec] text-white hover:bg-[#2882db] transition-all cursor-pointer"
+                className="w-full py-3 text-xs font-bold rounded-xl bg-accent text-white hover:bg-[#2882db] transition-all cursor-pointer"
               >
                 Перезагрузить страницу
               </button>
               <button
                 type="button"
                 onClick={this.handleReset}
-                className="w-full py-3 text-xs font-semibold rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all cursor-pointer"
+                className="w-full py-3 text-xs font-semibold rounded-xl bg-white/5 text-zinc-300 hover:bg-white/10 transition-all cursor-pointer"
               >
                 Сбросить кэш и войти
               </button>

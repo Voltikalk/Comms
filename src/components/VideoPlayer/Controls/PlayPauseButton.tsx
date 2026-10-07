@@ -27,7 +27,7 @@ export const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
       onClick={handleClick}
       aria-label={playing ? 'Пауза (Пробел / K)' : 'Воспроизведение (Пробел / K)'}
       title={playing ? 'Пауза (Пробел / K)' : 'Воспроизведение (Пробел / K)'}
-      className={`comms-video-control-btn relative focus-visible:ring-2 focus-visible:ring-[#3390ec] outline-none ${
+      className={`comms-video-control-btn relative focus-visible:ring-2 focus-visible:ring-accent outline-none ${
         isClicked ? 'scale-90' : 'scale-100'
       } ${className}`}
     >

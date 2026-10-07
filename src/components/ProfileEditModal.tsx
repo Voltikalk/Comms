@@ -92,16 +92,16 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-md tg-header rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col overflow-hidden animate-pop-in text-slate-900 dark:text-white max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)]"
+        className="w-full max-w-md tg-header rounded-3xl shadow-2xl border border-zinc-200 dark:border-white/10 flex flex-col overflow-hidden animate-pop-in text-zinc-900 dark:text-white max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+        <div className="px-5 py-3.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-full text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+              className="p-1.5 rounded-full text-zinc-500 hover:text-zinc-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
               title="Закрыть"
             >
               <IconX size={20} />
@@ -112,7 +112,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
           <button
             type="button"
             onClick={handleSave}
-            className="p-1.5 rounded-full text-[#3390ec] hover:bg-[#3390ec]/10 cursor-pointer transition-colors"
+            className="p-1.5 rounded-full text-accent hover:bg-accent/10 cursor-pointer transition-colors"
             title="Сохранить"
           >
             <IconCheck size={22} stroke={2.5} />
@@ -128,10 +128,10 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
                 <img 
                   src={avatarUrl} 
                   alt="Avatar" 
-                  className="w-24 h-24 rounded-full object-cover shadow-md ring-4 ring-[#3390ec]/20"
+                  className="w-24 h-24 rounded-full object-cover shadow-md ring-4 ring-accent/20"
                 />
               ) : (
-                <div className={`w-24 h-24 rounded-full ${selectedColor} text-white flex items-center justify-center text-3xl font-bold shadow-md ring-4 ring-[#3390ec]/20`}>
+                <div className={`w-24 h-24 rounded-full ${selectedColor} text-white flex items-center justify-center text-3xl font-bold shadow-md ring-4 ring-accent/20`}>
                   {firstName.charAt(0).toUpperCase() || <IconUser size={36} />}
                 </div>
               )}
@@ -144,7 +144,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
 
               {/* Status Emoji Badge */}
               {statusEmoji && (
-                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white dark:bg-[#17212b] shadow-md flex items-center justify-center text-sm border-2 border-white dark:border-[#17212b]">
+                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white dark:bg-surface shadow-md flex items-center justify-center text-sm border-2 border-white dark:border-surface">
                   {statusEmoji}
                 </div>
               )}
@@ -163,7 +163,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-xs font-semibold text-[#3390ec] hover:underline cursor-pointer flex items-center gap-1"
+                className="text-xs font-semibold text-accent hover:underline cursor-pointer flex items-center gap-1"
               >
                 <IconCamera size={15} />
                 <span>Выбрать фото</span>
@@ -202,7 +202,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
           {/* Name Inputs */}
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">
                 Имя (обязательно)
               </label>
               <input
@@ -211,12 +211,12 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Ваше имя"
                 required
-                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#242f3d] border border-transparent focus:border-[#3390ec] text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-colors"
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-zinc-100 dark:bg-elevated border border-transparent focus:border-accent text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">
                 Фамилия (опционально)
               </label>
               <input
@@ -224,7 +224,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Ваша фамилия"
-                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#242f3d] border border-transparent focus:border-[#3390ec] text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-colors"
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-zinc-100 dark:bg-elevated border border-transparent focus:border-accent text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -232,11 +232,11 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
           {/* Bio Input */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
                 <IconFileText size={14} />
                 <span>О себе</span>
               </label>
-              <span className="text-[10px] font-mono text-slate-400">
+              <span className="text-[10px] font-mono text-zinc-400">
                 {bio.length}/70
               </span>
             </div>
@@ -249,29 +249,29 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
               }}
               rows={2}
               placeholder="Любые подробности, например: возраст, статус или город"
-              className="w-full px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-[#242f3d] border border-transparent focus:border-[#3390ec] text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-colors resize-none"
+              className="w-full px-3.5 py-2 rounded-2xl bg-zinc-100 dark:bg-elevated border border-transparent focus:border-accent text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none transition-colors resize-none"
             />
-            <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 block">
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 block">
               Любые подробности о вас, которые увидят другие пользователи.
             </span>
           </div>
 
           {/* Username Input */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">
               Имя пользователя
             </label>
             <div className="relative">
-              <IconAt size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <IconAt size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
                 placeholder="username"
-                className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#242f3d] border border-transparent focus:border-[#3390ec] text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-colors font-mono"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl bg-zinc-100 dark:bg-elevated border border-transparent focus:border-accent text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none transition-colors font-mono"
               />
             </div>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 block">
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 block">
               По этому имени другие пользователи смогут найти вас в поиске.
             </span>
           </div>
@@ -279,7 +279,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
           {/* Status Emoji Preset Picker */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
                 <IconSparkles size={14} className="text-amber-400" />
                 <span>Эмодзи-статус</span>
               </label>
@@ -293,7 +293,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-6 gap-1.5 p-2 rounded-2xl bg-slate-100 dark:bg-[#242f3d]">
+            <div className="grid grid-cols-6 gap-1.5 p-2 rounded-2xl bg-zinc-100 dark:bg-elevated">
               {STATUS_EMOJI_PRESETS.map((emoji) => (
                 <button
                   key={emoji}
@@ -301,7 +301,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
                   onClick={() => setStatusEmoji(statusEmoji === emoji ? '' : emoji)}
                   className={`h-9 rounded-xl flex items-center justify-center text-lg cursor-pointer transition-all ${
                     statusEmoji === emoji 
-                      ? 'bg-[#3390ec] text-white shadow-xs scale-110' 
+                      ? 'bg-accent text-white shadow-xs scale-110' 
                       : 'hover:bg-black/5 dark:hover:bg-white/10'
                   }`}
                 >
@@ -313,28 +313,28 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ onClose, onT
 
           {/* Phone Number (Display) */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">
               Номер телефона
             </label>
             <div className="relative">
-              <IconPhone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <IconPhone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
               <input
                 type="text"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+7 (999) 000-00-00"
-                className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#242f3d] border border-transparent focus:border-[#3390ec] text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-colors"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl bg-zinc-100 dark:bg-elevated border border-transparent focus:border-accent text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none transition-colors"
               />
             </div>
           </div>
         </form>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-end gap-2 bg-black/2 dark:bg-white/2">
+        <div className="p-4 border-t border-zinc-200 dark:border-white/10 flex items-center justify-end gap-2 bg-black/2 dark:bg-white/2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
           >
             Отмена
           </button>

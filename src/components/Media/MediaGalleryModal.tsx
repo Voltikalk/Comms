@@ -265,14 +265,14 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
       >
         {/* Left: Author info & Timestamp */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md">
+          <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md">
             {senderDisplayName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
             <h4 className="text-white text-sm font-semibold truncate leading-tight">
               {senderDisplayName}
             </h4>
-            <span className="text-xs text-slate-400 block leading-tight">
+            <span className="text-xs text-zinc-400 block leading-tight">
               {formattedDate} • {currentIndex + 1} из {mediaMessages.length}
             </span>
           </div>
@@ -315,7 +315,7 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
                 <button
                   type="button"
                   onClick={handleZoomReset}
-                  className="p-2.5 rounded-xl bg-[#3390ec]/80 hover:bg-[#3390ec] active:scale-95 text-white transition-all cursor-pointer"
+                  className="p-2.5 rounded-xl bg-accent/80 hover:bg-accent active:scale-95 text-white transition-all cursor-pointer"
                   title="Сбросить масштаб (0)"
                 >
                   <IconZoomReset size={20} />
@@ -465,7 +465,7 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
                   }}
                 >
                   <div
-                    className="h-full bg-[#3390ec] rounded-full transition-all"
+                    className="h-full bg-accent rounded-full transition-all"
                     style={{ width: `${videoProgress}%` }}
                   />
                 </div>
@@ -527,13 +527,13 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
                 onClick={() => handleSelectIndex(index)}
                 className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 transition-all cursor-pointer border ${
                   isSelected
-                    ? 'ring-2 ring-[#3390ec] border-white scale-105 opacity-100 shadow-lg'
+                    ? 'ring-2 ring-accent border-white scale-105 opacity-100 shadow-lg'
                     : 'border-white/20 opacity-55 hover:opacity-90 hover:scale-100'
                 }`}
                 title={`Медиа ${index + 1}`}
               >
                 {isThumbVideo ? (
-                  <div className="w-full h-full bg-slate-800 flex items-center justify-center text-white">
+                  <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-white">
                     <IconPlayerPlayFilled size={16} />
                   </div>
                 ) : (
@@ -545,7 +545,7 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
                   />
                 )}
                 {isSelected && (
-                  <div className="absolute inset-0 bg-[#3390ec]/20 pointer-events-none" />
+                  <div className="absolute inset-0 bg-accent/20 pointer-events-none" />
                 )}
               </button>
             );

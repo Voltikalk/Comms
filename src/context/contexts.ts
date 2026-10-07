@@ -136,6 +136,8 @@ export interface MessagesContextValue {
   forwardMessage: (targetRoomId: string, message: Message) => void;
   editMessage: (messageId: string, newText: string) => void;
   deleteMessage: (messageId: string) => void;
+  /** Hide messages locally for the current user only ("Удалить у меня"). */
+  hideMessagesForMe: (messageIds: string[]) => void;
   toggleReaction: (messageId: string, reaction: string) => void;
   votePoll: (messageId: string, roomId: string, optionIds: string[]) => void;
   closePoll: (messageId: string, roomId: string) => void;

@@ -110,11 +110,6 @@ export interface ChatModalsHostProps {
   showToast: (msg: string) => void;
   // WebRTC Calling
   // Video Note Circle Record
-  isRecordingVideo: boolean;
-  videoPreviewRef: React.RefObject<HTMLVideoElement | null>;
-  videoRecordTime: number;
-  formatRecordTime: (s: number) => string;
-  stopVideoRecording: (send: boolean) => void;
   // QR Modal
   showQrModal: boolean;
   setShowQrModal: (show: boolean) => void;
@@ -194,11 +189,6 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
   toast,
   setToast,
   showToast,
-  isRecordingVideo,
-  videoPreviewRef,
-  videoRecordTime,
-  formatRecordTime,
-  stopVideoRecording,
   showQrModal,
   setShowQrModal,
   showNewChatModal,
@@ -234,7 +224,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
       {/* 3. Global Message Search Suite Modal */}
       {showGlobalSearchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="w-full h-full md:h-[80vh] md:max-w-xl bg-white dark:bg-[#17212b] md:rounded-3xl md:border md:border-slate-200 dark:md:border-white/10 md:shadow-2xl flex flex-col overflow-hidden">
+          <div className="w-full h-full md:h-[80vh] md:max-w-xl bg-white dark:bg-surface md:rounded-3xl md:border md:border-zinc-200 dark:md:border-white/10 md:shadow-2xl flex flex-col overflow-hidden">
             <SearchPage
               roomId={activeRoomId || undefined}
               userId={currentUser || 'vlad'}
@@ -394,9 +384,8 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
             setContextMenuTarget(null);
           }}
           onDelete={(msg: Message) => {
-            onDeleteMessageAnimated(msg.id);
-            showToast('Сообщение удалено');
             setContextMenuTarget(null);
+            onDeleteMessageAnimated(msg.id);
           }}
           onSelect={(msg: Message) => {
             setIsSelectMode(true);
@@ -422,25 +411,25 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
           onClick={() => setForwardingMessage(null)}
         >
           <div
-            className="w-full max-w-sm max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 p-4 flex flex-col gap-3 animate-pop-in text-slate-900 dark:text-white"
+            className="w-full max-w-sm max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] bg-white dark:bg-surface rounded-3xl shadow-2xl border border-zinc-200 dark:border-white/10 p-4 flex flex-col gap-3 animate-pop-in text-zinc-900 dark:text-white"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/10">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-white/10">
               <span className="font-bold text-sm">Переслать сообщение</span>
               <button
                 type="button"
                 onClick={() => setForwardingMessage(null)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-200 cursor-pointer"
+                className="p-1 rounded-full text-zinc-400 hover:text-zinc-200 cursor-pointer"
               >
                 <IconX size={18} />
               </button>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border-l-2 border-[#3390ec] text-xs text-slate-600 dark:text-slate-300 truncate">
+            <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border-l-2 border-accent text-xs text-zinc-600 dark:text-zinc-300 truncate">
               {forwardingMessage.text || (forwardingMessage.poll ? `📊 Опрос: ${forwardingMessage.poll.question}` : '📎 Вложение')}
             </div>
 
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
+            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-1">
               Выберите чат:
             </div>
 
@@ -458,10 +447,10 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
                       {name.charAt(0)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="font-semibold text-xs text-slate-900 dark:text-white truncate block">{name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{room.type === 'direct' ? 'Личный чат' : 'Группа'}</span>
+                      <span className="font-semibold text-xs text-zinc-900 dark:text-white truncate block">{name}</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">{room.type === 'direct' ? 'Личный чат' : 'Группа'}</span>
                     </div>
-                    <IconShare3 size={16} className="text-slate-400 shrink-0" />
+                    <IconShare3 size={16} className="text-zinc-400 shrink-0" />
                   </button>
                 );
               })}
@@ -473,74 +462,6 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
       {/* 13. WebRTC call overlay (full-screen ↔ floating PiP, screen share) */}
       <CallOverlay peerName={activeRoom ? getRoomDisplayName(activeRoom) : 'Собеседник'} />
 
-      {/* 14. Video Circle Record Modal */}
-      {isRecordingVideo && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center select-none animate-pop-in p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))]">
-          <div className="p-6 tg-header rounded-3xl flex flex-col items-center gap-4 max-w-[320px] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] overflow-y-auto shadow-2xl border border-slate-200 dark:border-white/10">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              Видео-кружок
-            </span>
-
-            <div className="w-48 h-48 rounded-full overflow-hidden bg-black shadow-2xl relative flex items-center justify-center">
-              <video
-                ref={videoPreviewRef as any}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover scale-x-[-1]"
-              />
-
-              <svg className="absolute inset-0 w-full h-full pointer-events-none -rotate-90 p-[2px] z-10" viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="47"
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.22)"
-                  strokeWidth="3"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="47"
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.88)"
-                  strokeWidth="3"
-                  strokeDasharray={2 * Math.PI * 47}
-                  strokeDashoffset={2 * Math.PI * 47 * (1 - Math.min(1, videoRecordTime / 60))}
-                  strokeLinecap="round"
-                  className="transition-all duration-300 ease-linear"
-                />
-              </svg>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-              <span className="text-xs font-bold font-mono text-slate-800 dark:text-slate-200">
-                {formatRecordTime(videoRecordTime)} / 1:00
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 w-full mt-1">
-              <button
-                type="button"
-                onClick={() => stopVideoRecording(false)}
-                className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 cursor-pointer"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={() => stopVideoRecording(true)}
-                className="flex-1 py-2.5 text-xs font-bold rounded-xl tg-btn-primary cursor-pointer shadow-xs text-white"
-              >
-                Отправить
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 15. QR Code Modal */}
       {showQrModal && (
         <div
@@ -548,30 +469,30 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
           onClick={() => setShowQrModal(false)}
         >
           <div
-            className="w-full max-w-[360px] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] overflow-y-auto tg-header rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl border border-slate-200 dark:border-white/10"
+            className="w-full max-w-[360px] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] overflow-y-auto tg-header rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl border border-zinc-200 dark:border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between w-full mb-3">
               <div className="flex items-center gap-2">
-                <IconQrcode size={20} className="text-[#3390ec]" />
-                <h3 className="text-base font-bold text-slate-900 dark:text-white m-0">
+                <IconQrcode size={20} className="text-accent" />
+                <h3 className="text-base font-bold text-zinc-900 dark:text-white m-0">
                   Открыть на телефоне
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowQrModal(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
               >
                 <IconX size={20} />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
               Отсканируйте QR-код камерой телефона или откройте ссылку в браузере:
             </p>
 
-            <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-100 mb-3 flex items-center justify-center">
+            <div className="p-3 bg-white rounded-2xl shadow-md border border-zinc-100 mb-3 flex items-center justify-center">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
                   typeof window !== 'undefined'
@@ -592,8 +513,8 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
                     : window.location.origin)
                 : 'https://192.168.0.9:5173';
               return (
-                <div className="w-full flex items-center gap-2 p-2 rounded-xl bg-slate-100 dark:bg-[#242f3d] mb-2">
-                  <span className="text-[11px] font-mono text-slate-800 dark:text-slate-200 truncate flex-1 text-left px-1 select-all">
+                <div className="w-full flex items-center gap-2 p-2 rounded-xl bg-zinc-100 dark:bg-elevated mb-2">
+                  <span className="text-[11px] font-mono text-zinc-800 dark:text-zinc-200 truncate flex-1 text-left px-1 select-all">
                     {currentUrl}
                   </span>
                   <button
@@ -618,11 +539,11 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
             </div>
 
             <div className="w-full text-left bg-black/5 dark:bg-white/5 rounded-xl p-3 text-[11px] space-y-1">
-              <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+              <span className="font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
                 Пароли для входа:
               </span>
-              <div className="grid grid-cols-2 gap-1 text-slate-600 dark:text-slate-400 font-mono">
-                <div>Влад: <b className="text-[#3390ec]">vladpass</b></div>
+              <div className="grid grid-cols-2 gap-1 text-zinc-600 dark:text-zinc-400 font-mono">
+                <div>Влад: <b className="text-accent">vladpass</b></div>
                 <div>Аня: <b className="text-pink-500">anyapass</b></div>
                 <div>Мама: <b className="text-amber-500">mompass</b></div>
                 <div>Папа: <b className="text-sky-500">dadpass</b></div>
@@ -635,7 +556,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
 
       {/* 16. Selection Mode Bottom Action Bar */}
       {isSelectMode && (
-        <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] inset-x-3 sm:inset-x-6 z-40 max-w-2xl mx-auto bg-white/98 dark:bg-[#17212b]/98 rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 px-4 py-2.5 flex items-center justify-between animate-pop-in select-none backdrop-blur-md">
+        <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] inset-x-3 sm:inset-x-6 z-40 max-w-2xl mx-auto bg-white/98 dark:bg-surface/98 rounded-2xl shadow-2xl border border-zinc-200 dark:border-white/10 px-4 py-2.5 flex items-center justify-between animate-pop-in select-none backdrop-blur-md">
           <button
             type="button"
             onClick={handleDeleteSelectedAnimated}
@@ -646,7 +567,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
             <IconTrash size={20} />
           </button>
 
-          <span className="text-[13.5px] font-medium text-slate-800 dark:text-slate-200">
+          <span className="text-[13.5px] font-medium text-zinc-800 dark:text-zinc-200">
             {getSelectedText(selectedMessageIds.size)}
           </span>
 
@@ -665,7 +586,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
                 }
               }}
               disabled={selectedMessageIds.size === 0}
-              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
+              className="p-1.5 rounded-xl text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
               title="Копировать"
             >
               <IconCopy size={20} />
@@ -679,7 +600,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
                 }
               }}
               disabled={selectedMessageIds.size === 0}
-              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
+              className="p-1.5 rounded-xl text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
               title="Переслать"
             >
               <IconShare3 size={20} />
@@ -690,7 +611,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
                 setIsSelectMode(false);
                 setSelectedMessageIds(new Set());
               }}
-              className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors ml-1"
+              className="p-1 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer transition-colors ml-1"
               title="Закрыть"
             >
               <IconX size={18} />
@@ -701,7 +622,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
 
       {/* 17. Floating Toast Notification */}
       {toast && (
-        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 z-50 bg-[#17212b]/95 dark:bg-[#242f3d]/95 text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-medium backdrop-blur-md border border-white/10 animate-pop-in select-none flex items-center gap-3">
+        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 z-50 bg-surface/95 dark:bg-elevated/95 text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-medium backdrop-blur-md border border-white/10 animate-pop-in select-none flex items-center gap-3">
           <span>{toast.text}</span>
           {toast.actionLabel && toast.onAction && (
             <button
@@ -710,7 +631,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
                 toast.onAction?.();
                 setToast(null);
               }}
-              className="text-[#3390ec] dark:text-[#70b1ff] font-bold hover:underline cursor-pointer pl-1 shrink-0"
+              className="text-accent dark:text-accent-soft font-bold hover:underline cursor-pointer pl-1 shrink-0"
             >
               {toast.actionLabel}
             </button>

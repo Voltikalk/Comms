@@ -7,20 +7,14 @@
 :root {
   --tg-bubble-radius: 18px;
   --tg-bubble-radius-grouped: 4px;
-  --tg-bubble-self-bg: #eeffde;
-  --tg-bubble-peer-bg: #ffffff;
+  /* Fills resolve to the Graphite tokens in index.css, so tails always match bubbles. */
+  --tg-bubble-self-bg: var(--bubble-self);
+  --tg-bubble-peer-bg: var(--bubble-peer);
 
-  --tg-glass-bg: rgba(255, 255, 255, 0.72);
-  --tg-glass-border: rgba(0, 0, 0, 0.07);
+  --tg-glass-bg: var(--overlay);
+  --tg-glass-border: var(--line);
   --tg-glass-blur: 20px;
   --tg-glass-saturate: 180%;
-}
-
-.dark {
-  --tg-bubble-self-bg: #204162;
-  --tg-bubble-peer-bg: #182533;
-  --tg-glass-bg: rgba(23, 33, 43, 0.72);
-  --tg-glass-border: rgba(255, 255, 255, 0.07);
 }
 
 /* ---------- Bubble tails (SVG appendix) ---------- */

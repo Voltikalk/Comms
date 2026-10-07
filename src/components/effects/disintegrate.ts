@@ -1,238 +1,317 @@
 /**
- * Telegram Authentic Thanos Snap Disintegration & Smooth Height Collapse (Щелчок Таноса 1:1)
- * - 60 FPS Canvas Dust Particles
- * - Smooth cubic-bezier height collapse (zero sudden layout jumps or delays)
- * - Responsive 420ms duration (no 1.7s awkward pauses)
+ * Message disintegration ("Thanos snap") effect.
+ *
+ * - Particles are sampled from the real bubble: its background colour, text colour
+ *   and — for photos / video notes — the actual pixels of the media element.
+ * - A dissolve front sweeps across the bubble, grains drift up and away with a
+ *   little turbulence, then the row collapses smoothly.
+ * - `onDone` fires once the row has collapsed, so the list never jumps.
+ * - If the row is still in the DOM afterwards (e.g. the delete was rejected),
+ *   its inline styles are restored so nothing stays invisible.
  */
 
-interface ThanosDustParticle {
-  // Coordinates
+interface Grain {
   x: number;
   y: number;
-  originX: number;
-  originY: number;
-  // Velocities
   vx: number;
   vy: number;
-  drag: number;
-  buoyancy: number;
-  // Visuals
   size: number;
-  color: string;
-  alpha: number;
-  maxAlpha: number;
-  twinkleFreq: number;
-  twinklePhase: number;
-  // Timing
-  startDelay: number;
-  decayRate: number;
+  r: number;
+  g: number;
+  b: number;
+  delay: number;
+  life: number;
+  age: number;
+  wobble: number;
 }
 
-// Telegram Stardust / Ice Cyan / Cosmic Sparkle Palette
-const TG_STARDUST_DARK = [
-  '#ffffff', // Pure white spark
-  '#b8f2ff', // Bright icy cyan
-  '#70b1ff', // Telegram electric blue
-  '#5ac8fa', // Apple/Telegram iOS cyan
-  '#9be5ff', // Sky stardust
-  '#38bdf8', // Cyan 400
-  '#3390ec', // Telegram brand blue
-  '#cffafe', // Mint glow
-  '#93c5fd', // Light blue spark
-  '#67e8f9', // Neon cyan
-];
+interface Entry {
+  element: HTMLElement;
+  rect: DOMRect;
+}
 
-const TG_STARDUST_LIGHT = [
-  '#3390ec', // Telegram primary
-  '#5ac8fa', // Cyan
-  '#4fae4e', // Telegram green spark
-  '#70b1ff', // Light blue
-  '#38bdf8', // Electric sky
-  '#86efac', // Light mint
-  '#ffffff', // White spark
-  '#60a5fa', // Blue 400
-  '#bae6fd', // Soft sky
-];
+const GRAIN_STEP = 2.6; // px between sampled grains
+const MAX_GRAINS_PER_ELEMENT = 5200;
+const MAX_GRAINS_TOTAL = 26000; // keeps multi-select / clear-history at 60fps
+const SWEEP_MS = 260; // time for the dissolve front to cross a bubble
+const COLLAPSE_DELAY_MS = 300;
+const COLLAPSE_MS = 320;
+
+type RGB = [number, number, number];
+
+const parseColor = (value: string | null | undefined): RGB | null => {
+  if (!value) return null;
+  const m = value.match(/rgba?\(([^)]+)\)/);
+  if (!m) return null;
+  const parts = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+  if (parts.length >= 4 && parts[3] === 0) return null;
+  if (parts.length < 3 || parts.slice(0, 3).some((n) => Number.isNaN(n))) return null;
+  return [parts[0], parts[1], parts[2]];
+};
+
+/** Pull the first solid colour from a gradient `background-image`. */
+const gradientColors = (value: string): RGB[] => {
+  const found = value.match(/rgba?\([^)]+\)/g) || [];
+  return found.map((c) => parseColor(c)).filter((c): c is RGB => !!c);
+};
+
+/** Draws <img>/<video> children into small offscreen canvases so we can read real pixels. */
+const sampleMedia = (root: HTMLElement) => {
+  const samplers: { rect: DOMRect; data: Uint8ClampedArray; w: number; h: number }[] = [];
+  const media = Array.from(root.querySelectorAll('img, video')) as (HTMLImageElement | HTMLVideoElement)[];
+  for (const el of media) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) continue;
+    const w = Math.max(8, Math.min(96, Math.round(rect.width / 3)));
+    const h = Math.max(8, Math.min(96, Math.round(rect.height / 3)));
+    try {
+      const off = document.createElement('canvas');
+      off.width = w;
+      off.height = h;
+      const octx = off.getContext('2d', { willReadFrequently: true });
+      if (!octx) continue;
+      if (el instanceof HTMLVideoElement && el.readyState < 2) continue;
+      octx.drawImage(el, 0, 0, w, h);
+      samplers.push({ rect, data: octx.getImageData(0, 0, w, h).data, w, h });
+    } catch {
+      // Cross-origin media taints the canvas — fall back to bubble colours.
+    }
+  }
+  return samplers;
+};
+
+const insideRoundedRect = (px: number, py: number, rect: DOMRect, radius: number) => {
+  const r = Math.min(radius, rect.width / 2, rect.height / 2);
+  if (r <= 0) return true;
+  const lx = px - rect.left;
+  const ly = py - rect.top;
+  const cx = lx < r ? r : lx > rect.width - r ? rect.width - r : lx;
+  const cy = ly < r ? r : ly > rect.height - r ? rect.height - r : ly;
+  const dx = lx - cx;
+  const dy = ly - cy;
+  return dx * dx + dy * dy <= r * r;
+};
+
+const buildGrains = (entry: Entry, isDark: boolean, maxGrains: number): Grain[] => {
+  const { element, rect } = entry;
+  const style = getComputedStyle(element);
+  const radius = parseFloat(style.borderTopLeftRadius) || 0;
+
+  const bg =
+    parseColor(style.backgroundColor) ||
+    gradientColors(style.backgroundImage)[0] ||
+    (isDark ? ([43, 82, 120] as RGB) : ([238, 255, 222] as RGB));
+  const ink = parseColor(style.color) || (isDark ? ([255, 255, 255] as RGB) : ([20, 24, 31] as RGB));
+  const media = sampleMedia(element);
+
+  const area = rect.width * rect.height;
+  const step = Math.max(GRAIN_STEP, Math.sqrt(area / maxGrains));
+  const grains: Grain[] = [];
+
+  for (let y = rect.top; y < rect.bottom; y += step) {
+    for (let x = rect.left; x < rect.right; x += step) {
+      const px = x + Math.random() * step;
+      const py = y + Math.random() * step;
+      if (!insideRoundedRect(px, py, rect, radius)) continue;
+
+      let color: RGB = bg;
+      const sampler = media.find(
+        (m) => px >= m.rect.left && px <= m.rect.right && py >= m.rect.top && py <= m.rect.bottom
+      );
+      if (sampler) {
+        const sx = Math.min(sampler.w - 1, Math.floor(((px - sampler.rect.left) / sampler.rect.width) * sampler.w));
+        const sy = Math.min(sampler.h - 1, Math.floor(((py - sampler.rect.top) / sampler.rect.height) * sampler.h));
+        const i = (sy * sampler.w + sx) * 4;
+        if (sampler.data[i + 3] > 20) color = [sampler.data[i], sampler.data[i + 1], sampler.data[i + 2]];
+      } else if (Math.random() < 0.14) {
+        // A sprinkle of text-coloured grains keeps the "ink" readable as it dissolves.
+        color = ink;
+      }
+
+      const jitter = (Math.random() - 0.5) * 22;
+      const u = (px - rect.left) / rect.width;
+      const v = (py - rect.top) / rect.height;
+      // Dissolve front: left → right with a slight diagonal, plus noise.
+      const front = u * 0.82 + (1 - v) * 0.18 + (Math.random() - 0.5) * 0.12;
+
+      grains.push({
+        x: px,
+        y: py,
+        vx: 0.35 + Math.random() * 1.1,
+        vy: -(0.25 + Math.random() * 0.9),
+        size: Math.random() > 0.9 ? step * 0.95 : step * (0.55 + Math.random() * 0.25),
+        r: Math.max(0, Math.min(255, color[0] + jitter)),
+        g: Math.max(0, Math.min(255, color[1] + jitter)),
+        b: Math.max(0, Math.min(255, color[2] + jitter)),
+        delay: Math.max(0, front) * SWEEP_MS,
+        life: 520 + Math.random() * 420,
+        age: 0,
+        wobble: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+  return grains;
+};
+
+const collapseRow = (element: HTMLElement) => {
+  const row = (element.closest('[id^="msg-"]') as HTMLElement) || element;
+  const saved = row.getAttribute('style') || '';
+  row.style.height = `${row.offsetHeight}px`;
+  row.style.overflow = 'hidden';
+  row.style.boxSizing = 'border-box';
+  row.style.pointerEvents = 'none';
+  const ease = 'cubic-bezier(0.32, 0.72, 0, 1)';
+  row.style.transition = `height ${COLLAPSE_MS}ms ${ease}, padding ${COLLAPSE_MS}ms ${ease}, margin ${COLLAPSE_MS}ms ${ease}`;
+  window.setTimeout(() => {
+    row.style.height = '0px';
+    row.style.paddingTop = '0px';
+    row.style.paddingBottom = '0px';
+    row.style.marginTop = '0px';
+    row.style.marginBottom = '0px';
+  }, COLLAPSE_DELAY_MS);
+  return { row, saved };
+};
 
 export function triggerTelegramDisintegrate(
   elementOrElements: HTMLElement | HTMLElement[],
   onDone?: () => void
 ) {
   const elements = (Array.isArray(elementOrElements) ? elementOrElements : [elementOrElements]).filter(Boolean);
-  const validEntries = elements
-    .map((el) => ({ element: el, rect: el.getBoundingClientRect() }))
-    .filter((e) => e.rect.width > 0 && e.rect.height > 0);
+  const entries: Entry[] = elements
+    .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+    .filter((e) => e.rect.width > 0 && e.rect.height > 0 && e.rect.bottom > 0 && e.rect.top < window.innerHeight);
 
-  if (validEntries.length === 0) {
+  // Off-screen messages (selected then scrolled away) just get removed.
+  if (entries.length === 0) {
     onDone?.();
     return;
   }
 
-  // 1. Soft Haptic Pulse (Silent, tactile only)
-  if (typeof navigator !== 'undefined' && navigator.vibrate) {
-    try {
-      navigator.vibrate(validEntries.length > 1 ? [15, 25, 15] : [12, 20]);
-    } catch {}
-  }
+  try {
+    navigator.vibrate?.(entries.length > 1 ? [12, 30, 12] : 14);
+  } catch { /* ignore */ }
 
-  // 2. Fullscreen Overlay Canvas
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const isDark = document.documentElement.classList.contains('dark');
+
+  // Sample colours BEFORE hiding anything.
+  const grains = reduceMotion ? [] : entries.flatMap((entry) =>
+        buildGrains(entry, isDark, Math.min(MAX_GRAINS_PER_ELEMENT, MAX_GRAINS_TOTAL / entries.length))
+      );
+
+  // The bubble is erased by a sweeping mask while the grains take its place.
+  const mask = 'linear-gradient(90deg, transparent 0%, transparent var(--dz-p, 0%), #000 calc(var(--dz-p, 0%) + 14%))';
+  const setSweep = (pct: number) => {
+    entries.forEach(({ element }) => element.style.setProperty('--dz-p', `${pct}%`));
+  };
+  entries.forEach(({ element }) => {
+    if (reduceMotion || grains.length === 0) {
+      element.style.transition = 'opacity 160ms ease-out';
+      element.style.opacity = '0';
+      return;
+    }
+    element.style.setProperty('--dz-p', '-14%');
+    element.style.setProperty('mask-image', mask);
+    element.style.setProperty('-webkit-mask-image', mask);
+  });
+
+  const collapsed = entries.map(({ element }) => collapseRow(element));
+
+  let doneCalled = false;
+  const finish = () => {
+    if (doneCalled) return;
+    doneCalled = true;
+    onDone?.();
+    // If the row survived (delete rejected / message re-rendered), undo our inline styles.
+    window.setTimeout(() => {
+      collapsed.forEach(({ row, saved }) => {
+        if (row.isConnected) row.setAttribute('style', saved);
+      });
+      entries.forEach(({ element }) => {
+        if (element.isConnected) {
+          element.style.removeProperty('mask-image');
+          element.style.removeProperty('-webkit-mask-image');
+          element.style.removeProperty('--dz-p');
+          element.style.opacity = '';
+          element.style.transition = '';
+        }
+      });
+    }, 1200);
+  };
+  window.setTimeout(finish, COLLAPSE_DELAY_MS + COLLAPSE_MS + 20);
+
+  if (grains.length === 0) return;
+
   const canvas = document.createElement('canvas');
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
-  canvas.style.position = 'fixed';
-  canvas.style.left = '0';
-  canvas.style.top = '0';
-  canvas.style.width = '100vw';
-  canvas.style.height = '100vh';
-  canvas.style.pointerEvents = 'none';
-  canvas.style.zIndex = '99999';
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  canvas.width = vw * dpr;
+  canvas.height = vh * dpr;
+  Object.assign(canvas.style, {
+    position: 'fixed',
+    inset: '0',
+    width: `${vw}px`,
+    height: `${vh}px`,
+    pointerEvents: 'none',
+    zIndex: '99999',
+  } as CSSStyleDeclaration);
   document.body.appendChild(canvas);
 
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     canvas.remove();
-    onDone?.();
+    entries.forEach(({ element }) => { element.style.opacity = '0'; });
     return;
   }
   ctx.scale(dpr, dpr);
+  // rAF is suspended in background tabs; don't leave the overlay stranded there.
+  window.setTimeout(() => canvas.remove(), 2600);
 
-  // 3. Smooth CSS Height Collapse of the message row (prevents sudden layout drop)
-  validEntries.forEach(({ element }) => {
-    // Hide bubble itself
-    element.style.transition = 'opacity 80ms ease-out';
-    element.style.opacity = '0';
+  const start = performance.now();
+  let last = start;
 
-    // Collapse parent message row smoothly
-    const row = (element.closest('[id^="msg-"]') as HTMLElement) || element;
-    if (row) {
-      const initialHeight = row.offsetHeight;
-      row.style.height = `${initialHeight}px`;
-      row.style.overflow = 'hidden';
-      row.style.boxSizing = 'border-box';
-      row.style.transition = 'height 340ms cubic-bezier(0.33, 1, 0.68, 1), padding 340ms cubic-bezier(0.33, 1, 0.68, 1), margin 340ms cubic-bezier(0.33, 1, 0.68, 1), opacity 180ms ease-out';
+  const tick = (now: number) => {
+    const elapsed = now - start;
+    const dt = Math.min(32, now - last) / 16.67;
+    last = now;
+    ctx.clearRect(0, 0, vw, vh);
+    // Front position in % of bubble width (grains release at u ≈ front / 0.82).
+    const sweep = Math.min(1.2, elapsed / SWEEP_MS / 0.82);
+    setSweep(sweep >= 1.2 ? 120 : sweep * 100 - 14);
+    if (sweep >= 1.2) entries.forEach(({ element }) => { element.style.opacity = '0'; });
 
-      requestAnimationFrame(() => {
-        row.style.height = '0px';
-        row.style.paddingTop = '0px';
-        row.style.paddingBottom = '0px';
-        row.style.marginTop = '0px';
-        row.style.marginBottom = '0px';
-        row.style.opacity = '0';
-      });
-    }
-  });
-
-  const isDark = document.documentElement.classList.contains('dark');
-  const palette = isDark ? TG_STARDUST_DARK : TG_STARDUST_LIGHT;
-
-  // 4. Generate 2,500 - 4,500 Microscopic Sand Grains (Crisp & snappy)
-  const particles: ThanosDustParticle[] = [];
-
-  validEntries.forEach(({ rect }) => {
-    const area = rect.width * rect.height;
-    const particleCount = Math.min(4500, Math.max(1800, Math.floor(area / 4.5)));
-
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-
-    for (let i = 0; i < particleCount; i++) {
-      const u = Math.random();
-      const v = Math.random();
-      const posX = rect.left + u * rect.width + (Math.random() - 0.5) * 1.5;
-      const posY = rect.top + v * rect.height + (Math.random() - 0.5) * 1.5;
-
-      const dx = posX - centerX;
-      const dy = posY - centerY;
-      const angleFromCenter = Math.atan2(dy, dx);
-
-      // Fast progressive sweep (0ms to 120ms)
-      const waveProgress = (u * 0.45 + (1 - v) * 0.55) + (Math.random() * 0.1 - 0.05);
-      const startDelay = Math.max(0, waveProgress * 120);
-
-      // Soft velocity
-      const spreadSpeed = Math.random() * 0.8 + 0.3;
-      const lateralDirection = dx >= 0 ? 1 : -1;
-      const vx = Math.cos(angleFromCenter) * spreadSpeed * 0.4 + lateralDirection * (Math.random() * 0.6 + 0.2);
-      const vy = -Math.random() * 1.2 - 0.4; // upward draft
-
-      const size = Math.random() > 0.88 
-        ? Math.random() * 0.3 + 0.9 
-        : Math.random() * 0.3 + 0.6;
-
-      const color = palette[Math.floor(Math.random() * palette.length)];
-
-      particles.push({
-        x: posX,
-        y: posY,
-        originX: posX,
-        originY: posY,
-        vx,
-        vy,
-        drag: Math.random() * 0.006 + 0.975,
-        buoyancy: Math.random() * 0.005 + 0.012,
-        size,
-        color,
-        alpha: 1,
-        maxAlpha: Math.random() * 0.3 + 0.7,
-        twinkleFreq: Math.random() * 0.02 + 0.01,
-        twinklePhase: Math.random() * Math.PI * 2,
-        startDelay,
-        decayRate: Math.random() * 0.015 + 0.018, // Lifespan ~380ms
-      });
-    }
-  });
-
-  // 5. 60 FPS Particle Physics Animation (~380-420ms total)
-  let animId: number;
-  const startTime = performance.now();
-  const maxDuration = 420; // ms (smooth and snappy, 0 awkward pause)
-
-  const render = (currentTime: number) => {
-    const elapsed = currentTime - startTime;
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
-    let activeCount = 0;
-    const globalFadeIn = Math.min(1, elapsed / 30);
-
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      if (p.alpha <= 0) continue;
-      activeCount++;
-
-      if (elapsed < p.startDelay) {
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.maxAlpha * globalFadeIn;
-        ctx.fillRect(p.originX, p.originY, p.size, p.size);
+    let alive = 0;
+    for (let i = 0; i < grains.length; i++) {
+      const g = grains[i];
+      if (elapsed < g.delay) {
+        alive++;
         continue;
       }
+      g.age += 16.67 * dt;
+      const t = g.age / g.life;
+      if (t >= 1) continue;
+      alive++;
 
-      p.vx *= p.drag;
-      p.vy = (p.vy * p.drag) - p.buoyancy;
+      g.wobble += 0.12 * dt;
+      g.vx += 0.012 * dt;
+      g.vy -= 0.018 * dt;
+      g.x += (g.vx + Math.sin(g.wobble) * 0.35) * dt;
+      g.y += g.vy * dt;
 
-      p.x += p.vx;
-      p.y += p.vy;
-
-      p.alpha -= p.decayRate;
-      if (p.alpha < 0) p.alpha = 0;
-
-      const particleAge = elapsed - p.startDelay;
-      const twinkle = 0.88 + 0.12 * Math.sin(particleAge * p.twinkleFreq + p.twinklePhase);
-      const renderAlpha = Math.max(0, Math.min(1, p.alpha * p.maxAlpha * twinkle * globalFadeIn));
-
-      ctx.fillStyle = p.color;
-      ctx.globalAlpha = renderAlpha;
-      ctx.fillRect(p.x, p.y, p.size, p.size);
+      const alpha = t < 0.15 ? 1 : 1 - (t - 0.15) / 0.85;
+      const size = g.size * (1 - t * 0.55);
+      ctx.globalAlpha = alpha * alpha;
+      ctx.fillStyle = `rgb(${g.r | 0},${g.g | 0},${g.b | 0})`;
+      ctx.fillRect(g.x, g.y, size, size);
     }
 
-    if (activeCount > 0 && elapsed < maxDuration) {
-      animId = requestAnimationFrame(render);
+    if (alive > 0 && elapsed < 2000) {
+      requestAnimationFrame(tick);
     } else {
-      cancelAnimationFrame(animId);
       canvas.remove();
-      onDone?.();
     }
   };
 
-  animId = requestAnimationFrame(render);
+  requestAnimationFrame(tick);
 }

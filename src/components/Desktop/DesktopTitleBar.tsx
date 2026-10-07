@@ -79,11 +79,11 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
   };
 
   return (
-    <header className="h-10 shrink-0 bg-white/90 dark:bg-[#17212b]/95 backdrop-blur-md border-b border-gray-200/80 dark:border-[#101921] px-3.5 flex items-center justify-between select-none z-40 transition-colors">
+    <header className="h-10 shrink-0 bg-white/90 dark:bg-surface/95 backdrop-blur-md border-b border-gray-200/80 dark:border-canvas px-3.5 flex items-center justify-between select-none z-40 transition-colors">
       {/* Left: Brand, OS Badge & Breadcrumbs */}
       <div className="flex items-center space-x-2.5 min-w-0">
         <div className="flex items-center space-x-2 shrink-0">
-          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#3390ec] to-[#2563eb] flex items-center justify-center shadow-sm">
+          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-accent to-accent flex items-center justify-center shadow-sm">
             <IconSparkles className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="text-xs font-semibold tracking-tight text-gray-800 dark:text-gray-100 hidden sm:inline">
@@ -108,7 +108,7 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
         )}
 
         {/* Network & Ping Indicator */}
-        <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#202b36] border border-gray-200/60 dark:border-[#2b3947]/60 text-[11px] shrink-0">
+        <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-elevated border border-gray-200/60 dark:border-elevated/60 text-[11px] shrink-0">
           {isOnline ? (
             <>
               <IconWifi className="w-3 h-3 text-emerald-500" />
@@ -129,12 +129,12 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
       <div className="hidden md:flex items-center">
         <button
           onClick={handleSearchOrPalette}
-          className="flex items-center space-x-2 px-3 py-1 rounded-full bg-gray-100 hover:bg-gray-200/80 dark:bg-[#202b36] dark:hover:bg-[#283644] text-gray-500 dark:text-gray-400 text-xs transition-colors border border-transparent hover:border-gray-300/50 dark:hover:border-gray-600/40 cursor-pointer shadow-2xs"
+          className="flex items-center space-x-2 px-3 py-1 rounded-full bg-gray-100 hover:bg-gray-200/80 dark:bg-elevated dark:hover:bg-[#283644] text-gray-500 dark:text-gray-400 text-xs transition-colors border border-transparent hover:border-gray-300/50 dark:hover:border-gray-600/40 cursor-pointer shadow-2xs"
           title="Быстрый поиск и палитра команд (Ctrl+K)"
         >
-          <IconSearch className="w-3.5 h-3.5 text-[#3390ec]" />
+          <IconSearch className="w-3.5 h-3.5 text-accent" />
           <span className="text-[11px]">Поиск и команды</span>
-          <kbd className="text-[9px] font-mono bg-white dark:bg-[#17212b] px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-400 shadow-2xs">
+          <kbd className="text-[9px] font-mono bg-white dark:bg-surface px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-400 shadow-2xs">
             Ctrl+K
           </kbd>
         </button>
@@ -143,7 +143,7 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
       {/* Right: Hybrid Switcher, Shortcuts, Install & Fullscreen */}
       <div className="flex items-center space-x-1.5">
         {/* Hybrid Layout Mode Selector */}
-        <div className="flex items-center bg-gray-100 dark:bg-[#202b36] p-0.5 rounded-lg border border-gray-200/60 dark:border-[#2b3947]/60">
+        <div className="flex items-center bg-gray-100 dark:bg-elevated p-0.5 rounded-lg border border-gray-200/60 dark:border-elevated/60">
           <button
             onClick={() => {
               triggerHaptic('selection');
@@ -151,7 +151,7 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
             }}
             className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
               viewMode === 'auto'
-                ? 'bg-white dark:bg-[#2b5278] text-[#3390ec] dark:text-white shadow-xs'
+                ? 'bg-white dark:bg-accent-muted text-accent dark:text-white shadow-xs'
                 : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
             }`}
             title="Автоматический адаптивный режим"
@@ -166,7 +166,7 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
             }}
             className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
               viewMode === 'desktop'
-                ? 'bg-white dark:bg-[#2b5278] text-[#3390ec] dark:text-white shadow-xs'
+                ? 'bg-white dark:bg-accent-muted text-accent dark:text-white shadow-xs'
                 : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
             }`}
             title="Принудительный режим ПК (2 колонки)"
@@ -181,7 +181,7 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
             }}
             className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
               viewMode === 'mobile'
-                ? 'bg-white dark:bg-[#2b5278] text-[#3390ec] dark:text-white shadow-xs'
+                ? 'bg-white dark:bg-accent-muted text-accent dark:text-white shadow-xs'
                 : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
             }`}
             title="Принудительный режим Телефона"
@@ -197,7 +197,7 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
             triggerHaptic('selection');
             setShowShortcutsModal(true);
           }}
-          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#202b36] text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-elevated text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
           title="Горячие клавиши (Ctrl+/)"
         >
           <IconKeyboard className="w-4 h-4" />
@@ -210,7 +210,7 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
               triggerHaptic('selection');
               promptInstall().catch(() => setShowInstallModal(true));
             }}
-            className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-[#3390ec]/10 hover:bg-[#3390ec]/20 text-[#3390ec] dark:text-[#5ac8fa] text-[11px] font-medium transition-colors border border-[#3390ec]/30"
+            className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-accent/10 hover:bg-accent/20 text-accent dark:text-accent-soft text-[11px] font-medium transition-colors border border-accent/30"
             title="Установить приложение на устройство"
           >
             <IconDownload className="w-3.5 h-3.5" />
@@ -221,7 +221,7 @@ export const DesktopTitleBar: React.FC<DesktopTitleBarProps> = ({
         {/* Fullscreen Toggle */}
         <button
           onClick={toggleFullscreen}
-          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#202b36] text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-elevated text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
           title={isFullscreen ? 'Выйти из полноэкранного режима' : 'Во весь экран (F11)'}
         >
           {isFullscreen ? <IconMinimize className="w-4 h-4" /> : <IconMaximize className="w-4 h-4" />}

@@ -17,7 +17,7 @@ export const SearchHistory: React.FC<SearchHistoryProps> = ({
 
   return (
     <div className="space-y-2 text-xs">
-      <div className="flex items-center justify-between text-slate-400 px-1">
+      <div className="flex items-center justify-between text-zinc-400 px-1">
         <span className="font-medium flex items-center gap-1.5 text-[11.5px]">
           <IconHistory size={14} />
           <span>Недавние запросы</span>
@@ -39,7 +39,7 @@ export const SearchHistory: React.FC<SearchHistoryProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={() => onSelectQuery(query)}
-              className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
+              className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-all cursor-pointer text-xs"
             >
               <span>{query}</span>
             </motion.button>

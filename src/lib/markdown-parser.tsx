@@ -319,7 +319,7 @@ export function renderMarkdownTokens(
               onMentionClick?.(token.content.slice(1));
             }}
             title={token.content.slice(1)}
-            className="font-semibold text-[#3390ec] dark:text-[#6ab3f3] hover:underline decoration-[#3390ec]/50 cursor-pointer"
+            className="font-semibold text-accent dark:text-accent-soft hover:underline decoration-accent/50 cursor-pointer"
           >
             {renderHighlightedText(token.content, searchQuery)}
           </span>
@@ -334,7 +334,7 @@ export function renderMarkdownTokens(
               onHashtagClick?.(token.content.slice(1));
             }}
             title="Искать по хештегу"
-            className="font-semibold text-[#3390ec] dark:text-[#6ab3f3] hover:underline decoration-[#3390ec]/50 cursor-pointer"
+            className="font-semibold text-accent dark:text-accent-soft hover:underline decoration-accent/50 cursor-pointer"
           >
             {renderHighlightedText(token.content, searchQuery)}
           </span>
@@ -348,7 +348,7 @@ export function renderMarkdownTokens(
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="text-[#3390ec] dark:text-[#6ab3f3] underline decoration-[#3390ec]/40 hover:decoration-[#3390ec] transition-colors break-all"
+            className="text-accent dark:text-accent-soft underline decoration-accent/40 hover:decoration-accent transition-colors break-all"
           >
             {renderHighlightedText(token.content, searchQuery)}
           </a>

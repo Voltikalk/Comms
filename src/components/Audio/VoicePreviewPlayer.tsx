@@ -77,13 +77,13 @@ export const VoicePreviewPlayer: React.FC<VoicePreviewPlayerProps> = ({
   const bars = waveform && waveform.length > 0 ? waveform : Array.from({ length: 30 }, () => 20);
 
   return (
-    <div className="flex-1 flex items-center justify-between py-1 px-2 select-none min-w-0 bg-white/95 dark:bg-[#17212b]/95 rounded-2xl shadow-xs border border-slate-200/80 dark:border-white/10 animate-pop-in">
+    <div className="flex-1 flex items-center justify-between py-1 px-2 select-none min-w-0 bg-white/95 dark:bg-surface/95 rounded-2xl shadow-xs border border-zinc-200/80 dark:border-white/10 animate-pop-in">
       
       {/* Play / Pause Button */}
       <button
         type="button"
         onClick={togglePlay}
-        className="w-8 h-8 rounded-full bg-[#3390ec] text-white flex items-center justify-center shrink-0 active:scale-95 transition-transform cursor-pointer shadow-xs"
+        className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center shrink-0 active:scale-95 transition-transform cursor-pointer shadow-xs"
         title={isPlaying ? 'Пауза' : 'Слушать'}
       >
         {isPlaying ? <IconPlayerPauseFilled size={15} /> : <IconPlayerPlayFilled size={15} />}
@@ -102,8 +102,8 @@ export const VoicePreviewPlayer: React.FC<VoicePreviewPlayerProps> = ({
                 onClick={() => handleSeek(idx)}
                 className={`flex-1 min-w-[2px] max-w-[4px] rounded-full transition-colors cursor-pointer hover:opacity-100 ${
                   isPlayed
-                    ? 'bg-[#3390ec]'
-                    : 'bg-slate-300 dark:bg-white/20'
+                    ? 'bg-accent'
+                    : 'bg-zinc-300 dark:bg-white/20'
                 }`}
                 style={{
                   height: `${Math.max(4, Math.min(22, (vol / 100) * 22))}px`,
@@ -114,7 +114,7 @@ export const VoicePreviewPlayer: React.FC<VoicePreviewPlayerProps> = ({
         </div>
 
         {/* Time Progress */}
-        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono leading-none">
+        <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono leading-none">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
@@ -125,7 +125,7 @@ export const VoicePreviewPlayer: React.FC<VoicePreviewPlayerProps> = ({
         <button
           type="button"
           onClick={onCancel}
-          className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all cursor-pointer"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all cursor-pointer"
           title="Удалить запись"
         >
           <IconTrash size={17} />
@@ -134,7 +134,7 @@ export const VoicePreviewPlayer: React.FC<VoicePreviewPlayerProps> = ({
         <button
           type="button"
           onClick={onSend}
-          className="w-8 h-8 rounded-full bg-[#3390ec] text-white hover:bg-[#2879c9] flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-xs"
+          className="w-8 h-8 rounded-full bg-accent text-white hover:bg-accent-strong flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-xs"
           title="Отправить голосовое"
         >
           <IconSend size={15} />

@@ -447,7 +447,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
               >
                 <IconEye size={16} />
                 {(current.views || []).length > 0 && (
-                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-[#3390ec] text-white text-[9px] font-bold rounded-full">
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-accent text-white text-[9px] font-bold rounded-full">
                     {current.views.length}
                   </span>
                 )}
@@ -512,12 +512,12 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         {/* Viewers Sheet Drawer (Slide-up modal for author) */}
         {isOwn && showViewsDrawer && (
           <div
-            className="absolute inset-x-0 bottom-0 top-24 z-50 bg-[#17212b]/95 backdrop-blur-2xl rounded-t-3xl border-t border-white/15 p-4 flex flex-col animate-slide-up shadow-2xl"
+            className="absolute inset-x-0 bottom-0 top-24 z-50 bg-surface/95 backdrop-blur-2xl rounded-t-3xl border-t border-white/15 p-4 flex flex-col animate-slide-up shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <IconEye size={18} className="text-[#3390ec]" />
+                <IconEye size={18} className="text-accent" />
                 <span className="text-sm font-bold text-white">
                   Просмотры ({current.views?.length || 0})
                 </span>
@@ -539,7 +539,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
                 value={viewerSearch}
                 onChange={(e) => setViewerSearch(e.target.value)}
                 placeholder="Поиск среди зрителей..."
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#3390ec]"
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-xs text-white placeholder-white/40 focus:outline-none focus:border-accent"
               />
             </div>
 
@@ -804,7 +804,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
                 {replyText.trim() && (
                   <button
                     type="submit"
-                    className="w-9 h-9 rounded-full bg-[#3390ec] hover:bg-[#2b7ac9] text-white flex items-center justify-center cursor-pointer transition-transform active:scale-90 shadow-md shrink-0"
+                    className="w-9 h-9 rounded-full bg-accent hover:bg-accent-strong text-white flex items-center justify-center cursor-pointer transition-transform active:scale-90 shadow-md shrink-0"
                   >
                     <IconSend size={16} />
                   </button>

@@ -38,7 +38,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <div className="relative flex items-center w-full">
       {/* Search Icon */}
-      <div className="absolute left-3.5 flex items-center pointer-events-none text-slate-400">
+      <div className="absolute left-3.5 flex items-center pointer-events-none text-zinc-400">
         <IconSearch size={16} />
       </div>
 
@@ -51,13 +51,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         placeholder={placeholder}
         autoFocus={autoFocus}
         aria-label="Поле поиска сообщений"
-        className="w-full h-9 pl-9 pr-9 rounded-full bg-slate-100 dark:bg-[#242f3d] border-none text-[13.5px] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3390ec] transition-all"
+        className="w-full h-9 pl-9 pr-9 rounded-full bg-zinc-100 dark:bg-elevated border-none text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-accent transition-all"
       />
 
       {/* Right Spinner / Clear button */}
       <div className="absolute right-2.5 flex items-center gap-1">
         {isLoading && (
-          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#3390ec] border-t-transparent mr-1" />
+          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent mr-1" />
         )}
 
         <AnimatePresence>
@@ -68,7 +68,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               exit={{ opacity: 0, scale: 0.8 }}
               type="button"
               onClick={onClear}
-              className="h-5 w-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              className="h-5 w-5 flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
               title="Очистить"
               aria-label="Очистить"
             >

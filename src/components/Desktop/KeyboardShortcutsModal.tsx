@@ -111,13 +111,13 @@ export const KeyboardShortcutsModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] bg-black/60 backdrop-blur-sm animate-backdrop">
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#17212b] rounded-2xl shadow-2xl border border-gray-200/80 dark:border-[#202b36] overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] animate-pop-in"
+        className="w-full max-w-lg bg-white dark:bg-surface rounded-2xl shadow-2xl border border-gray-200/80 dark:border-elevated overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-[#202b36] flex items-center justify-between bg-gray-50/70 dark:bg-[#101921]/60">
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-elevated flex items-center justify-between bg-gray-50/70 dark:bg-canvas/60">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#3390ec]/15 dark:bg-[#3390ec]/25 flex items-center justify-center text-[#3390ec]">
+            <div className="w-8 h-8 rounded-lg bg-accent/15 dark:bg-accent/25 flex items-center justify-center text-accent">
               <IconKeyboard className="w-5 h-5" />
             </div>
             <div>
@@ -134,7 +134,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
               triggerHaptic('selection');
               setShowShortcutsModal(false);
             }}
-            className="p-1.5 rounded-full hover:bg-gray-200/80 dark:hover:bg-[#202b36] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            className="p-1.5 rounded-full hover:bg-gray-200/80 dark:hover:bg-elevated text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
           >
             <IconX className="w-4 h-4" />
           </button>
@@ -145,14 +145,14 @@ export const KeyboardShortcutsModal: React.FC = () => {
           {/* Navigation Section */}
           <div>
             <div className="flex items-center space-x-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2.5">
-              <IconArrowsLeftRight className="w-3.5 h-3.5 text-[#3390ec]" />
+              <IconArrowsLeftRight className="w-3.5 h-3.5 text-accent" />
               <span>Навигация и поиск</span>
             </div>
             <div className="space-y-2">
               {SHORTCUTS.filter((s) => s.category === 'navigation').map((shortcut, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#202b36]/60 border border-gray-100 dark:border-[#2b3947]/40"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-elevated/60 border border-gray-100 dark:border-elevated/40"
                 >
                   <span className="text-xs text-gray-700 dark:text-gray-300">
                     {shortcut.description}
@@ -161,7 +161,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
                     {shortcut.keys.map((k, kIdx) => (
                       <kbd
                         key={kIdx}
-                        className="px-2 py-1 text-[11px] font-mono font-medium rounded-md bg-white dark:bg-[#17212b] border border-gray-200 dark:border-[#2b3947] text-gray-800 dark:text-gray-200 shadow-xs"
+                        className="px-2 py-1 text-[11px] font-mono font-medium rounded-md bg-white dark:bg-surface border border-gray-200 dark:border-elevated text-gray-800 dark:text-gray-200 shadow-xs"
                       >
                         {k}
                       </kbd>
@@ -182,7 +182,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
               {SHORTCUTS.filter((s) => s.category === 'chat').map((shortcut, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#202b36]/60 border border-gray-100 dark:border-[#2b3947]/40"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-elevated/60 border border-gray-100 dark:border-elevated/40"
                 >
                   <span className="text-xs text-gray-700 dark:text-gray-300">
                     {shortcut.description}
@@ -191,7 +191,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
                     {shortcut.keys.map((k, kIdx) => (
                       <kbd
                         key={kIdx}
-                        className="px-2 py-1 text-[11px] font-mono font-medium rounded-md bg-white dark:bg-[#17212b] border border-gray-200 dark:border-[#2b3947] text-gray-800 dark:text-gray-200 shadow-xs"
+                        className="px-2 py-1 text-[11px] font-mono font-medium rounded-md bg-white dark:bg-surface border border-gray-200 dark:border-elevated text-gray-800 dark:text-gray-200 shadow-xs"
                       >
                         {k}
                       </kbd>
@@ -212,7 +212,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
               {SHORTCUTS.filter((s) => s.category === 'app').map((shortcut, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#202b36]/60 border border-gray-100 dark:border-[#2b3947]/40"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-elevated/60 border border-gray-100 dark:border-elevated/40"
                 >
                   <span className="text-xs text-gray-700 dark:text-gray-300">
                     {shortcut.description}
@@ -221,7 +221,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
                     {shortcut.keys.map((k, kIdx) => (
                       <kbd
                         key={kIdx}
-                        className="px-2 py-1 text-[11px] font-mono font-medium rounded-md bg-white dark:bg-[#17212b] border border-gray-200 dark:border-[#2b3947] text-gray-800 dark:text-gray-200 shadow-xs"
+                        className="px-2 py-1 text-[11px] font-mono font-medium rounded-md bg-white dark:bg-surface border border-gray-200 dark:border-elevated text-gray-800 dark:text-gray-200 shadow-xs"
                       >
                         {k}
                       </kbd>
@@ -234,13 +234,13 @@ export const KeyboardShortcutsModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-200 dark:border-[#202b36] bg-gray-50/50 dark:bg-[#101921]/40 flex justify-end">
+        <div className="px-5 py-3 border-t border-gray-200 dark:border-elevated bg-gray-50/50 dark:bg-canvas/40 flex justify-end">
           <button
             onClick={() => {
               triggerHaptic('selection');
               setShowShortcutsModal(false);
             }}
-            className="px-4 py-1.5 rounded-lg bg-[#3390ec] hover:bg-[#2678ca] text-white text-xs font-medium transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-accent hover:bg-accent-strong text-white text-xs font-medium transition-colors"
           >
             Понятно
           </button>

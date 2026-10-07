@@ -164,11 +164,11 @@ export const ChatFolderTabs: React.FC<ChatFolderTabsProps> = ({
     <div className="relative group/tabs shrink-0 w-full overflow-hidden border-b border-gray-100 dark:border-white/5 bg-white/40 dark:bg-black/10 select-none transition-colors">
       {/* Left Scroll Button / Gradient Mask */}
       {canScrollLeft && (
-        <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pr-4 pl-1 bg-gradient-to-r from-white via-white/80 dark:from-[#17212b] dark:via-[#17212b]/80 to-transparent pointer-events-auto">
+        <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pr-4 pl-1 bg-gradient-to-r from-white via-white/80 dark:from-surface dark:via-surface/80 to-transparent pointer-events-auto">
           <button
             type="button"
             onClick={() => scrollByAmount(-120)}
-            className="w-5 h-5 rounded-full bg-white dark:bg-[#242f3d] shadow-md border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-[#3390ec] dark:hover:text-[#5ac8fa] hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            className="w-5 h-5 rounded-full bg-white dark:bg-elevated shadow-md border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-accent dark:hover:text-accent-soft hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Прокрутить влево"
           >
             <IconChevronLeft size={13} stroke={2.5} />
@@ -178,11 +178,11 @@ export const ChatFolderTabs: React.FC<ChatFolderTabsProps> = ({
 
       {/* Right Scroll Button / Gradient Mask */}
       {canScrollRight && (
-        <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pl-4 pr-1 bg-gradient-to-l from-white via-white/80 dark:from-[#17212b] dark:via-[#17212b]/80 to-transparent pointer-events-auto">
+        <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pl-4 pr-1 bg-gradient-to-l from-white via-white/80 dark:from-surface dark:via-surface/80 to-transparent pointer-events-auto">
           <button
             type="button"
             onClick={() => scrollByAmount(120)}
-            className="w-5 h-5 rounded-full bg-white dark:bg-[#242f3d] shadow-md border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-[#3390ec] dark:hover:text-[#5ac8fa] hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            className="w-5 h-5 rounded-full bg-white dark:bg-elevated shadow-md border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-accent dark:hover:text-accent-soft hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Прокрутить вправо"
           >
             <IconChevronRight size={13} stroke={2.5} />
@@ -219,7 +219,7 @@ export const ChatFolderTabs: React.FC<ChatFolderTabsProps> = ({
               onClick={() => handleSelect(tab.id)}
               className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                 isActive
-                  ? 'bg-[#3390ec] text-white shadow-xs font-bold scale-[1.02]'
+                  ? 'bg-accent text-white shadow-xs font-bold scale-[1.02]'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
@@ -233,8 +233,8 @@ export const ChatFolderTabs: React.FC<ChatFolderTabsProps> = ({
                 <span
                   className={`px-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[10px] font-bold tg-tabular shadow-xs transition-transform ${
                     isActive
-                      ? 'bg-white text-[#3390ec]'
-                      : 'bg-[#3390ec] text-white'
+                      ? 'bg-white text-accent'
+                      : 'bg-accent text-white'
                   }`}
                 >
                   {countInfo.unread > 99 ? '99+' : countInfo.unread}

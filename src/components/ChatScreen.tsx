@@ -18,6 +18,9 @@ import {
   type MentionCandidate
 } from '../lib/mentions';
 import { triggerTelegramDisintegrate } from './effects/disintegrate';
+import { DeleteMessagesDialog, type DeleteRequest } from './Chat/Modals/DeleteMessagesDialog';
+import { VideoNoteRecorderOverlay } from './Media/VideoNoteRecorderOverlay';
+import { useVideoNoteRecorder } from '../hooks/useVideoNoteRecorder';
 import { findStickersByEmoji } from '../constants/stickers';
 import { createAudioLiveAnalyser, normalizeWaveform, type AudioLiveAnalyser } from '../lib/audio-waveform';
 import type { Sticker } from '../types/sticker.types';
@@ -85,6 +88,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     sendMessage,
     forwardMessage,
     deleteMessage,
+    hideMessagesForMe,
     editMessage,
     toggleReaction,
     votePoll,
@@ -523,15 +527,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const rawAudioAmplitudesRef = useRef<number[]>([]);
   const audioVolumeIntervalRef = useRef<any>(null);
 
-  // Video Circle recording states
-  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
-  const [videoRecordTime, setVideoRecordTime] = useState(0);
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
-
-  const videoRecorderRef = useRef<MediaRecorder | null>(null);
-  const videoChunksRef = useRef<Blob[]>([]);
-  const videoIntervalRef = useRef<any>(null);
-  const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
+  // Video note ("кружок") recorder — see hooks/useVideoNoteRecorder
+  const videoNote = useVideoNoteRecorder({
+    onRecorded: (file) => sendMessage('', undefined, file),
+    onError: (text) => showToast(text),
+  });
 
   // Ringtone synthesizer state
   const oscillatorRef = useRef<OscillatorNode | null>(null);
@@ -748,42 +748,83 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     });
   };
 
+  // ── Deletion ────────────────────────────────────────────────────────────
+  // Every delete entry point (context menu, selection bar, clear history) opens the
+  // same confirmation sheet. On confirm the bubbles disintegrate, then own messages are
+  // revoked on the server (or hidden locally if "for everyone" was unticked) and other
+  // people's messages are hidden for the current user only.
+  const [pendingDelete, setPendingDelete] = useState<DeleteRequest | null>(null);
+
+  const requestDelete = useCallback((ids: string[], opts: { clearHistory?: boolean } = {}) => {
+    if (ids.length === 0 || !activeRoom) return;
+    const idSet = new Set(ids);
+    const targets = activeMessages.filter((m) => idSet.has(m.id));
+    const hasOwn = targets.some((m) => m.sender === currentUser);
+    const allOwn = targets.length > 0 && targets.every((m) => m.sender === currentUser);
+    const isSaved = isSavedMessagesRoom(activeRoom);
+    const peerLabel = isSaved
+      ? null
+      : activeRoom.type === 'direct'
+        ? getRoomDisplayName(activeRoom)
+        : 'всех участников';
+    setPendingDelete({
+      ids,
+      canRevoke: opts.clearHistory ? hasOwn : allOwn,
+      peerLabel,
+      clearHistory: opts.clearHistory,
+    });
+  }, [activeRoom, activeMessages, currentUser, getRoomDisplayName]);
+
   const handleDeleteMessageAnimated = useCallback((messageId: string) => {
-    const element = document.getElementById(`msg-${messageId}`);
-    const bubble = (element?.querySelector('[data-bubble="true"]') || element) as HTMLElement | null;
-    if (bubble) {
-      triggerTelegramDisintegrate(bubble, () => {
-        deleteMessage(messageId);
-      });
-    } else {
-      deleteMessage(messageId);
-    }
-  }, [deleteMessage]);
+    requestDelete([messageId]);
+  }, [requestDelete]);
 
   const handleDeleteSelectedAnimated = useCallback(() => {
-    const ids = Array.from(selectedMessageIds);
-    if (ids.length === 0) return;
+    requestDelete(Array.from(selectedMessageIds));
+  }, [selectedMessageIds, requestDelete]);
 
-    const bubbles: HTMLElement[] = [];
-    ids.forEach((id) => {
-      const element = document.getElementById(`msg-${id}`);
-      const bubble = (element?.querySelector('[data-bubble="true"]') || element) as HTMLElement | null;
-      if (bubble) {
-        bubbles.push(bubble);
-      }
-    });
+  const cancelDelete = useCallback(() => setPendingDelete(null), []);
 
-    if (bubbles.length > 0) {
-      triggerTelegramDisintegrate(bubbles, () => {
-        ids.forEach((id) => deleteMessage(id));
+  const confirmDelete = useCallback((forEveryone: boolean) => {
+    const request = pendingDelete;
+    if (!request) return;
+    setPendingDelete(null);
+
+    const ids = request.ids;
+    const senderOf = new Map(activeMessages.map((m) => [m.id, m.sender]));
+    const commit = () => {
+      const revoke: string[] = [];
+      const hide: string[] = [];
+      ids.forEach((id) => {
+        if (forEveryone && senderOf.get(id) === currentUser) revoke.push(id);
+        else hide.push(id);
       });
-    } else {
-      ids.forEach((id) => deleteMessage(id));
-    }
+      if (hide.length > 0) hideMessagesForMe(hide);
+      revoke.forEach((id) => deleteMessage(id));
+    };
+
+    const bubbles = ids
+      .map((id) => {
+        const row = document.getElementById(`msg-${id}`);
+        return (row?.querySelector('[data-bubble="true"]') || row) as HTMLElement | null;
+      })
+      .filter((el): el is HTMLElement => !!el);
+
+    // Let the sheet start closing before the grains take over the frame budget.
+    window.setTimeout(() => {
+      if (bubbles.length > 0) triggerTelegramDisintegrate(bubbles, commit);
+      else commit();
+    }, 120);
 
     clearSelection();
-    showToast(ids.length > 1 ? 'Сообщения удалены' : 'Сообщение удалено');
-  }, [selectedMessageIds, deleteMessage, showToast, clearSelection]);
+    showToast(
+      request.clearHistory
+        ? 'История чата очищена'
+        : ids.length > 1
+          ? `Удалено сообщений: ${ids.length}`
+          : 'Сообщение удалено'
+    );
+  }, [pendingDelete, activeMessages, currentUser, hideMessagesForMe, deleteMessage, showToast, clearSelection]);
 
   // Filter messages using our rich applyFilters system
   const filteredMessages = React.useMemo(() => {
@@ -1688,128 +1729,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   };
 
-  const formatRecordTime = (seconds: number) => {
-    const min = Math.floor(seconds / 60);
-    const sec = Math.floor(seconds % 60);
-    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
-  };
-
-  // Video Circle Note recording (up to 60 seconds)
-  const startVideoRecording = async () => {
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('Запись видео-кружков требует защищенного соединения (HTTPS или localhost).');
-        return;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: {
-          facingMode: 'user',
-          width: { ideal: 480, max: 720 },
-          height: { ideal: 480, max: 720 },
-          frameRate: { ideal: 30, max: 30 }
-        }
-      });
-
-      setVideoStream(stream);
-      setIsRecordingVideo(true);
-      setVideoRecordTime(0);
-      videoChunksRef.current = [];
-
-      setTimeout(() => {
-        if (videoPreviewRef.current) {
-          videoPreviewRef.current.srcObject = stream;
-        }
-      }, 100);
-
-      let mimeType = 'video/webm';
-      if (typeof MediaRecorder !== 'undefined') {
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) mimeType = 'video/webm;codecs=vp8,opus';
-        else if (MediaRecorder.isTypeSupported('video/webm')) mimeType = 'video/webm';
-        else if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4';
-      }
-
-      const recorderOptions: MediaRecorderOptions = {
-        mimeType: mimeType || undefined,
-        videoBitsPerSecond: 1_200_000
-      };
-
-      const mediaRecorder = new MediaRecorder(stream, recorderOptions);
-      videoRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          videoChunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const actualMimeType = mediaRecorder.mimeType || mimeType || 'video/webm';
-        const videoBlob = new Blob(videoChunksRef.current, { type: actualMimeType });
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          const extension = actualMimeType.includes('mp4') ? 'mp4' : actualMimeType.includes('ogg') ? 'ogg' : 'webm';
-          sendMessage('', undefined, {
-            name: `Видео-кружок.${extension}`,
-            type: 'video_note',
-            data: base64,
-            size: videoBlob.size,
-            rawBlob: videoBlob,
-            duration: videoRecordTime || 1
-          });
-        };
-        reader.readAsDataURL(videoBlob);
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      mediaRecorder.start();
-
-      videoIntervalRef.current = setInterval(() => {
-        setVideoRecordTime((t) => {
-          if (t >= 59) {
-            stopVideoRecording(true);
-            return 60;
-          }
-          return t + 1;
-        });
-      }, 1000);
-    } catch (err) {
-      console.error('Record video circle error:', err);
-      alert('Не удалось получить доступ к камере/микрофону.');
-    }
-  };
-
-  const stopVideoRecording = (shouldSend = true) => {
-    if (videoIntervalRef.current) {
-      clearInterval(videoIntervalRef.current);
-      videoIntervalRef.current = null;
-    }
-
-    if (videoRecorderRef.current && isRecordingVideo) {
-      if (!shouldSend) {
-        videoRecorderRef.current.onstop = () => {
-          videoRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
-        };
-      }
-      videoRecorderRef.current.stop();
-    } else if (videoStream) {
-      videoStream.getTracks().forEach((track) => track.stop());
-    }
-
-    setIsRecordingVideo(false);
-    setVideoStream(null);
-  };
-
   const getRoomColor = (room: Room) => {
-    if (room.type === 'group') return 'bg-[#3390ec]';
+    if (room.type === 'group') return 'bg-accent';
     const peerId = room.participants.find(p => p !== currentUser) || '';
-    return ROOM_AVATAR_COLORS[peerId] || 'bg-[#3390ec]';
+    return ROOM_AVATAR_COLORS[peerId] || 'bg-accent';
   };
 
   const getCleanMessageText = useCallback((msg: Message | null, showSender = false): string => {
@@ -1954,11 +1877,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   const handleClearCurrentChatHistory = useCallback(() => {
     if (!activeRoomId) return;
-    if (window.confirm('Вы уверены, что хотите очистить историю этого чата?')) {
-      activeMessages.forEach((m) => deleteMessage(m.id));
-      showToast('История чата очищена');
-    }
-  }, [activeRoomId, activeMessages, deleteMessage, showToast]);
+    requestDelete(activeMessages.map((m) => m.id), { clearHistory: true });
+  }, [activeRoomId, activeMessages, requestDelete]);
 
   const handleSearchQueryChange = useCallback((q: string) => {
     setSearchQuery(q);
@@ -2065,7 +1985,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   return (
     <div
-      className="flex flex-col fixed inset-0 w-full h-full overflow-hidden select-none bg-white dark:bg-[#17212b]"
+      className="flex flex-col fixed inset-0 w-full h-full overflow-hidden select-none bg-white dark:bg-surface"
       style={{
         paddingTop: isDesktopView ? undefined : 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
       }}
@@ -2313,7 +2233,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             formattingToolbar={formattingToolbar}
             applyFormatting={applyFormatting}
             onCloseFormattingToolbar={() => setFormattingToolbar(null)}
-            onStartVideoRecording={startVideoRecording}
+            onStartVideoRecording={videoNote.start}
             onOpenPollModal={() => setShowPollModal(true)}
             inputActionMode={inputActionMode}
             setInputActionMode={setInputActionMode}
@@ -2435,15 +2355,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         toast={toast}
         setToast={setToast}
         showToast={showToast}
-        isRecordingVideo={isRecordingVideo}
-        videoPreviewRef={videoPreviewRef}
-        videoRecordTime={videoRecordTime}
-        formatRecordTime={formatRecordTime}
-        stopVideoRecording={stopVideoRecording}
         showQrModal={showQrModal}
         setShowQrModal={setShowQrModal}
         showNewChatModal={showNewChatModal}
         setShowNewChatModal={setShowNewChatModal}
+      />
+
+      <VideoNoteRecorderOverlay recorder={videoNote} />
+
+      <DeleteMessagesDialog
+        request={pendingDelete}
+        isDesktop={isDesktopView}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
       />
     </div>
   );

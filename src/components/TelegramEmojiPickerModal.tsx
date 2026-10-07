@@ -95,11 +95,11 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
 
   return (
     <div
-      className="w-80 sm:w-92 bg-[#17212b]/98 dark:bg-[#17212b]/98 bg-white/98 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 p-3 flex flex-col gap-2 animate-pop-in select-none z-50 text-slate-900 dark:text-white"
+      className="w-80 sm:w-92 bg-surface/98 dark:bg-surface/98 bg-white/98 backdrop-blur-xl rounded-3xl shadow-2xl border border-zinc-200 dark:border-white/10 p-3 flex flex-col gap-2 animate-pop-in select-none z-50 text-zinc-900 dark:text-white"
       onClick={(e) => e.stopPropagation()}
     >
       {/* 1. Header with Master Tabs (Emoji vs Stickers) */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/10 px-1">
+      <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60 dark:border-white/10 px-1">
         {!isReactionMode ? (
           <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-2xl">
             <button
@@ -107,8 +107,8 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
               onClick={() => setMainTab('emojis')}
               className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
                 mainTab === 'emojis'
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                  ? 'bg-accent text-white shadow-xs'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white'
               }`}
             >
               <IconMoodSmile size={16} />
@@ -119,8 +119,8 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
               onClick={() => setMainTab('stickers')}
               className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
                 mainTab === 'stickers'
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                  ? 'bg-accent text-white shadow-xs'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white'
               }`}
             >
               <IconSticker size={16} />
@@ -128,7 +128,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
             </button>
           </div>
         ) : (
-          <span className="font-bold text-xs text-slate-400 uppercase tracking-wider">
+          <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider">
             Реакции
           </span>
         )}
@@ -136,7 +136,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
+          className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
           title="Закрыть"
         >
           <IconX size={16} />
@@ -157,12 +157,12 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
         <div className="flex flex-col gap-2.5">
           {/* Subtabs for Emoji */}
           <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-1.5 text-slate-400">
+            <div className="flex items-center gap-1.5 text-zinc-400">
               <button
                 type="button"
                 onClick={() => { setActiveTab('recent'); setActiveCategory('all'); }}
                 className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeTab === 'recent' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
+                  activeTab === 'recent' ? 'text-accent bg-black/5 dark:bg-white/10' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
                 title="Недавние"
               >
@@ -172,7 +172,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
                 type="button"
                 onClick={() => { setActiveTab('all'); setActiveCategory('all'); }}
                 className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeTab === 'all' && activeCategory === 'all' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
+                  activeTab === 'all' && activeCategory === 'all' ? 'text-accent bg-black/5 dark:bg-white/10' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
                 title="Все эмодзи"
               >
@@ -182,7 +182,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
                 type="button"
                 onClick={() => { setActiveTab('favorites'); setActiveCategory('all'); }}
                 className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeTab === 'favorites' ? 'text-pink-500 bg-black/5 dark:bg-white/10' : 'text-slate-400 hover:text-slate-200'
+                  activeTab === 'favorites' ? 'text-pink-500 bg-black/5 dark:bg-white/10' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
                 title="Избранные"
               >
@@ -191,7 +191,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
             </div>
 
             {/* Category Filters */}
-            <div className="flex items-center gap-1 text-slate-400">
+            <div className="flex items-center gap-1 text-zinc-400">
               <button
                 type="button"
                 onClick={() => {
@@ -212,7 +212,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
                   setActiveTab('all');
                 }}
                 className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeCategory === 'thumbs' ? 'text-[#3390ec] bg-black/5 dark:bg-white/10' : ''
+                  activeCategory === 'thumbs' ? 'text-accent bg-black/5 dark:bg-white/10' : ''
                 }`}
                 title="Жесты"
               >
@@ -235,14 +235,14 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
           </div>
 
           {/* Search Bar */}
-          <div className="flex items-center gap-1.5 bg-black/5 dark:bg-[#242f3d] px-2.5 py-1.5 rounded-xl">
-            <IconSearch size={15} className="text-slate-400 shrink-0" />
+          <div className="flex items-center gap-1.5 bg-black/5 dark:bg-elevated px-2.5 py-1.5 rounded-xl">
+            <IconSearch size={15} className="text-zinc-400 shrink-0" />
             <input
               type="text"
               placeholder="Поиск эмодзи..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none text-xs text-slate-900 dark:text-white focus:outline-none w-full placeholder-slate-400"
+              className="bg-transparent border-none text-xs text-zinc-900 dark:text-white focus:outline-none w-full placeholder-zinc-400"
             />
           </div>
 
@@ -261,7 +261,7 @@ export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> =
                 </button>
               ))
             ) : (
-              <div className="col-span-8 py-8 text-center text-xs text-slate-400">
+              <div className="col-span-8 py-8 text-center text-xs text-zinc-400">
                 Ничего не найдено
               </div>
             )}

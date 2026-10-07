@@ -14,7 +14,7 @@ export const Aurora: React.FC<AuroraProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`relative w-full h-full overflow-hidden bg-slate-950 ${className}`}>
+    <div className={`relative w-full h-full overflow-hidden bg-zinc-950 ${className}`}>
       {/* Background radial gradient layers */}
       <div
         className="absolute -inset-[40%] opacity-60 filter blur-[80px] animate-spin"

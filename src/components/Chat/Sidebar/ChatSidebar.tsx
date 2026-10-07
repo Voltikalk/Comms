@@ -147,7 +147,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <button
             type="button"
             onClick={() => setShowMenuDropdown(!showMenuDropdown)}
-            className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors shrink-0"
+            className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors shrink-0"
             title="Меню"
           >
             <IconMenu2 size={20} />
@@ -160,24 +160,24 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 className="fixed inset-0 z-40"
                 onClick={() => setShowMenuDropdown(false)}
               />
-              <div className={`absolute top-12 ${isCompactSidebar ? 'left-2' : 'left-3'} z-50 w-64 tg-header rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 py-2 animate-pop-in select-none`}>
+              <div className={`absolute top-12 ${isCompactSidebar ? 'left-2' : 'left-3'} z-50 w-64 tg-header rounded-2xl shadow-2xl border border-zinc-200 dark:border-white/10 py-2 animate-pop-in select-none`}>
                 {/* User Profile Card Header */}
                 <div 
                   onClick={() => {
                     onOpenProfileModal();
                     setShowMenuDropdown(false);
                   }}
-                  className="px-3.5 py-2.5 mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3"
+                  className="px-3.5 py-2.5 mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3 border-b border-zinc-100 dark:border-white/5 pb-3"
                 >
                   <div className="relative shrink-0">
                     {currentUserProfile?.avatarUrl ? (
                       <img 
                         src={currentUserProfile.avatarUrl} 
                         alt="Avatar" 
-                        className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-[#3390ec]/20" 
+                        className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-accent/20" 
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-sm font-bold shadow-xs">
+                      <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center text-sm font-bold shadow-xs">
                         {currentUserName?.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -190,12 +190,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-white truncate block">
                         {currentUserName}
                       </span>
-                      <IconEdit size={14} className="text-[#3390ec] shrink-0" />
+                      <IconEdit size={14} className="text-accent shrink-0" />
                     </div>
-                    <span className="text-[10.5px] text-slate-400 truncate block">
+                    <span className="text-[10.5px] text-zinc-400 truncate block">
                       {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите для настройки')}
                     </span>
                   </div>
@@ -210,13 +210,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       onOpenGlobalSearch();
                       setShowMenuDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconSearch size={18} className="text-[#3390ec]" />
+                      <IconSearch size={18} className="text-accent" />
                       <span>Поиск по сообщениям</span>
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">FTS</span>
+                    <span className="text-[10px] text-zinc-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">FTS</span>
                   </button>
 
                   {onOpenNewChatModal && (
@@ -226,13 +226,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         onOpenNewChatModal();
                         setShowMenuDropdown(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                      className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                     >
                       <span className="flex items-center gap-2.5">
-                        <IconEdit size={18} className="text-[#3390ec]" />
+                        <IconEdit size={18} className="text-accent" />
                         <span>Новое сообщение</span>
                       </span>
-                      <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">New</span>
+                      <span className="text-[10px] text-zinc-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">New</span>
                     </button>
                   )}
 
@@ -242,10 +242,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       onOpenProfileModal();
                       setShowMenuDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconUser size={18} className="text-[#3390ec]" />
+                      <IconUser size={18} className="text-accent" />
                       <span>Мой профиль</span>
                     </span>
                   </button>
@@ -256,10 +256,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       onOpenQrModal();
                       setShowMenuDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconDeviceMobile size={18} className="text-[#3390ec]" />
+                      <IconDeviceMobile size={18} className="text-accent" />
                       <span>Открыть на телефоне</span>
                     </span>
                   </button>
@@ -270,10 +270,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       onOpenThemeModal();
                       setShowMenuDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconPalette size={18} className="text-[#3390ec]" />
+                      <IconPalette size={18} className="text-accent" />
                       <span>Оформление и обои</span>
                     </span>
                   </button>
@@ -298,13 +298,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       onOpenArchiveModal();
                       setShowMenuDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconBookmark size={18} className="text-[#3390ec]" />
+                      <IconBookmark size={18} className="text-accent" />
                       <span>Архив сообщений (Admin)</span>
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">DB</span>
+                    <span className="text-[10px] text-zinc-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">DB</span>
                   </button>
 
                   <button
@@ -313,10 +313,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       onOpenInstallModal();
                       setShowMenuDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconDownload size={18} className="text-[#3390ec]" />
+                      <IconDownload size={18} className="text-accent" />
                       <span>Установить приложение</span>
                     </span>
                   </button>
@@ -327,16 +327,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       onOpenShortcutsModal();
                       setShowMenuDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <IconKeyboard size={18} className="text-[#3390ec]" />
+                      <IconKeyboard size={18} className="text-accent" />
                       <span>Горячие клавиши</span>
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">?</span>
+                    <span className="text-[10px] text-zinc-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">?</span>
                   </button>
 
-                  <div className="my-1 border-t border-slate-100 dark:border-white/5" />
+                  <div className="my-1 border-t border-zinc-100 dark:border-white/5" />
 
                   <button
                     type="button"
@@ -369,25 +369,25 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           {/* Search Input for filtering rooms */}
           {!isCompactSidebar && (
             <div className="flex-1 relative flex items-center">
-              <IconSearch size={15} className="absolute left-3 text-slate-400 dark:text-slate-500 pointer-events-none" />
+              <IconSearch size={15} className="absolute left-3 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
               <input
                 type="text"
                 value={roomFilterQuery}
                 onChange={(e) => setRoomFilterQuery(e.target.value)}
                 placeholder="Поиск..."
-                className="w-full pl-8.5 pr-9 py-1.5 bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.04] dark:border-white/[0.06] text-slate-900 dark:text-white rounded-full text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3390ec]/20 focus:border-[#3390ec] transition-all"
+                className="w-full pl-8.5 pr-9 py-1.5 bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.04] dark:border-white/[0.06] text-zinc-900 dark:text-white rounded-full text-xs placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
               />
               {roomFilterQuery ? (
                 <button
                   type="button"
                   onClick={() => setRoomFilterQuery('')}
-                  className="absolute right-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                  className="absolute right-2.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer p-0.5"
                   title="Очистить"
                 >
                   <span className="text-[11px] font-bold">✕</span>
                 </button>
               ) : (
-                <span className="absolute right-2.5 text-[9.5px] font-mono text-slate-400 dark:text-slate-500 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded pointer-events-none">
+                <span className="absolute right-2.5 text-[9.5px] font-mono text-zinc-400 dark:text-zinc-500 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded pointer-events-none">
                   ⌘K
                 </span>
               )}
@@ -432,7 +432,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 className={`w-full p-2.5 rounded-2xl flex items-center gap-3 transition-all duration-150 cursor-pointer select-none text-left relative group ${
                   isActive
                     ? 'tg-room-active'
-                    : 'hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300'
+                    : 'hover:bg-black/5 dark:hover:bg-white/5 text-zinc-700 dark:text-zinc-300'
                 } ${isCompactSidebar ? 'justify-center p-2' : ''}`}
               >
                 {/* Active Indicator Strip */}
@@ -456,12 +456,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
                   {/* Online Badge */}
                   {room.type === 'direct' && isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-[#17212b] shadow-xs" />
+                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-surface shadow-xs" />
                   )}
 
                   {/* Badge on avatar in compact mode */}
                   {isCompactSidebar && count > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold tg-tabular bg-[#3390ec] text-white shadow-xs">
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold tg-tabular bg-accent text-white shadow-xs">
                       {count}
                     </span>
                   )}
@@ -471,11 +471,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 {!isCompactSidebar && (
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`text-sm font-semibold truncate block ${isActive ? 'text-white font-bold' : 'text-slate-900 dark:text-white'}`}>
+                      <span className={`text-sm font-semibold truncate block ${isActive ? 'text-white font-bold' : 'text-zinc-900 dark:text-white'}`}>
                         {displayName}
                       </span>
                       {preview && (
-                        <span className={`text-[11px] font-mono tg-tabular shrink-0 ml-1.5 ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
+                        <span className={`text-[11px] font-mono tg-tabular shrink-0 ml-1.5 ${isActive ? 'text-white/80' : 'text-zinc-400'}`}>
                           {preview.time}
                         </span>
                       )}
@@ -483,7 +483,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
                     <div className="flex items-center justify-between gap-1">
                       {typers.length > 0 ? (
-                        <span className={`text-xs truncate italic flex items-center gap-1 font-medium ${isActive ? 'text-white' : 'text-[#3390ec]'}`}>
+                        <span className={`text-xs truncate italic flex items-center gap-1 font-medium ${isActive ? 'text-white' : 'text-accent'}`}>
                           <span className="flex gap-0.5 items-center">
                             <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />
                             <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -492,17 +492,17 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                           <span>{typers.join(', ')} печатает...</span>
                         </span>
                       ) : (
-                        <div className={`text-xs truncate flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                        <div className={`text-xs truncate flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-zinc-500 dark:text-zinc-400'}`}>
                           {(() => {
                             if (!preview) {
-                              return <span className="text-slate-400/80 italic">Нет сообщений</span>;
+                              return <span className="text-zinc-400/80 italic">Нет сообщений</span>;
                             }
 
                             return (
                               <div className="flex items-center gap-1 min-w-0 truncate">
                                 {preview.isMine && (
                                   <span className="text-current shrink-0 inline-flex items-center">
-                                    <IconChecks size={14} className={isActive ? 'text-white' : 'text-[#3390ec]'} />
+                                    <IconChecks size={14} className={isActive ? 'text-white' : 'text-accent'} />
                                   </span>
                                 )}
                                 {preview.isPhoto && <IconPhoto size={13} className="shrink-0" />}
@@ -519,7 +519,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
                       {count > 0 && (
                         <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tg-tabular shadow-xs ${
-                          isActive ? 'bg-white text-[#3390ec]' : 'bg-[#3390ec] text-white'
+                          isActive ? 'bg-white text-accent' : 'bg-accent text-white'
                         }`}>
                           {count}
                         </span>
@@ -533,20 +533,20 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
           {rooms.length <= 1 && rooms[0]?.id === 'saved-messages' && (
             <div className="py-8 px-4 text-center my-auto flex flex-col items-center">
-              <div className="w-14 h-14 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center mb-3">
+              <div className="w-14 h-14 rounded-full bg-accent/10 text-accent flex items-center justify-center mb-3">
                 <IconEdit size={24} />
               </div>
-              <p className="text-xs font-bold text-slate-800 dark:text-white mb-1">
+              <p className="text-xs font-bold text-zinc-800 dark:text-white mb-1">
                 У вас пока нет чатов
               </p>
-              <p className="text-[11px] text-slate-400 mb-3 max-w-[180px]">
+              <p className="text-[11px] text-zinc-400 mb-3 max-w-[180px]">
                 Нажмите кнопку ниже, чтобы найти контакт или создать группу
               </p>
               {onOpenNewChatModal && (
                 <button
                   type="button"
                   onClick={onOpenNewChatModal}
-                  className="px-3 py-1.5 bg-[#3390ec] hover:bg-[#2880d9] text-white rounded-xl text-xs font-semibold shadow-md shadow-[#3390ec]/20 transition-all cursor-pointer"
+                  className="px-3 py-1.5 bg-accent hover:bg-accent-strong text-white rounded-xl text-xs font-semibold shadow-md shadow-accent/20 transition-all cursor-pointer"
                 >
                   Найти собеседника ✏️
                 </button>
@@ -566,7 +566,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             <button
               type="button"
               onClick={onOpenNewChatModal}
-              className="w-12 h-12 rounded-full bg-[#3390ec] hover:bg-[#2880d9] active:scale-95 text-white shadow-xl shadow-[#3390ec]/35 flex items-center justify-center transition-all duration-200 cursor-pointer"
+              className="w-12 h-12 rounded-full bg-accent hover:bg-accent-strong active:scale-95 text-white shadow-xl shadow-accent/35 flex items-center justify-center transition-all duration-200 cursor-pointer"
               title="Новое сообщение"
             >
               <IconEdit size={22} className="stroke-[2.2]" />
@@ -596,8 +596,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         <div
           className={`w-[1px] h-full transition-colors pointer-events-none ${
             isResizingSidebar
-              ? 'bg-[#3390ec] w-[2px]'
-              : 'bg-slate-200/80 dark:bg-white/10 group-hover:bg-[#3390ec] group-hover:w-[2px]'
+              ? 'bg-accent w-[2px]'
+              : 'bg-zinc-200/80 dark:bg-white/10 group-hover:bg-accent group-hover:w-[2px]'
           }`}
         />
       </div>
