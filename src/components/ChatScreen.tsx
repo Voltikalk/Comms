@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
-import { useSocket } from '../context/SocketContext';
+import { useSocket, type SendOptions } from '../context/contexts';
+import { formatScheduledAt } from '../lib/schedule';
+import { usePinnedMessages } from '../hooks/usePinnedMessages';
+import { useChatHotkeys } from '../hooks/useChatHotkeys';
+import { useChatNavigation } from '../hooks/useChatNavigation';
+import { useMessageSelection } from '../hooks/useMessageSelection';
 import { USER_NAMES } from '../constants';
 import type { Room, UserId, Message } from '../types';
 import { DEFAULT_THEME_CONFIG, getWallpaperById, getAccentColorById } from '../constants/wallpapers';
@@ -16,7 +21,7 @@ import { triggerTelegramDisintegrate } from './effects/disintegrate';
 import { findStickersByEmoji } from '../constants/stickers';
 import { createAudioLiveAnalyser, normalizeWaveform, type AudioLiveAnalyser } from '../lib/audio-waveform';
 import type { Sticker } from '../types/sticker.types';
-import { usePlatform } from '../context/PlatformContext';
+import { usePlatform } from '../context/platform-context';
 import { DesktopTitleBar } from './Desktop/DesktopTitleBar';
 import type { MobileTab } from './Mobile/MobileBottomNav';
 import type { ChatFolderId, FolderCountInfo } from './Navigation/ChatFolderTabs';
@@ -94,15 +99,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     // Calling context
     callSession,
     startCall,
-    acceptCall,
-    rejectCall,
-    endCall,
-    localStream,
-    remoteStream,
-    isMuted,
-    toggleMute,
-    isCameraOff,
-    toggleCamera
   } = useSocket();
 
   const {
@@ -346,7 +342,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   } | null>(null);
 
   // Context menu action states
-  const [pinnedMessages, setPinnedMessages] = useState<Record<string, string>>({});
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [toast, setToast] = useState<{
@@ -354,148 +349,64 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     actionLabel?: string;
     onAction?: () => void;
   } | null>(null);
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
-
-  // Global Keyboard Shortcuts (Desktop / Power User Navigation Suite)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl + K or Cmd + K: Command Palette (Spotlight)
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
-        triggerHaptic('selection');
-        setShowCommandPalette((prev) => !prev);
-        return;
-      }
-
-      // Alt + Up: Previous chat in filtered list
-      if (e.altKey && e.key === 'ArrowUp') {
-        e.preventDefault();
-        triggerHaptic('selection');
-        const currentIdx = filteredRooms.findIndex((r) => r.id === activeRoomId);
-        if (currentIdx > 0) {
-          setActiveRoomId(filteredRooms[currentIdx - 1].id);
-          setMobileView('chat');
-        } else if (filteredRooms.length > 0) {
-          setActiveRoomId(filteredRooms[filteredRooms.length - 1].id);
-          setMobileView('chat');
-        }
-        return;
-      }
-
-      // Alt + Down: Next chat in filtered list
-      if (e.altKey && e.key === 'ArrowDown') {
-        e.preventDefault();
-        triggerHaptic('selection');
-        const currentIdx = filteredRooms.findIndex((r) => r.id === activeRoomId);
-        if (currentIdx !== -1 && currentIdx < filteredRooms.length - 1) {
-          setActiveRoomId(filteredRooms[currentIdx + 1].id);
-          setMobileView('chat');
-        } else if (filteredRooms.length > 0) {
-          setActiveRoomId(filteredRooms[0].id);
-          setMobileView('chat');
-        }
-        return;
-      }
-
-      // Alt + 1..5: Chat Folder Switching
-      if (e.altKey && /^[1-5]$/.test(e.key)) {
-        e.preventDefault();
-        triggerHaptic('selection');
-        const folders: ChatFolderId[] = ['all', 'direct', 'groups', 'unread', 'saved'];
-        const target = folders[parseInt(e.key, 10) - 1];
-        if (target) setActiveFolder(target);
-        return;
-      }
-
-      // Ctrl + /: Keyboard shortcuts cheat sheet
-      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-        e.preventDefault();
-        triggerHaptic('selection');
-        setShowShortcutsModal(true);
-        return;
-      }
-
-      // Ctrl + ,: Theme & Settings
-      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
-        e.preventDefault();
-        triggerHaptic('selection');
-        setShowThemeModal(true);
-        return;
-      }
-
-      // Ctrl + 1..9: Chat Switching by Index
-      if ((e.ctrlKey || e.metaKey) && /^[1-9]$/.test(e.key)) {
-        const idx = parseInt(e.key, 10) - 1;
-        if (rooms[idx]) {
-          e.preventDefault();
-          triggerHaptic('selection');
-          setActiveRoomId(rooms[idx].id);
-          setMobileView('chat');
-        }
-        return;
-      }
-
-      // Hierarchical Escape
-      if (e.key === 'Escape') {
-        if (showCommandPalette) {
-          e.preventDefault();
-          setShowCommandPalette(false);
-          return;
-        }
-        if (showGlobalSearchModal) {
-          e.preventDefault();
-          setShowGlobalSearchModal(false);
-          return;
-        }
-        if (showEmojiPicker) {
-          e.preventDefault();
-          setShowEmojiPicker(false);
-          return;
-        }
-        if (editingMessage) {
-          e.preventDefault();
-          setEditingMessage(null);
-          setInputText('');
-          return;
-        }
-        if (replyingToMessage) {
-          e.preventDefault();
-          setReplyingToMessage(null);
-          return;
-        }
-        if (isSearching) {
-          e.preventDefault();
-          setIsSearching(false);
-          setSearchQuery('');
-          return;
-        }
-        if (mobileView === 'chat' && !isDesktopView) {
-          e.preventDefault();
-          setMobileView('list');
-          return;
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
+  const {
+    isSelectMode,
+    setIsSelectMode,
+    selectedMessageIds,
+    setSelectedMessageIds,
+    toggleSelected: toggleSelectedMessage,
+    clearSelection,
+  } = useMessageSelection();
+  const { openAdjacentRoom, openRoomByIndex } = useChatNavigation({
     rooms,
     filteredRooms,
     activeRoomId,
-    showCommandPalette,
-    showGlobalSearchModal,
-    showEmojiPicker,
-    editingMessage,
-    replyingToMessage,
-    isSearching,
-    mobileView,
-    isDesktopView,
-    triggerHaptic,
-    setShowShortcutsModal,
     setActiveRoomId,
-  ]);
+    setMobileView,
+  });
+
+  // Global Keyboard Shortcuts (Desktop / Power User Navigation Suite) — see src/lib/chat-hotkeys.ts
+  useChatHotkeys({
+    commandPalette: () => {
+      triggerHaptic('selection');
+      setShowCommandPalette((prev) => !prev);
+    },
+    adjacentChat: ({ direction }) => {
+      triggerHaptic('selection');
+      openAdjacentRoom(direction);
+    },
+    folder: ({ folder }) => {
+      triggerHaptic('selection');
+      setActiveFolder(folder);
+    },
+    shortcuts: () => {
+      triggerHaptic('selection');
+      setShowShortcutsModal(true);
+    },
+    settings: () => {
+      triggerHaptic('selection');
+      setShowThemeModal(true);
+    },
+    chatIndex: ({ index }) => {
+      if (!openRoomByIndex(index)) return false;
+      triggerHaptic('selection');
+    },
+    // Hierarchical Escape: innermost layer closes first; unhandled → default behaviour
+    escape: () => {
+      if (showCommandPalette) setShowCommandPalette(false);
+      else if (showGlobalSearchModal) setShowGlobalSearchModal(false);
+      else if (showEmojiPicker) setShowEmojiPicker(false);
+      else if (editingMessage) {
+        setEditingMessage(null);
+        setInputText('');
+      } else if (replyingToMessage) setReplyingToMessage(null);
+      else if (isSearching) {
+        setIsSearching(false);
+        setSearchQuery('');
+      } else if (mobileView === 'chat' && !isDesktopView) setMobileView('list');
+      else return false;
+    },
+  });
 
   // Media Gallery and Formatting Toolbar states
   const [activeGalleryMediaId, setActiveGalleryMediaId] = useState<string | null>(null);
@@ -622,12 +533,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const videoIntervalRef = useRef<any>(null);
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
 
-  // Call stream refs
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-  const localAudioRef = useRef<HTMLAudioElement | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
-
   // Ringtone synthesizer state
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -744,21 +649,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     return new Map(messages.map((m) => [m.id, m]));
   }, [messages]);
 
-  const currentPinnedMessageId = activeRoomId ? pinnedMessages[activeRoomId] : null;
-  const currentPinnedMessage = currentPinnedMessageId ? messageMap.get(currentPinnedMessageId) || null : null;
+  // Multi-pin state (persisted per room, Telegram-style cursor through pins)
+  const pinned = usePinnedMessages(activeRoomId, messageMap);
 
   const togglePinMessage = (msgId: string) => {
     if (!activeRoomId) return;
-    setPinnedMessages((prev) => {
-      if (prev[activeRoomId] === msgId) {
-        const next = { ...prev };
-        delete next[activeRoomId];
-        showToast('Сообщение откреплено');
-        return next;
-      }
-      showToast('Сообщение закреплено');
-      return { ...prev, [activeRoomId]: msgId };
-    });
+    showToast(pinned.toggle(msgId) ? 'Сообщение закреплено' : 'Сообщение откреплено');
   };
 
   const COMPACT_SIDEBAR_WIDTH = 72;
@@ -836,8 +732,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
     // 2. Close modal and reset selection (stay in current chat smoothly)
     setForwardingMessage(null);
-    setIsSelectMode(false);
-    setSelectedMessageIds(new Set());
+    clearSelection();
 
     const targetRoom = rooms.find((r) => r.id === targetRoomId);
     const roomName = targetRoom ? getRoomDisplayName(targetRoom) : 'чат';
@@ -886,10 +781,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       ids.forEach((id) => deleteMessage(id));
     }
 
-    setIsSelectMode(false);
-    setSelectedMessageIds(new Set());
+    clearSelection();
     showToast(ids.length > 1 ? 'Сообщения удалены' : 'Сообщение удалено');
-  }, [selectedMessageIds, deleteMessage, showToast]);
+  }, [selectedMessageIds, deleteMessage, showToast, clearSelection]);
 
   // Filter messages using our rich applyFilters system
   const filteredMessages = React.useMemo(() => {
@@ -1182,18 +1076,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   }, [activeMessages, currentUser, scrollToBottom]);
 
-  // Escape key handler for exiting selection mode
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isSelectMode) {
-        setIsSelectMode(false);
-        setSelectedMessageIds(new Set());
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSelectMode]);
-
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
@@ -1202,26 +1084,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       stopRingtone();
     };
   }, []);
-
-  // WebRTC Stream track bindings
-  useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-    }
-    if (localAudioRef.current && localStream) {
-      localAudioRef.current.srcObject = localStream;
-    }
-  }, [localStream, callSession]);
-
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-    if (remoteAudioRef.current && remoteStream) {
-      remoteAudioRef.current.srcObject = remoteStream;
-      remoteAudioRef.current.play().catch(() => { });
-    }
-  }, [remoteStream, callSession]);
 
   // Call ringtone trigger
   useEffect(() => {
@@ -1387,7 +1249,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   };
 
-  const handleSend = (e?: React.FormEvent) => {
+  const handleSend = (e?: React.FormEvent, options?: SendOptions) => {
     if (e) e.preventDefault();
     if (!inputText.trim() && !selectedFile) return;
 
@@ -1410,7 +1272,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       return;
     }
 
-    sendMessage(inputText, replyingToMessage?.id, selectedFile || undefined);
+    sendMessage(inputText, replyingToMessage?.id, selectedFile || undefined, undefined, undefined, undefined, options);
+    if (options?.scheduledAt) showToast(`Сообщение будет отправлено ${formatScheduledAt(options.scheduledAt)}`);
+    else if (options?.silent) showToast('Отправлено без звука');
     persistDraft(activeRoomId || null, '');
     setInputText('');
     setMentionState(null);
@@ -2106,12 +1970,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       e.preventDefault();
     }
     if (isSelectMode) {
-      setSelectedMessageIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(msg.id)) next.delete(msg.id);
-        else next.add(msg.id);
-        return next;
-      });
+      toggleSelectedMessage(msg.id);
       return;
     }
     setContextMenuTarget({
@@ -2120,7 +1979,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       y: e.clientY,
       isSelf: msg.sender === currentUser
     });
-  }, [isSelectMode, currentUser]);
+  }, [isSelectMode, currentUser, toggleSelectedMessage]);
 
   const handleNavigateFromGlobalSearch = useCallback((targetRoomId: string, targetMessageId?: string) => {
     setActiveRoomId(targetRoomId);
@@ -2320,16 +2179,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             onBackToRooms={() => setMobileView('list')}
             isSelectMode={isSelectMode}
             selectedMessageIds={selectedMessageIds}
-            onCancelSelectMode={() => {
-              setIsSelectMode(false);
-              setSelectedMessageIds(new Set());
-            }}
+            onCancelSelectMode={clearSelection}
             onPinSelected={() => {
               const firstId = Array.from(selectedMessageIds)[0];
               if (firstId) {
                 togglePinMessage(firstId);
-                setIsSelectMode(false);
-                setSelectedMessageIds(new Set());
+                clearSelection();
               }
             }}
             onCopySelected={() => {
@@ -2386,9 +2241,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             handleScroll={handleScroll}
             slicedMessages={slicedMessages}
             messageMap={messageMap}
-            currentPinnedMessage={currentPinnedMessage}
+            pinned={pinned}
             onJumpToMessage={jumpToMessage}
-            onTogglePinMessage={togglePinMessage}
             getCleanMessageText={getCleanMessageText}
             formatDateHeader={formatSeparatorDate}
             isChatDragging={isDraggingFile}
@@ -2397,15 +2251,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             unreadCount={unreadCount}
             isSelectMode={isSelectMode}
             selectedMessageIds={selectedMessageIds}
-            onToggleSelectMessage={(id) => {
-              setSelectedMessageIds(prev => {
-                const next = new Set(prev);
-                if (next.has(id)) next.delete(id);
-                else next.add(id);
-                if (next.size === 0) setIsSelectMode(false);
-                return next;
-              });
-            }}
+            onToggleSelectMessage={toggleSelectedMessage}
             onReplyMessage={(msg) => {
               setReplyingToMessage(msg);
               setEditingMessage(null);
@@ -2582,24 +2428,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           setReplyingToMessage(null);
         }}
         onPinMessage={togglePinMessage}
+        isMessagePinned={pinned.isPinned}
         onDeleteMessageAnimated={handleDeleteMessageAnimated}
         onToggleReaction={(msgId, emoji) => toggleReaction(msgId, emoji)}
         forwardMessage={forwardMessage}
         toast={toast}
         setToast={setToast}
         showToast={showToast}
-        callSession={callSession}
-        remoteAudioRef={remoteAudioRef}
-        localAudioRef={localAudioRef}
-        remoteVideoRef={remoteVideoRef}
-        localVideoRef={localVideoRef}
-        acceptCall={acceptCall}
-        rejectCall={rejectCall}
-        endCall={endCall}
-        toggleMute={toggleMute}
-        isMuted={isMuted}
-        toggleCamera={toggleCamera}
-        isCameraOff={isCameraOff}
         isRecordingVideo={isRecordingVideo}
         videoPreviewRef={videoPreviewRef}
         videoRecordTime={videoRecordTime}

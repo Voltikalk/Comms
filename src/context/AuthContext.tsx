@@ -1,226 +1,123 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase/client';
-import { 
-  registerUser, 
-  loginUser, 
-  logoutUser, 
-  resetPassword as resetPasswordService, 
-  updatePassword as updatePasswordService, 
-  getUserProfile,
-  type RegisterParams 
-} from '../services/supabase-auth.service';
-import type { User as DbUser } from '../lib/supabase/types';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import authService, { AuthError } from '../services/auth.service';
+import type { RegisterRequest, UserSanitized } from '../types/auth.types';
+import type { UserId } from '../types';
+import { AuthContext, type AuthContextValue, type AuthStatus, type TwoFactorPrompt } from './contexts';
 
-export interface AuthContextType {
-  user: SupabaseUser | null;
-  session: SupabaseSession | null;
-  profile: DbUser | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
+const message = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback);
 
-  // Methods
-  login: (emailOrUsername: string, pass: string) => Promise<boolean>;
-  register: (params: RegisterParams) => Promise<boolean>;
-  logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<boolean>;
-  updatePassword: (newPass: string) => Promise<boolean>;
-  refreshProfile: () => Promise<void>;
-  clearError: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [session, setSession] = useState<SupabaseSession | null>(null);
-  const [profile, setProfile] = useState<DbUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+/**
+ * JWT session provider. On start it silently restores the session from the
+ * HttpOnly refresh cookie; the access token itself never leaves `authService`.
+ */
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<UserSanitized | null>(() => authService.getUser());
+  const [status, setStatus] = useState<AuthStatus>(() => (authService.getUser() ? 'authenticated' : 'restoring'));
   const [error, setError] = useState<string | null>(null);
+  const [twoFactor, setTwoFactor] = useState<TwoFactorPrompt | null>(null);
 
-  // Initialize and restore active session
   useEffect(() => {
-    let isMounted = true;
+    const unsubscribe = authService.subscribe(({ user: next }) => {
+      setUser(next);
+      setStatus(next ? 'authenticated' : 'anonymous');
+    });
+    if (!authService.getUser()) {
+      authService.restore().then((session) => {
+        if (!session) setStatus('anonymous');
+      });
+    }
+    return unsubscribe;
+  }, []);
 
-    async function initSession() {
+  const login = useCallback(async (identifier: string, password?: string): Promise<boolean> => {
+    setError(null);
+    const email = identifier.trim().replace(/^@/, '').trim();
+    if (!email || !password) {
+      setError('Укажите логин и пароль.');
+      return false;
+    }
+    try {
+      const result = await authService.login({ email, password });
+      if (result.kind === '2fa') {
+        setTwoFactor({ challenge: result.challenge, hint: result.hint });
+        return false;
+      }
+      setTwoFactor(null);
+      return true;
+    } catch (err) {
+      setError(message(err, 'Ошибка авторизации'));
+      return false;
+    }
+  }, []);
+
+  const verifyTwoFactor = useCallback(
+    async (cloudPassword: string): Promise<boolean> => {
+      if (!twoFactor) return false;
+      setError(null);
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        if (initialSession && isMounted) {
-          setSession(initialSession);
-          setUser(initialSession.user);
-          const userProfile = await getUserProfile(initialSession.user.id);
-          if (isMounted) setProfile(userProfile);
-        }
-      } catch (err: any) {
-        console.error('[AuthContext] Session init error:', err);
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    }
-
-    initSession();
-
-    // Listen to live auth changes (login, logout, token refresh, password recovery)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        if (!isMounted) return;
-
-        if (newSession?.user) {
-          setSession(newSession);
-          setUser(newSession.user);
-          const userProfile = await getUserProfile(newSession.user.id);
-          if (isMounted) setProfile(userProfile);
-        } else {
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-        }
-
-        if (event === 'SIGNED_OUT') {
-          setIsLoading(false);
-        }
-      }
-    );
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // Login handler
-  const login = useCallback(async (emailOrUsername: string, pass: string): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await loginUser(emailOrUsername, pass);
-      if (res.error || !res.user) {
-        setError(res.error || 'Ошибка входа');
+        await authService.verifyTwoFactor(twoFactor.challenge, cloudPassword);
+        setTwoFactor(null);
+        return true;
+      } catch (err) {
+        const remaining = err instanceof AuthError ? err.remaining : undefined;
+        setError(message(err, 'Неверный облачный пароль'));
+        // An expired / used challenge or a lockout cannot be retried — back to step 1.
+        const restart = err instanceof AuthError && (err.status === 429 || (err.status === 401 && remaining === undefined));
+        if (restart) setTwoFactor(null);
+        else setTwoFactor((prev) => (prev ? { ...prev, remaining } : prev));
         return false;
       }
-      setUser(res.user);
-      setSession(res.session);
-      setProfile(res.profile);
-      return true;
-    } catch (err: any) {
-      setError(err.message || 'Ошибка сети');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [twoFactor],
+  );
 
-  // Register handler
-  const register = useCallback(async (params: RegisterParams): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await registerUser(params);
-      if (res.error || !res.user) {
-        setError(res.error || 'Ошибка регистрации');
-        return false;
-      }
-      setUser(res.user);
-      setSession(res.session);
-      setProfile(res.profile);
-      return true;
-    } catch (err: any) {
-      setError(err.message || 'Ошибка сети');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Logout handler
-  const logout = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
-    try {
-      await logoutUser();
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Password Reset handler
-  const resetPassword = useCallback(async (email: string): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await resetPasswordService(email);
-      if (res.error) {
-        setError(res.error);
-        return false;
-      }
-      return true;
-    } catch (err: any) {
-      setError(err.message);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Update Password handler
-  const updatePassword = useCallback(async (newPass: string): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await updatePasswordService(newPass);
-      if (res.error) {
-        setError(res.error);
-        return false;
-      }
-      return true;
-    } catch (err: any) {
-      setError(err.message);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Refresh Profile
-  const refreshProfile = useCallback(async (): Promise<void> => {
-    if (user?.id) {
-      const p = await getUserProfile(user.id);
-      setProfile(p);
-    }
-  }, [user]);
-
-  const clearError = useCallback(() => {
+  const cancelTwoFactor = useCallback(() => {
+    setTwoFactor(null);
     setError(null);
   }, []);
 
-  const value: AuthContextType = {
-    user,
-    session,
-    profile,
-    isAuthenticated: !!user && !!session,
-    isLoading,
-    error,
-    login,
-    register,
-    logout,
-    resetPassword,
-    updatePassword,
-    refreshProfile,
-    clearError,
-  };
+  const register = useCallback(async (payload: RegisterRequest): Promise<boolean> => {
+    setError(null);
+    try {
+      await authService.register(payload);
+      return true;
+    } catch (err) {
+      setError(message(err, 'Ошибка при регистрации'));
+      return false;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    void authService.logout();
+    try {
+      localStorage.removeItem('chat_active_room_v2');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const endSession = useCallback((reason?: string) => {
+    authService.dropSession();
+    if (reason) setError(reason);
+  }, []);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      status,
+      user,
+      currentUser: (user?.userId as UserId | undefined) ?? null,
+      error,
+      setError,
+      twoFactor,
+      login,
+      verifyTwoFactor,
+      cancelTwoFactor,
+      register,
+      logout,
+      endSession,
+    }),
+    [status, user, error, twoFactor, login, verifyTwoFactor, cancelTwoFactor, register, logout, endSession],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-export function useAuthContext(): AuthContextType {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
-  }
-  return context;
-}
-
-export default AuthContext;

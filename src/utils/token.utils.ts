@@ -50,7 +50,8 @@ export function generateRefreshToken(payload: Omit<JwtPayload, 'type' | 'iat' | 
  * Generate a complete Token Pair (Access + Refresh) and session expiry date
  */
 export function generateAuthTokenPair(payload: Omit<JwtPayload, 'type' | 'iat' | 'exp'>): {
-  tokens: AuthToken;
+  // The refresh token is only ever set as an HttpOnly cookie, never returned in JSON.
+  tokens: AuthToken & { refreshToken: string };
   expiresAt: Date;
 } {
   const accessToken = generateAccessToken(payload);

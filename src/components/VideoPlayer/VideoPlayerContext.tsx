@@ -1,6 +1,4 @@
 import React, {
-  createContext,
-  useContext,
   useState,
   useRef,
   useEffect,
@@ -10,20 +8,11 @@ import type {
   VideoPlayerProps,
   VideoPlayerState,
   VideoPlayerActions,
-  VideoPlayerContextValue,
   PlaybackRate,
   VideoQuality,
 } from '../../types/video-player.types';
 
-const VideoPlayerContext = createContext<VideoPlayerContextValue | undefined>(undefined);
-
-export const useVideoPlayerContext = (): VideoPlayerContextValue => {
-  const context = useContext(VideoPlayerContext);
-  if (!context) {
-    throw new Error('useVideoPlayerContext must be used within a VideoPlayerProvider');
-  }
-  return context;
-};
+import { VideoPlayerContext } from './video-player-context';
 
 export const VideoPlayerProvider: React.FC<{
   props: VideoPlayerProps;
@@ -518,4 +507,3 @@ export const VideoPlayerProvider: React.FC<{
   );
 };
 
-export default VideoPlayerContext;

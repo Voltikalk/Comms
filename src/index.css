@@ -3,6 +3,7 @@
 @import "./styles/animations.css";
 @import "./styles/responsive.css";
 @import "./styles/video-player.css";
+@import "./styles/telegram-tokens.css";
 
 @import "tailwindcss";
 
@@ -56,12 +57,14 @@ html.dark, body.dark {
 
 /* Left Sidebar */
 .tg-sidebar {
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
   border-right: 1px solid #dfe5ec;
 }
 
 .dark .tg-sidebar {
-  background-color: #17212b;
+  background-color: rgba(23, 33, 43, 0.86);
   border-right: 1px solid #101921;
 }
 
@@ -96,25 +99,29 @@ html.dark, body.dark {
 
 /* Header */
 .tg-header {
-  background-color: #ffffff;
-  border-bottom: 1px solid #dfe5ec;
+  background-color: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
 }
 
 .dark .tg-header {
-  background-color: #17212b;
-  border-bottom: 1px solid #101921;
+  background-color: rgba(23, 33, 43, 0.82);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
 }
 
 /* Telegram Input Capsule */
 .tg-input-capsule {
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 24px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .dark .tg-input-capsule {
-  background-color: #17212b;
+  background-color: rgba(23, 33, 43, 0.86);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 24px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -145,15 +152,15 @@ html.dark, body.dark {
 .tg-bubble-self {
   background-color: #eeffde;
   color: #000000;
-  border-radius: 18px 18px 4px 18px;
+  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) 0 var(--tg-bubble-radius);
   box-shadow: 0 1px 3px rgba(16, 35, 47, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(0, 0, 0, 0.03);
 }
 
 .dark .tg-bubble-self {
-  background: linear-gradient(145deg, #2b5278 0%, #204162 100%);
+  background: linear-gradient(145deg, #2b5278 0%, var(--tg-bubble-self-bg) 100%);
   color: #ffffff;
-  border-radius: 18px 18px 4px 18px;
+  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) 0 var(--tg-bubble-radius);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -162,7 +169,7 @@ html.dark, body.dark {
 .tg-bubble-peer {
   background-color: #ffffff;
   color: #000000;
-  border-radius: 18px 18px 18px 4px;
+  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) var(--tg-bubble-radius) 0;
   box-shadow: 0 1px 3px rgba(16, 35, 47, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
@@ -170,7 +177,7 @@ html.dark, body.dark {
 .dark .tg-bubble-peer {
   background-color: #182533;
   color: #f5f5f5;
-  border-radius: 18px 18px 18px 4px;
+  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) var(--tg-bubble-radius) 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.04);
 }

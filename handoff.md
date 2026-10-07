@@ -40,7 +40,7 @@ npm run dev
 
 ### 5. Тестирование, проверка качества и сборка
 ```bash
-# Запуск юнит-тестов Vitest (121/121 тестов)
+# Запуск юнит-тестов Vitest (272/272 тестов)
 npm test
 
 # Линтинг кодовой базы (Oxlint)
@@ -91,7 +91,15 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 59 — WebSocket Connection & Origin Fix, JWT Session Recovery & Zero-Vulnerability Audit [v3.29.0]):
+### 📌 Текущая стадия разработки (Status: Phase 60 — Telegram Fidelity, E2EE Secret Chats, Security Hardening & Modular Architecture [v3.30.1]):
+* ✅ **Экраны входа и регистрации [v3.30.1]**: общий каркас `AuthLayout` в стиле Telegram Desktop/Web — на десктопе брендовая панель с живым превью секретного чата и карточками возможностей, справа форма; на мобильных — компактный логотип и форма. Поля `AuthField` с плавающими метками как в Telegram Web K.
+* ✅ **Дизайн «как в Telegram»**: кластеризация сообщений с SVG-хвостиками `.tg-tail-self` / `.tg-tail-peer` только у последнего сообщения серии и адаптивными радиусами (`src/lib/message-grouping.ts`), Bento-альбомы 2–10 медиа (`AlbumBubble`), spring-анимации (stiffness 400 / damping 28), swipe-to-reply с хаптикой, glass-сайдбар / шапка / поле ввода (`src/styles/telegram-tokens.css`).
+* ✅ **Функциональность**: E2EE секретные чаты (ECDH P-256 + AES-GCM-256, таймер самоуничтожения, сверка отпечатка ключа), меню отправки «Отправить без звука» / «Отправить позже», мульти-закрепы с циклической плашкой и выезжающим списком, офлайн-очередь в IndexedDB со статусом «ожидание 🕒», демонстрация экрана WebRTC и плавающее PiP-окно звонка.
+* ✅ **Безопасность**: HttpOnly refresh-cookie + access-токен только в памяти, облачный пароль (2FA), API и UI активных сеансов, проверка загрузок по magic bytes и удаление EXIF/XMP/IPTC, CSP без `'unsafe-eval'` (Lottie → `lottie_light`).
+* ✅ **Архитектура**: `server.js` разбит на модули `server/`, `SocketContext` разделён на Auth / Connection / Rooms / Messages / Call контексты, логика хоткеев, навигации и выделения вынесена из `ChatScreen` в `src/hooks/`.
+* ✅ **Качество**: `npm test` — 272/272 (26 файлов), `npm run lint` — 0 ошибок / 0 предупреждений, `npm run build` — OK.
+
+### 📌 Предыдущая стадия разработки (Status: Phase 59 — WebSocket Connection & Origin Fix, JWT Session Recovery & Zero-Vulnerability Audit [v3.29.0]):
 * ✅ **Устранение сбоя подключения к серверу («Нет соединения с сервером · сообщения не отправляются»)**:
   * **CORS & CSWSH Whitelist Fix ([`server.js`](file:///c:/Users/Drilla/Desktop/Comms/server.js))**: добавлена функция `isOriginAllowed()` с валидацией доверенных хостов (`commsint.duckdns.org`, `dabim.forgottenght.online`, `31.76.2.136`, `localhost`, `*.duckdns.org`, `*.forgottenght.online`), а также автоматическим разрешением Same-Origin запросов через сопоставление `Origin` с заголовком `Host` Nginx reverse proxy.
   * **JWT Secret Persistence & Session Recovery**: зафиксированы стабильные fallback-секреты `DEFAULT_JWT_ACCESS` и `DEFAULT_JWT_REFRESH` в `server.js` и `docker-compose.yml`, предотвращающие аннулирование токенов клиентов при перезапуске Docker-контейнеров.
@@ -245,7 +253,8 @@ Comms/
 │       ├── 002_rls_policies.sql               # RLS политики для всех сущностей
 │       ├── 003_add_timestamps_triggers.sql    # Триггеры обновления дат и Realtime
 │       ├── 004_add_fulltext_search.sql        # Полнотекстовый поиск (tsvector, GIN, RPC)
-│       └── 005_add_message_archive.sql        # Долговременный архив и процедуры
+│       ├── 005_add_message_archive.sql        # Долговременный архив и процедуры
+│       └── 006_add_cloud_password.sql         # Облачный пароль 2FA (hash + hint) [v3.30.0]
 ├── scripts/
 │   └── migrate.js                             # CLI миграций (up, down, status, create)
 ├── .github/
@@ -264,7 +273,13 @@ Comms/
 ├── .agents/
 │   └── mcp_config.json                        # Конфигурация MCP для Antigravity агентов
 ├── components.json                             # Конфигурация UI компонентов и реестра @react-bits
-├── server.js                                  # Node.js + Express + Socket.io Server (порт 3000)
+├── server.js                                  # Bootstrap Express + Socket.io (порт 3000) [v3.30.0]
+├── server/                                    # Модульный бэкенд [v3.30.0]
+│   ├── app.js / config.js                     # Express-приложение, Origin whitelist, секреты, TTL токенов
+│   ├── middleware/                            # auth (JWT, legacy keys), rateLimit, validate
+│   ├── routes/                                # auth (login / 2FA / refresh / sessions), upload, users
+│   ├── services/                              # cloud-password, session-store, upload-validation, user-agent, store, supabase
+│   └── sockets/                               # chat, call (WebRTC signaling), stories
 ├── package.json                               # Зависимости, скрипты и конфигурация
 ├── vite.config.ts                             # Конфигурация сборщика Vite
 ├── index.html                                 # Точка входа HTML (Montserrat, Inter, PWA)
@@ -273,6 +288,7 @@ Comms/
     ├── main.tsx                               # Точка входа React 19
     ├── App.tsx                                # Корневой компонент приложения
     ├── index.css                              # Глобальные стили, темы, анимации, скроллбары
+    ├── styles/telegram-tokens.css             # Токены пузырей, хвостики, glass, Bento-альбомы [v3.30.0]
     ├── types.ts                               # Базовые типы чата, сообщений, опросов, реакций
     ├── constants.ts                           # Дефолтные профили, аватары, эмодзи, URL
     ├── tokens/
@@ -293,8 +309,13 @@ Comms/
 │   └── wallpapers.ts                      # Коллекция обоев чата (фото, градиенты, паттерны)
 ├── context/
 │   ├── PlatformContext.tsx                # Единый контекст гибридной платформы (ОС, PWA, Ping, Haptic)
-│   ├── AuthContext.tsx                    # Supabase Auth Context и сессии
-│   ├── SocketContext.tsx                  # Real-time сокеты, сообщения, опросы, WebRTC звонки
+│   ├── AuthContext.tsx                    # Auth: in-memory access token, HttpOnly refresh, 2FA
+│   ├── SocketContext.tsx                  # Композиция провайдеров Connection / Rooms / Messages / Call [v3.30.0]
+│   ├── ConnectionContext.tsx              # Сокет, статус соединения, офлайн-очередь
+│   ├── RoomsContext.tsx                   # Комнаты, активный чат, секретные чаты
+│   ├── MessagesContext.tsx                # Сообщения, отправка, отложенные, E2EE
+│   ├── CallContext.tsx                    # WebRTC звонки, демонстрация экрана, PiP
+│   ├── contexts.ts                        # Объекты контекстов и хуки useAuth / useRooms / useMessages / useCall / useSocket
 │   └── StoriesContext.tsx                 # Изолированный контекст управления историями
 ├── lib/
 │   ├── platform.test.ts                   # 5 юнит-тестов гибридной платформы и виброотклика
@@ -310,22 +331,38 @@ Comms/
 │   ├── image-compression.ts               # Canvas сжатие картинок и аватаров перед отправкой
 │   ├── colors.ts                          # Цветовые палитры и токены
 │   ├── animations.ts                      # Пресеты Framer Motion, GSAP, AOS и Lottie
-│   └── supabase/                          # Клиент Supabase, кеш, запросы и типизация
+│   ├── message-grouping.ts                # Кластеризация, радиусы, хвостики, Bento-альбомы [v3.30.0]
+│   ├── e2ee.ts / secret-sessions.ts       # E2EE секретные чаты (ECDH + AES-GCM), отпечатки ключей
+│   ├── offline-queue.ts / idb-store.ts    # Офлайн-очередь сообщений в IndexedDB
+│   ├── message-sync.ts                    # Слияние истории, ACK отправки, дедупликация
+│   ├── pins.ts / schedule.ts / sessions.ts # Мульти-закрепы, отложенная отправка, сеансы и облачный пароль
+│   ├── chat-hotkeys.ts                    # Чистая логика горячих клавиш ChatScreen [v3.30.0]
+│   └── supabase/                          # Клиент Supabase (без persistSession)
 ├── hooks/
 │   ├── useSearchMessages.ts               # Хук быстрого поиска с таймингом и подсветкой
 │   ├── useVideoPlayer.ts                  # Хук управления воспроизведением видеоплеера
-│   ├── useAuth.ts                         # Хук доступа к AuthContext
+│   ├── usePinnedMessages.ts               # Мульти-закрепы активного чата [v3.30.0]
+│   ├── useChatHotkeys.ts                  # Глобальные горячие клавиши чата [v3.30.0]
+│   ├── useChatNavigation.ts               # Переключение чатов (Alt+↑/↓, Ctrl+1..9) [v3.30.0]
+│   ├── useMessageSelection.ts             # Режим выделения сообщений [v3.30.0]
 │   ├── useMediaQuery.ts                   # Хуки брейкпоинтов
 │   └── useTouchInteractions.ts            # Хуки свайп-навигации
 ├── components/
 │   ├── ChatScreen.tsx                     # Главный экран мессенджера (сайдбар, чат, рекордеры, drag&drop)
 │   ├── MessageBubble.tsx                  # Пузырь сообщения (текст, стикеры, медиа, аудио, кружки, цитаты)
-│   ├── LoginScreen.tsx                    # Экран входа в стиле Telegram Web K (QR-логин, демо-аккаунты)
-│   ├── TelegramRegistrationWizard.tsx     # 4-шаговый мастер регистрации с обрезкой аватара и кодом
+│   ├── LoginScreen.tsx                    # Экран входа: пароль / QR, тестовые профили, шаг 2FA [v3.30.1]
+│   ├── TelegramRegistrationWizard.tsx     # 4-шаговый мастер регистрации в AuthLayout, прогресс шагов [v3.30.1]
 │   ├── ProfileEditModal.tsx               # Модальное окно редактирования профиля Telegram
 │   ├── TelegramContextMenuModal.tsx       # Контекстное меню сообщения с быстрыми реакциями
 │   ├── TelegramEmojiPickerModal.tsx       # Палитра эмодзи и вкладка стикеров Telegram
-│   ├── VideoCallModal.tsx                 # Модальное окно аудио/видео звонков WebRTC
+│   ├── Call/CallOverlay.tsx               # Звонок: оверлей, PiP, демонстрация экрана [v3.30.0]
+│   ├── Auth/AuthLayout.tsx                # Каркас входа/регистрации: брендовая панель + превью чата [v3.30.1]
+│   ├── Auth/AuthField.tsx                 # Поле с плавающей меткой (Telegram Web K), error / hint / trailing [v3.30.1]
+│   ├── Auth/TwoFactorStep.tsx             # Шаг облачного пароля при входе (на AuthField) [v3.30.1]
+│   ├── Settings/SecuritySettingsModal.tsx # Активные сеансы и облачный пароль [v3.30.0]
+│   ├── Chat/Feed/                         # ChatMessageFeed, AlbumBubble, BubbleTail, MessageMeta, PinnedBar
+│   ├── Chat/Header/                       # ChatHeader, SecretChatMenu
+│   ├── Chat/Input/                        # ChatInputBar, SendButton, ScheduledMessagesButton
 │   ├── ErrorBoundary.tsx                  # Граница ошибок с красивым фоллбэк UI
 │   ├── FileUploadInput.tsx                # Drag-and-drop компонент загрузки файлов
 │   ├── Desktop/
@@ -376,7 +413,6 @@ Comms/
 └── pages/
     ├── SearchPage.tsx                     # Главный экран глобального FTS поиска сообщений
     ├── AdminArchive.tsx                   # Панель управления долговременной архивацией
-    ├── LoginPage.tsx                      # Страница входа
     ├── RegisterPage.tsx                   # Страница регистрации
     └── ResetPasswordPage.tsx              # Страница восстановления пароля
 ```
@@ -532,7 +568,7 @@ npm run server
 # 2. Запуск Vite Dev сервера (порт 5173)
 npm run dev
 
-# 3. Запуск юнит-тестов Vitest (107/107 тестов)
+# 3. Запуск юнит-тестов Vitest (272/272 тестов)
 npm test
 
 # 4. Проверка линтером Oxlint
@@ -548,6 +584,83 @@ npm run storybook
 ---
 
 ## 📜 Журнал изменений (Changelog)
+
+### [v3.30.1] — 7 октября 2026 г.
+* **Phase 60.1 — Редизайн экранов входа и регистрации**
+
+#### Новые компоненты
+* [`src/components/Auth/AuthLayout.tsx`](src/components/Auth/AuthLayout.tsx) — общий каркас авторизации:
+  * **Десктоп (`lg+`)**: слева брендовая панель (градиент Telegram Blue, в тёмной теме — `#1D3247 → #0E1621`) с SVG-паттерном самолётиков, заголовком, карточками «Секретные чаты / Облачный пароль / Активные сеансы» и **живым превью секретного чата**. Сообщения появляются по очереди, с индикатором «печатает…» и хвостиками `BubbleTail`; цвета берутся из `--tg-bubble-self-bg` / `--tg-bubble-peer-bg`. При `prefers-reduced-motion` превью статичное.
+  * **Колонка формы**: sticky-шапка с кнопкой «Назад» (`onBack`) и `Skiper26ThemeToggle`, слот `max-w-[380px]`, футер «Защищено сквозным шифрованием», safe-area отступы.
+  * **Мобильные**: панель скрыта, над формой логотип 72px (`showMobileLogo`).
+* [`src/components/Auth/AuthField.tsx`](src/components/Auth/AuthField.tsx) — поле в стиле Telegram Web K:
+  * метка внутри поля «всплывает» на рамку при фокусе или заполнении (чистый CSS: `peer` + `:placeholder-shown`, работает с автозаполнением);
+  * состояния `error` (`role="alert"`, `aria-invalid`, `aria-describedby`) и `hint`;
+  * слот `trailing` (глаз пароля, галочка); `ref` передаётся как проп (React 19).
+
+#### Изменённые компоненты
+* [`src/components/LoginScreen.tsx`](src/components/LoginScreen.tsx):
+  * переведён на `AuthLayout` + `AuthField`; убраны двойной безель и 3D-наклон логотипа;
+  * pill-переключатель «Пароль / QR-код» (`role="tablist"`), анимированная смена режимов (`AnimatePresence mode="wait"`);
+  * кнопка «Далее» 52px со спиннером, ссылка «Нет аккаунта? Создать»;
+  * тестовые профили — ряд аватаров (пароли в UI не показываются);
+  * QR-режим: код размывается по истечении таймера и показывает кнопку «Обновить код», нумерованные шаги подключения;
+  * заголовок и подзаголовок меняются для QR и облачного пароля. Логика входа не изменилась.
+* [`src/components/TelegramRegistrationWizard.tsx`](src/components/TelegramRegistrationWizard.tsx):
+  * собственная обёртка и верхняя панель (Sun/Moon) заменены на `AuthLayout`; «Назад» ведёт на предыдущий шаг или ко входу;
+  * добавлен прогресс-бар из 4 сегментов;
+  * поля email, имени и фамилии — на `AuthField`; username, ячейки кода и кнопки приведены к той же геометрии (`h-[52px] rounded-xl`, единый disabled-стиль). Логика шагов не изменилась.
+* [`src/components/Auth/TwoFactorStep.tsx`](src/components/Auth/TwoFactorStep.tsx): поле на `AuthField` (подсказка пароля — через `hint`, ошибка и число оставшихся попыток — через `error`); заголовок вынесен в `LoginScreen`.
+
+#### Тесты
+* [`server/config.js`](server/config.js): под Vitest `SUPABASE_URL` принудительно пустой. Vitest сам подставляет `VITE_*` из `.env.local` в `process.env`, поэтому при наличии `.env.local` серверные тесты ходили в реальный Supabase и падали по таймауту (`user search and upload require a bearer token`). Теперь тесты всегда работают на in-memory хранилище: прогон занимает ~8 с вместо ~26 с.
+* Итог: `npm test` — **272/272** (26 файлов), `npm run lint` — 0 / 0, `npm run build` (`tsc -b && vite build`) — OK.
+
+### [v3.30.0] — 7 октября 2026 г.
+* **Phase 60 — Telegram Fidelity, E2EE Secret Chats, Security Hardening & Modular Architecture**
+
+#### 1. Дизайн и UX (Telegram parity)
+* **Кластеризация сообщений** — [`src/lib/message-grouping.ts`](src/lib/message-grouping.ts) (+12 тестов):
+  * `buildFeedEntries(messages, { isGroupChat })` — лента из сообщений, альбомов и разделителей дат; флаги `groupedAbove` / `groupedBelow` / `showSenderLabel`.
+  * `getBubbleCorners()` — адаптивные радиусы (`BUBBLE_RADIUS = 18`, `BUBBLE_RADIUS_GROUPED = 4`); хвостик (`showTail = !groupedBelow`) только у последнего сообщения серии, угол автора под хвостиком = 0.
+  * `getAlbumLayout()` / `getAlbumTileRadius()` — Bento-раскладка 2–10 медиа в 6-колоночной сетке.
+* **Новые компоненты ленты** (`src/components/Chat/Feed/`):
+  * `BubbleTail.tsx` — SVG-хвостик 7×17 (`.tg-tail-self` / `.tg-tail-peer`, `fill: currentColor`).
+  * `AlbumBubble.tsx` — альбом-коллаж (`.tg-album`), оверлей ▶ для видео, прогресс загрузки, подпись или мета-пилюля поверх коллажа, выделение всех элементов альбома.
+  * `MessageMeta.tsx` — время, статус (✓ / ✓✓ / «ожидание 🕒»), таймер самоуничтожения.
+  * `PinnedBar.tsx` — мульти-закрепы: сегментный индикатор (окно из 4), клик → переход к сообщению и цикл к следующему, выезжающий glass-список (открепить одно / «Открепить все сообщения»).
+* **`MessageBubble.tsx`**: углы через `getBubbleCorners`, хвостик `BubbleTail`, swipe-to-reply с порогом 60px, `triggerHaptic('light')` на пороге, пружинный возврат, индикатор ↩; long-press → `triggerHaptic('medium')`.
+* **Стили**: [`src/styles/telegram-tokens.css`](src/styles/telegram-tokens.css) — `--tg-bubble-radius*`, `--tg-bubble-self-bg` (#eeffde / dark #204162), `--tg-bubble-peer-bg`, glass-токены, `.tg-tail*`, `.tg-glass*`, `.tg-album*`, `prefers-reduced-motion`. В `index.css`: полупрозрачные `.tg-sidebar` / `.tg-header` / `.tg-input-capsule` с `backdrop-filter: blur() saturate()`. Разделители дат — `.tg-date-pill`. Обои / затемнение / размытие холста — без изменений (`getWallpaperById` + `themeConfig`).
+
+#### 2. Функциональность
+* **E2EE секретные чаты** — [`src/lib/e2ee.ts`](src/lib/e2ee.ts) (ECDH P-256 + AES-GCM-256, `E2EE_ALG`, TTL самоуничтожения) и [`src/lib/secret-sessions.ts`](src/lib/secret-sessions.ts) (`SecretSessionManager`, ключи в IndexedDB, `formatFingerprint`, `fingerprintGrid` для визуальной сверки). UI — `Chat/Header/SecretChatMenu.tsx` (таймер, отпечаток ключа).
+* **Меню отправки** — `Chat/Input/SendButton.tsx` (long-press / ПКМ: «Отправить без звука», «Отправить позже») и `Chat/Input/ScheduledMessagesButton.tsx` (список отложенных). Логика дат — [`src/lib/schedule.ts`](src/lib/schedule.ts) (`schedulePresets`, `parseScheduleInput`, `formatScheduledAt`; ≥ 1 мин, ≤ 1 год).
+* **Мульти-закрепы** — [`src/lib/pins.ts`](src/lib/pins.ts) (+7 тестов) и хук [`src/hooks/usePinnedMessages.ts`](src/hooks/usePinnedMessages.ts) (`pins`, `current`, `cursor`, `toggle`, `advance`, `select`, `unpinAll`).
+* **Офлайн-очередь** — [`src/lib/offline-queue.ts`](src/lib/offline-queue.ts) (`OfflineQueue`, `MAX_QUEUE_ATTEMPTS = 5`, оптимистичные сообщения «ожидание 🕒») поверх [`src/lib/idb-store.ts`](src/lib/idb-store.ts) (IndexedDB stores `offline-queue`, `e2ee-keys`, in-memory fallback). Синхронизация истории — [`src/lib/message-sync.ts`](src/lib/message-sync.ts) (`mergeHistory`, `applySendAck`, `dedupeMessages`, …).
+* **Звонки** — [`src/components/Call/CallOverlay.tsx`](src/components/Call/CallOverlay.tsx): полноэкранный оверлей + перетаскиваемое PiP-окно (`isCallMinimized`), демонстрация экрана (`toggleScreenShare`, работает и в аудиозвонке через addTrack + renegotiation), бейдж «Демонстрация экрана», единый скрытый `<audio>` для удалённого звука. Заменил секцию звонка в `ChatModalsHost`; `ChatScreen` больше не держит video/audio refs.
+
+#### 3. Безопасность
+* **Токены**: refresh-токен только в HttpOnly cookie (`REFRESH_COOKIE_NAME`; `/api/auth/refresh` и `/logout` под `requireTrustedOrigin`), access-токен (15 мин) только в памяти; [`src/lib/supabase/client.ts`](src/lib/supabase/client.ts) — `persistSession / autoRefreshToken / detectSessionInUrl: false`; очистка legacy-ключей из `localStorage` в `src/utils/token.utils.ts`.
+* **Облачный пароль (2FA)**: `server/services/cloud-password.js` (bcrypt, 12 раундов), эндпоинты `POST /api/auth/2fa/verify`, `GET /api/auth/2fa`, `POST /api/auth/2fa/password`, `POST /api/auth/2fa/disable` (rate limit `twoFactor`), шаг входа `src/components/Auth/TwoFactorStep.tsx`, миграция [`supabase/migrations/006_add_cloud_password.sql`](supabase/migrations/006_add_cloud_password.sql) (`cloud_password_hash`, `cloud_password_hint`).
+* **Активные сеансы**: `server/services/session-store.js` + `server/services/user-agent.js`; `GET /api/auth/sessions`, `POST /api/auth/sessions/:id/terminate`, `POST /api/auth/sessions/terminate-others`. UI — `src/components/Settings/SecuritySettingsModal.tsx` (сеансы + облачный пароль), утилиты [`src/lib/sessions.ts`](src/lib/sessions.ts).
+* **Загрузки**: `server/services/upload-validation.js` — проверка magic bytes против расширения / MIME (`sniffMedia`, `validateUpload`), удаление EXIF/XMP/IPTC из JPEG / PNG / WebP с сохранением ориентации; клиент — `src/services/upload.service.ts`.
+* **CSP**: `nginx.conf` — убран `'unsafe-eval'`, добавлены `object-src 'none'`, `base-uri 'self'`, `display-capture=(self)` в Permissions-Policy; `vite.config.ts` — алиас `lottie-web` → `lottie-web/build/player/lottie_light.js` (без `eval`).
+* **Legacy-ключи сокета** (`AUTH_KEYS` пресетов) разрешены только вне production или при `ALLOW_LEGACY_SOCKET_KEYS=1` (`server/middleware/auth.js`).
+* ⚠️ Для production обязательно задать собственные `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` в `.env` / docker secrets: при fallback-секретах сервер пишет предупреждение (`usingDefaultJwtSecrets`).
+
+#### 4. Архитектура
+* **Сервер**: `server.js` (28 строк) — только bootstrap. Модули: `server/app.js`, `server/config.js`, `server/middleware/{auth,rateLimit,validate}.js`, `server/routes/{auth,upload,users}.js`, `server/services/{cloud-password,crypto,session-store,store,supabase,upload-validation,user-agent,users}.js`, `server/sockets/{index,chat,call,stories}.js`, `server/test-utils.js`. `Dockerfile.backend` копирует `server/`.
+* **Клиентские контексты**: `SocketContext` разделён на `ConnectionContext`, `RoomsContext`, `MessagesContext`, `CallContext` (+ `AuthContext`); хуки `useAuth`, `useConnection`, `useRooms`, `useMessages`, `useCall` и совместимый `useSocket` — в [`src/context/contexts.ts`](src/context/contexts.ts). `platform-context.ts`, `stories-context.ts`, `video-player-context.ts` — хуки и контексты отделены от компонентов (правило oxlint `react/only-export-components`).
+* **Хуки ChatScreen** (`src/hooks/`):
+  * [`useChatHotkeys.ts`](src/hooks/useChatHotkeys.ts) — единый глобальный `keydown`-слушатель, обработчики через ref (подписка один раз); обработчик может вернуть `false`, чтобы не вызывать `preventDefault`. Иерархический Escape: палитра → глобальный поиск → эмодзи → редактирование → ответ → поиск → назад к списку (mobile).
+  * [`useChatNavigation.ts`](src/hooks/useChatNavigation.ts) — `openRoom`, `openAdjacentRoom(±1)` с зацикливанием, `openRoomByIndex`.
+  * [`useMessageSelection.ts`](src/hooks/useMessageSelection.ts) — режим выделения: `toggleSelected` (выход при пустом выделении), `clearSelection`, Escape.
+  * Чистая логика — [`src/lib/chat-hotkeys.ts`](src/lib/chat-hotkeys.ts): `resolveChatHotkey` (Ctrl/Cmd+K, Alt+↑/↓, Alt+1..5, Ctrl+1..9, Ctrl+/, Ctrl+,, Escape), `adjacentRoomId`, `toggleInSet` (+11 тестов).
+* **Удалено**: `src/hooks/useAuth.ts`, `src/pages/LoginPage.tsx`, `src/services/supabase-auth.service.ts`, `src/components/VideoCallModal.tsx` (заменён `CallOverlay`).
+
+#### 5. Тесты и проверки
+* Новые тестовые файлы: `src/lib/{e2ee,secret-sessions,message-grouping,message-sync,offline-queue,pins,schedule,sessions,chat-hotkeys}.test.ts`, `src/services/auth.service.test.ts`, `server/routes/auth.test.js`, `server/services/{security,upload-validation,user-agent}.test.js`, `server/sockets/chat.test.js`.
+* Итог: `npm test` — **272/272** (26 файлов), `npm run lint` — 0 / 0, `npm run build` (`tsc -b && vite build`) — OK.
 
 ### [v3.29.0] — 6 сентября 2026 г.
 * **WebSocket Connection & Origin Whitelist Fix, JWT Session Recovery & Resilient Auth**:

@@ -1,14 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, type Variants, type Transition } from 'framer-motion';
 import { 
-  ArrowLeft, 
   Mail, 
   Camera, 
   Check, 
   ZoomIn, 
   ZoomOut, 
-  Sun, 
-  Moon, 
   Sparkles,
   RefreshCw,
   RotateCw,
@@ -18,7 +15,11 @@ import {
   Zap,
   Sliders
 } from 'lucide-react';
-import { useSocket } from '../context/SocketContext';
+import { useSocket } from '../context/contexts';
+import { AuthLayout } from './Auth/AuthLayout';
+import { AuthField } from './Auth/AuthField';
+
+const TOTAL_STEPS = 4;
 
 export interface TelegramRegistrationWizardProps {
   darkMode?: boolean;
@@ -393,54 +394,29 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-50 dark:bg-[#0e1621] text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden">
-      
-      {/* Subtle Background Glow Orbs */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-[#3390ec]/10 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-[#0066FF]/10 blur-[100px] pointer-events-none" />
-
-      {/* Top Bar: Back button (Step > 1) & Theme toggle */}
-      <div className="fixed top-4 left-4 right-4 max-w-lg mx-auto flex items-center justify-between z-40 pointer-events-auto">
-        {currentStep > 1 ? (
-          <button
-            type="button"
-            onClick={goToPrevStep}
-            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
-            title="Назад"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-        ) : onCancel ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
-            title="Назад ко входу"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-        ) : (
-          <div className="w-10 h-10" />
-        )}
-
-        {toggleDarkMode && (
-          <button
-            type="button"
-            onClick={toggleDarkMode}
-            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
-            title={darkMode ? 'Светлая тема' : 'Ночной режим'}
-          >
-            {darkMode ? (
-              <Sun className="w-5 h-5 text-amber-400" />
-            ) : (
-              <Moon className="w-5 h-5 text-[#3390ec]" />
-            )}
-          </button>
-        )}
+    <AuthLayout
+      darkMode={!!darkMode}
+      toggleDarkMode={toggleDarkMode}
+      onBack={currentStep > 1 ? goToPrevStep : onCancel}
+      backLabel={currentStep > 1 ? 'Назад' : 'Назад ко входу'}
+      showMobileLogo={false}
+    >
+      {/* Step progress */}
+      <div className="w-full mb-7 flex items-center gap-1.5" aria-label={`Шаг ${currentStep} из ${TOTAL_STEPS}`}>
+        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+          <div key={i} className="h-1 flex-1 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-[#3390EC]"
+              initial={false}
+              animate={{ width: i < currentStep ? '100%' : '0%' }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            />
+          </div>
+        ))}
       </div>
 
-      {/* Main Centered Content (Max ~400px) */}
-      <div className="w-full max-w-[400px] flex flex-col items-center justify-center min-h-[460px] relative z-10">
+      {/* Step content */}
+      <div className="w-full flex flex-col items-center justify-center min-h-[460px] relative">
         <AnimatePresence initial={false} custom={direction} mode="wait">
           
           {/* ================================================================= */}
@@ -458,50 +434,33 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               className="w-full flex flex-col items-center text-center"
             >
               {/* Telegram Logo / App Icon with Hover Pulse */}
-              <motion.div 
-                whileHover={{ scale: 1.06, rotate: 4 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#3390ec] to-[#0072ff] text-white flex items-center justify-center shadow-lg shadow-[#3390ec]/25 mb-6 cursor-pointer"
-              >
-                <Mail className="w-9 h-9 text-white" />
-              </motion.div>
+              <div className="w-20 h-20 rounded-full bg-[#3390EC]/10 text-[#3390EC] flex items-center justify-center mb-6">
+                <Mail className="w-9 h-9" />
+              </div>
 
-              <h1 className="text-2xl sm:text-[26px] font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+              <h1 className="text-[26px] sm:text-[28px] font-heading font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
                 Регистрация
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-7">
                 Введите ваш адрес эл. почты для получения кода подтверждения
               </p>
 
-              <form onSubmit={handleEmailSubmit} className="w-full space-y-4">
-                <div className="relative w-full">
-                  <input
-                    type="email"
-                    autoFocus
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (emailError) setEmailError(null);
-                    }}
-                    placeholder="Электронная почта"
-                    className={`w-full px-4 py-3.5 rounded-2xl text-base bg-white dark:bg-[#17212b] border outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 ${
-                      emailError 
-                        ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
-                        : 'border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 shadow-xs'
-                    }`}
-                  />
-                  {isEmailValid && (
-                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-500 flex items-center">
-                      <Check className="w-5 h-5" />
-                    </div>
-                  )}
-                </div>
-
-                {emailError && (
-                  <p className="text-xs text-rose-500 text-left px-1 font-medium">
-                    {emailError}
-                  </p>
-                )}
+              <form onSubmit={handleEmailSubmit} noValidate className="w-full space-y-4">
+                <AuthField
+                  label="Электронная почта"
+                  type="email"
+                  autoFocus
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(null);
+                  }}
+                  error={emailError}
+                  trailing={isEmailValid ? <Check className="w-5 h-5 mr-1.5 text-emerald-500" /> : undefined}
+                />
 
                 {/* Trust badge */}
                 <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
@@ -512,10 +471,10 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 <button
                   type="submit"
                   disabled={!isEmailValid}
-                  className={`w-full py-3.5 px-6 rounded-2xl text-base font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
+                  className={`w-full h-[52px] px-6 rounded-xl text-[15px] font-semibold uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
                     isEmailValid
-                      ? 'bg-[#3390ec] hover:bg-[#2b7ac9] active:bg-[#2469ab] text-white shadow-[#3390ec]/25 hover:shadow-lg active:scale-[0.99]'
-                      : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70 shadow-none'
+                      ? 'bg-[#3390EC] hover:bg-[#2B83DB] active:bg-[#2469ab] text-white shadow-[#3390ec]/25 hover:shadow-lg active:scale-[0.99]'
+                      : 'bg-[#3390EC] text-white opacity-50 cursor-not-allowed shadow-none'
                   }`}
                 >
                   <span>Далее</span>
@@ -527,9 +486,9 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="text-xs font-medium text-[#3390ec] hover:underline cursor-pointer"
+                    className="text-[14px] font-semibold text-[#3390EC] hover:underline underline-offset-2 cursor-pointer"
                   >
-                    Уже зарегистрированы? Войти
+                    Уже есть аккаунт? Войти
                   </button>
                 </div>
               )}
@@ -567,7 +526,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 <Sparkles className="w-8 h-8 animate-pulse" />
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              <h1 className="text-[26px] font-heading font-bold tracking-tight text-slate-900 dark:text-white mb-2">
                 Код подтверждения
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-6">
@@ -588,7 +547,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     autoFocus={idx === 0}
                     onChange={(e) => handleDigitChange(idx, e.target.value)}
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
-                    className="w-12 h-14 sm:w-13 sm:h-15 text-center text-2xl font-bold font-mono rounded-2xl bg-white dark:bg-[#17212b] border border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/20 outline-hidden transition-all text-slate-900 dark:text-white shadow-xs"
+                    className="w-12 h-14 sm:w-13 sm:h-15 text-center text-2xl font-semibold tg-tabular rounded-xl bg-transparent border border-slate-300/90 dark:border-white/[0.14] hover:border-[#3390EC]/70 focus:border-[#3390EC] focus:shadow-[inset_0_0_0_1px_#3390EC] outline-hidden transition-[border-color,box-shadow] text-slate-900 dark:text-white"
                   />
                 ))}
               </div>
@@ -639,10 +598,10 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 type="button"
                 onClick={() => goToNextStep(3)}
                 disabled={codeDigits.join('').length < 6}
-                className={`w-full py-3.5 px-6 rounded-2xl text-base font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
+                className={`w-full h-[52px] px-6 rounded-xl text-[15px] font-semibold uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
                   codeDigits.join('').length === 6
-                    ? 'bg-[#3390ec] hover:bg-[#2b7ac9] text-white shadow-[#3390ec]/25 active:scale-[0.99]'
-                    : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70 shadow-none'
+                    ? 'bg-[#3390EC] hover:bg-[#2B83DB] text-white shadow-[#3390ec]/25 active:scale-[0.99]'
+                    : 'bg-[#3390EC] text-white opacity-50 cursor-not-allowed shadow-none'
                 }`}
               >
                 <span>Далее</span>
@@ -718,41 +677,34 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 ))}
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+              <h1 className="text-[26px] font-heading font-bold tracking-tight text-slate-900 dark:text-white mb-1">
                 Ваше имя
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-4">
                 Введите ваше имя и выберите уникальный username
               </p>
 
-              <form onSubmit={handleNamesSubmit} className="w-full space-y-3">
-                <div className="w-full">
-                  <input
-                    type="text"
-                    autoFocus
-                    value={firstName}
-                    onChange={(e) => {
-                      setFirstName(e.target.value);
-                      if (nameError) setNameError(null);
-                    }}
-                    placeholder="Имя (обязательно)"
-                    className={`w-full px-4 py-3 rounded-2xl text-base bg-white dark:bg-[#17212b] border outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 ${
-                      nameError 
-                        ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
-                        : 'border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 shadow-xs'
-                    }`}
-                  />
-                </div>
+              <form onSubmit={handleNamesSubmit} className="w-full space-y-4 text-left">
+                <AuthField
+                  label="Имя"
+                  type="text"
+                  autoFocus
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(e) => {
+                    setFirstName(e.target.value);
+                    if (nameError) setNameError(null);
+                  }}
+                  error={nameError}
+                />
 
-                <div className="w-full">
-                  <input
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Фамилия (опционально)"
-                    className="w-full px-4 py-3 rounded-2xl text-base bg-white dark:bg-[#17212b] border border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs"
-                  />
-                </div>
+                <AuthField
+                  label="Фамилия (необязательно)"
+                  type="text"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
 
                 {/* Username with Random Generator Button */}
                 <div className="relative w-full">
@@ -760,10 +712,10 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.replace(/\s+/g, '').toLowerCase())}
-                    placeholder="username (никнейм)"
-                    className="w-full pl-8 pr-10 py-3 rounded-2xl text-base bg-white dark:bg-[#17212b] border border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs font-mono text-sm"
+                    placeholder="username"
+                    className="w-full h-[54px] pl-9 pr-12 rounded-xl bg-transparent border border-slate-300/90 dark:border-white/[0.14] hover:border-[#3390EC]/70 focus:border-[#3390EC] focus:shadow-[inset_0_0_0_1px_#3390EC] outline-hidden transition-[border-color,box-shadow] text-slate-900 dark:text-white placeholder:text-slate-400 text-[15px]"
                   />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm">@</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[15px]">@</span>
                   <button
                     type="button"
                     onClick={generateRandomUsername}
@@ -774,19 +726,13 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                   </button>
                 </div>
 
-                {nameError && (
-                  <p className="text-xs text-rose-500 text-left px-1 font-medium">
-                    {nameError}
-                  </p>
-                )}
-
                 <button
                   type="submit"
                   disabled={!firstName.trim()}
-                  className={`w-full mt-2 py-3.5 px-6 rounded-2xl text-base font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
+                  className={`w-full mt-2 h-[52px] px-6 rounded-xl text-[15px] font-semibold uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
                     firstName.trim()
-                      ? 'bg-[#3390ec] hover:bg-[#2b7ac9] text-white shadow-[#3390ec]/25 active:scale-[0.99]'
-                      : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70 shadow-none'
+                      ? 'bg-[#3390EC] hover:bg-[#2B83DB] text-white shadow-[#3390ec]/25 active:scale-[0.99]'
+                      : 'bg-[#3390EC] text-white opacity-50 cursor-not-allowed shadow-none'
                   }`}
                 >
                   <span>Далее</span>
@@ -809,7 +755,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               exit="exit"
               className="w-full flex flex-col items-center text-center"
             >
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1.5">
+              <h1 className="text-[26px] font-heading font-bold tracking-tight text-slate-900 dark:text-white mb-1.5">
                 Фото профиля
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-5">
@@ -1004,7 +950,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     <button
                       type="button"
                       onClick={applyCrop}
-                      className="flex-1 py-2 px-3 text-xs font-semibold rounded-xl bg-[#3390ec] hover:bg-[#2b7ac9] text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      className="flex-1 py-2 px-3 text-xs font-semibold rounded-xl bg-[#3390EC] hover:bg-[#2B83DB] text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                     >
                       <Check className="w-4 h-4" />
                       <span>Применить</span>
@@ -1034,7 +980,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     type="button"
                     onClick={handleFinalSubmit}
                     disabled={isSubmitting}
-                    className="flex-1 py-3.5 px-4 rounded-2xl text-sm font-semibold bg-[#3390ec] hover:bg-[#2b7ac9] active:bg-[#2469ab] text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#3390ec]/25 active:scale-[0.99]"
+                    className="flex-1 py-3.5 px-4 rounded-2xl text-sm font-semibold bg-[#3390EC] hover:bg-[#2B83DB] active:bg-[#2469ab] text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#3390ec]/25 active:scale-[0.99]"
                   >
                     {isSubmitting ? (
                       <span>Создание...</span>
@@ -1052,8 +998,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
         </AnimatePresence>
       </div>
-
-    </div>
+    </AuthLayout>
   );
 };
 

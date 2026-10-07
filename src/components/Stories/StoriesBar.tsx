@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { IconPlus } from '@tabler/icons-react';
-import { useStories } from '../../context/StoriesContext';
+import { useStories } from '../../context/stories-context';
+import { useAuth } from '../../context/contexts';
 import { USER_NAMES, DEFAULT_USER_PROFILES } from '../../constants';
 import type { Story } from '../../types/story.types';
 
@@ -112,7 +113,7 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({ currentUserName, onOpenC
   const scrollLeftRef = useRef<number>(0);
 
   const myUnviewed = myStories.some((s) => !isStoryViewed(s.id));
-  const myUser = (typeof window !== 'undefined' ? localStorage.getItem('chat_user_v2') : null) || '';
+  const myUser: string = useAuth().currentUser ?? '';
   const myAvatar = DEFAULT_USER_PROFILES[myUser]?.avatarUrl;
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {

@@ -7,6 +7,9 @@ import { VoicePreviewPlayer } from '../../Audio/VoicePreviewPlayer';
 import { TelegramEmojiPickerModal } from '../../TelegramEmojiPickerModal';
 import { TgsStickerPlayer } from '../../Stickers/TgsStickerPlayer';
 import { USER_NAMES } from '../../../constants';
+import type { SendOptions } from '../../../context/contexts';
+import { SendButton } from './SendButton';
+import { ScheduledMessagesButton } from './ScheduledMessagesButton';
 import {
   IconX,
   IconEdit,
@@ -15,8 +18,7 @@ import {
   IconCamera,
   IconChartBar,
   IconMicrophone,
-  IconSend,
-  IconCheck
+  IconSend
 } from '@tabler/icons-react';
 
 const ROOM_AVATAR_COLORS: Record<string, string> = {
@@ -76,7 +78,7 @@ export interface ChatInputBarProps {
   onVoicePointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onVoicePointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onVoicePointerUp: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  onSend: (e?: React.FormEvent) => void;
+  onSend: (e?: React.FormEvent, options?: SendOptions) => void;
   showToast: (msg: string) => void;
 }
 
@@ -424,6 +426,8 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             </form>
           )}
 
+          {!isRecording && !recordedVoicePreview && <ScheduledMessagesButton />}
+
           {/* Blue Circle Action Button (Mic / Video / Send / Checkmark) */}
           {!inputText.trim() && !selectedFile && !isRecording && !recordedVoicePreview ? (
             inputActionMode === 'voice' ? (
@@ -473,18 +477,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               <IconSend size={20} />
             </button>
           ) : !isRecording && !recordedVoicePreview ? (
-            <button
-              type="button"
-              onClick={() => onSend()}
-              className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full tg-btn-primary flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95"
-              title={editingMessage ? 'Сохранить изменения (Enter)' : 'Отправить'}
-            >
-              {editingMessage ? (
-                <IconCheck size={22} stroke={2.6} />
-              ) : (
-                <IconSend size={20} />
-              )}
-            </button>
+            <SendButton isEditing={!!editingMessage} onSend={(options) => onSend(undefined, options)} />
           ) : null}
         </div>
       </div>
