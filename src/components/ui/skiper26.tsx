@@ -144,7 +144,7 @@ export const Skiper26ThemeToggle: React.FC<ThemeToggleProps> = ({
       className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 hover:scale-105 cursor-pointer shadow-sm ${
         darkMode 
           ? 'bg-white/10 hover:bg-white/20 text-amber-300 border border-white/10' 
-          : 'bg-black/5 hover:bg-black/10 text-amber-500 hover:text-amber-600 border border-slate-200'
+          : 'bg-black/5 hover:bg-black/10 text-amber-500 hover:text-amber-600 border border-zinc-200'
       } ${className}`}
       title={darkMode ? 'Включить светлую тему' : 'Включить темную тему'}
       aria-label="Toggle theme"

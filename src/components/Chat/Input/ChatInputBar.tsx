@@ -140,34 +140,34 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
       <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col gap-1.5 relative">
         {/* 1. Selected File Preview Bar */}
         {selectedFile && (
-          <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border border-slate-200/80 dark:border-white/10 animate-pop-in">
+          <div className="w-full bg-white/95 dark:bg-surface/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border border-zinc-200/80 dark:border-white/10 animate-pop-in">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               {selectedFile.type === 'image' ? (
-                <img src={selectedFile.data} className="w-11 h-11 rounded-xl object-cover shadow-xs border border-slate-200/50 dark:border-white/10 shrink-0" alt="preview" />
+                <img src={selectedFile.data} className="w-11 h-11 rounded-xl object-cover shadow-xs border border-zinc-200/50 dark:border-white/10 shrink-0" alt="preview" />
               ) : selectedFile.type === 'video' ? (
-                <div className="w-11 h-11 rounded-xl bg-black relative overflow-hidden flex items-center justify-center shrink-0 shadow-xs border border-slate-200/50 dark:border-white/10">
+                <div className="w-11 h-11 rounded-xl bg-black relative overflow-hidden flex items-center justify-center shrink-0 shadow-xs border border-zinc-200/50 dark:border-white/10">
                   <video src={selectedFile.data} className="w-full h-full object-cover" muted playsInline />
                   <span className="absolute bottom-0.5 right-0.5 text-[8px] bg-black/80 text-white px-1 rounded-xs font-mono font-bold">
                     {selectedFile.orientation === 'vertical' ? '9:16' : '16:9'}
                   </span>
                 </div>
               ) : selectedFile.type === 'audio' ? (
-                <div className="w-11 h-11 rounded-xl bg-[#3390ec] flex items-center justify-center text-white text-lg shadow-xs shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-accent flex items-center justify-center text-white text-lg shadow-xs shrink-0">
                   🎤
                 </div>
               ) : (
-                <div className="w-11 h-11 rounded-xl bg-slate-200 dark:bg-white/10 text-[#3390ec] flex items-center justify-center text-lg shadow-xs shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-zinc-200 dark:bg-white/10 text-accent flex items-center justify-center text-lg shadow-xs shrink-0">
                   📄
                 </div>
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-slate-900 dark:text-white truncate block">{selectedFile.name}</span>
+                  <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate block">{selectedFile.name}</span>
                   {selectedFile.type === 'video' && selectedFile.orientation === 'vertical' && (
-                    <span className="text-[9px] bg-[#3390ec]/20 text-[#3390ec] font-medium px-1 rounded-xs shrink-0">📱 Вертикальное</span>
+                    <span className="text-[9px] bg-accent/20 text-accent font-medium px-1 rounded-xs shrink-0">📱 Вертикальное</span>
                   )}
                 </div>
-                <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-mono block">
+                <span className="text-[10.5px] text-zinc-400 dark:text-zinc-500 font-mono block">
                   {selectedFile.size > 1024 * 1024 
                     ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} МБ` 
                     : `${(selectedFile.size / 1024).toFixed(1)} КБ`}
@@ -177,7 +177,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             <button
               type="button"
               onClick={onClearSelectedFile}
-              className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
+              className="p-1.5 rounded-full text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
               title="Удалить прикрепленный файл"
             >
               <IconX size={18} />
@@ -187,18 +187,18 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
         {/* 2. Editing Message Bar */}
         {editingMessage && (
-          <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-xl rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[3.5px] border-[#3390ec] border border-slate-200/80 dark:border-white/10 animate-pop-in">
+          <div className="w-full bg-white/95 dark:bg-surface/95 backdrop-blur-xl rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[3.5px] border-accent border border-zinc-200/80 dark:border-white/10 animate-pop-in">
             <div className="min-w-0 pl-1 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#3390ec]/15 flex items-center justify-center text-[#3390ec] shrink-0">
+              <div className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center text-accent shrink-0">
                 <IconEdit size={16} stroke={2.4} />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-bold text-[#3390ec] block leading-tight">
+                  <span className="text-[12px] font-bold text-accent block leading-tight">
                     Редактирование
                   </span>
                 </div>
-                <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5 max-w-[280px] sm:max-w-md">
+                <span className="text-xs text-zinc-700 dark:text-zinc-300 truncate block mt-0.5 max-w-[280px] sm:max-w-md">
                   {editingMessage.text}
                 </span>
               </div>
@@ -206,7 +206,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             <button
               type="button"
               onClick={onCancelEditing}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
               title="Отменить редактирование (Esc)"
             >
               <IconX size={16} />
@@ -216,19 +216,19 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
         {/* 3. Reply Quote Bar */}
         {replyingToMessage && (
-          <div className="w-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[4px] border-[#3390ec] border-slate-200/80 dark:border-white/10 animate-pop-in">
+          <div className="w-full bg-white/95 dark:bg-surface/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[4px] border-accent border-zinc-200/80 dark:border-white/10 animate-pop-in">
             <div className="min-w-0 pl-1">
-              <span className="text-[11px] font-bold text-[#3390ec] block">
+              <span className="text-[11px] font-bold text-accent block">
                 Ответ для: {replyingToMessage.sender === currentUser ? 'Вы' : (USER_NAMES[replyingToMessage.sender] || replyingToMessage.sender)}
               </span>
-              <span className="text-xs text-slate-700 dark:text-slate-300 truncate block mt-0.5">
+              <span className="text-xs text-zinc-700 dark:text-zinc-300 truncate block mt-0.5">
                 {getCleanMessageText(replyingToMessage)}
               </span>
             </div>
             <button
               type="button"
               onClick={onCancelReply}
-              className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
+              className="p-1.5 rounded-full text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
               title="Отменить ответ"
             >
               <IconX size={16} />
@@ -241,7 +241,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
           {mentionState && mentionState.type === 'mention' && filteredMentions.length > 0 && !showEmojiPicker && (
             <div className="absolute bottom-full left-0 right-0 mb-2 z-40 animate-pop-in">
               <div
-                className="p-1.5 bg-white/95 dark:bg-[#17212b]/95 rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 backdrop-blur-md select-none"
+                className="p-1.5 bg-white/95 dark:bg-surface/95 rounded-2xl shadow-xl border border-zinc-200 dark:border-white/10 backdrop-blur-md select-none"
                 onMouseDown={(e) => e.preventDefault()}
               >
                 {filteredMentions.map((candidate, index) => (
@@ -252,25 +252,25 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                     onMouseEnter={() => setMentionCursor(index)}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl cursor-pointer transition-colors text-left ${
                       index === mentionCursor
-                        ? 'bg-[#3390ec]/10 dark:bg-[#3390ec]/20'
+                        ? 'bg-accent/10 dark:bg-accent/20'
                         : 'hover:bg-black/5 dark:hover:bg-white/5'
                     }`}
                   >
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${ROOM_AVATAR_COLORS[candidate.userId] || 'bg-slate-500'}`}>
+                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${ROOM_AVATAR_COLORS[candidate.userId] || 'bg-zinc-500'}`}>
                       {(candidate.profile?.avatarUrl)
                         ? <img src={candidate.profile.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
                         : candidate.displayName.slice(0, 1).toUpperCase()}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-semibold text-slate-900 dark:text-white truncate leading-tight">
+                      <span className="block text-[14px] font-semibold text-zinc-900 dark:text-white truncate leading-tight">
                         {candidate.displayName}
                       </span>
-                      <span className="block text-[12px] text-[#3390ec] truncate leading-tight">
+                      <span className="block text-[12px] text-accent truncate leading-tight">
                         @{candidate.profile?.username || candidate.userId}
                       </span>
                     </span>
                     {index === mentionCursor && (
-                      <span className="text-[10px] font-bold text-slate-400 shrink-0 hidden sm:block">Tab ⏎</span>
+                      <span className="text-[10px] font-bold text-zinc-400 shrink-0 hidden sm:block">Tab ⏎</span>
                     )}
                   </button>
                 ))}
@@ -281,8 +281,8 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
           {/* Quick Emoji-to-Sticker Floating Bar */}
           {quickStickerSuggestions.length > 0 && !showEmojiPicker && (
             <div className="absolute bottom-full left-0 right-0 mb-2 z-30 animate-pop-in">
-              <div className="p-2 bg-white/95 dark:bg-[#17212b]/95 rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 flex items-center gap-2 overflow-x-auto tg-scrollbar select-none backdrop-blur-md">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1.5 shrink-0 flex items-center gap-1">
+              <div className="p-2 bg-white/95 dark:bg-surface/95 rounded-2xl shadow-xl border border-zinc-200 dark:border-white/10 flex items-center gap-2 overflow-x-auto tg-scrollbar select-none backdrop-blur-md">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-1.5 shrink-0 flex items-center gap-1">
                   <span>✨</span>
                   <span>Стикеры:</span>
                 </span>
@@ -362,7 +362,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
+                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-accent cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Прикрепить"
               >
                 <IconPaperclip size={20} />
@@ -378,7 +378,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 onMouseUp={onTextSelection}
                 onKeyUp={onTextSelection}
                 placeholder="Сообщение..."
-                className="flex-1 py-0.5 px-2 bg-transparent border-none text-slate-900 dark:text-white text-[15px] focus:outline-none focus:ring-0 placeholder-slate-400 resize-none max-h-[160px] leading-[22px] tg-scrollbar self-center"
+                className="flex-1 py-0.5 px-2 bg-transparent border-none text-zinc-900 dark:text-white text-[15px] focus:outline-none focus:ring-0 placeholder-zinc-400 resize-none max-h-[160px] leading-[22px] tg-scrollbar self-center"
                 style={{ minHeight: '22px', height: '22px' }}
               />
 
@@ -396,7 +396,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
+                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-accent cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Эмодзи"
               >
                 <IconMoodSmile size={20} />
@@ -406,7 +406,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               <button
                 type="button"
                 onClick={onStartVideoRecording}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
+                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-accent cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Видео-кружок"
               >
                 <IconCamera size={20} />
@@ -416,7 +416,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               <button
                 type="button"
                 onClick={onOpenPollModal}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3390ec] cursor-pointer shrink-0 transition-colors rounded-full"
+                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-accent cursor-pointer shrink-0 transition-colors rounded-full"
                 title="Создать опрос"
               >
                 <IconChartBar size={20} />

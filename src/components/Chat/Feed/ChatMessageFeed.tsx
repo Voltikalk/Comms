@@ -88,12 +88,12 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
           onClick={() => {
             onJumpToMessage(currentPinnedMessage.id);
           }}
-          className="px-4 py-1.5 bg-white/95 dark:bg-[#17212b]/95 border-b border-slate-200 dark:border-white/10 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors z-20 backdrop-blur-md animate-pop-in select-none shadow-xs w-full min-w-0"
+          className="px-4 py-1.5 bg-white/95 dark:bg-surface/95 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors z-20 backdrop-blur-md animate-pop-in select-none shadow-xs w-full min-w-0"
         >
-          <div className="flex items-center gap-2.5 min-w-0 border-l-[3px] border-[#3390ec] pl-2.5">
+          <div className="flex items-center gap-2.5 min-w-0 border-l-[3px] border-accent pl-2.5">
             <div className="min-w-0">
-              <span className="text-[11.5px] font-bold text-[#3390ec] block">Закреплённое сообщение</span>
-              <span className="text-[12px] text-slate-700 dark:text-slate-300 truncate block">
+              <span className="text-[11.5px] font-bold text-accent block">Закреплённое сообщение</span>
+              <span className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate block">
                 {getCleanMessageText(currentPinnedMessage)}
               </span>
             </div>
@@ -104,7 +104,7 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
               e.stopPropagation();
               onTogglePinMessage(currentPinnedMessage.id);
             }}
-            className="p-1 rounded-full text-slate-400 hover:text-rose-500 cursor-pointer shrink-0"
+            className="p-1 rounded-full text-zinc-400 hover:text-rose-500 cursor-pointer shrink-0"
             title="Открепить"
           >
             <IconX size={16} />
@@ -193,14 +193,14 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
       {/* Drag and Drop File Overlay */}
       {isChatDragging && (
         <div className="absolute inset-0 z-40 pointer-events-none flex items-center justify-center animate-pop-in">
-          <div className="absolute inset-2.5 rounded-3xl border-[3px] border-dashed border-[#3390ec] bg-[#3390ec]/10 backdrop-blur-[2px]" />
-          <div className="relative z-10 flex flex-col items-center gap-3 px-6 py-5 rounded-3xl bg-white/95 dark:bg-[#17212b]/95 shadow-2xl border border-slate-200/80 dark:border-white/10">
-            <div className="w-14 h-14 rounded-full bg-[#3390ec]/15 flex items-center justify-center">
-              <IconPaperclip size={28} className="text-[#3390ec]" />
+          <div className="absolute inset-2.5 rounded-3xl border-[3px] border-dashed border-accent bg-accent/10 backdrop-blur-[2px]" />
+          <div className="relative z-10 flex flex-col items-center gap-3 px-6 py-5 rounded-3xl bg-white/95 dark:bg-surface/95 shadow-2xl border border-zinc-200/80 dark:border-white/10">
+            <div className="w-14 h-14 rounded-full bg-accent/15 flex items-center justify-center">
+              <IconPaperclip size={28} className="text-accent" />
             </div>
             <div className="text-center">
-              <div className="text-[15px] font-bold text-slate-900 dark:text-white">Отпустите для отправки</div>
-              <div className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">Файл будет прикреплён к сообщению</div>
+              <div className="text-[15px] font-bold text-zinc-900 dark:text-white">Отпустите для отправки</div>
+              <div className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5">Файл будет прикреплён к сообщению</div>
             </div>
           </div>
         </div>
@@ -211,12 +211,12 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
         <button
           type="button"
           onClick={() => onScrollToBottom('smooth')}
-          className="absolute right-3 sm:right-5 bottom-[88px] z-20 w-11 h-11 rounded-full bg-white dark:bg-[#2b3946] shadow-lg border border-slate-200/70 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:text-[#3390ec] cursor-pointer transition-all animate-pop-in"
+          className="absolute right-3 sm:right-5 bottom-[88px] z-20 w-11 h-11 rounded-full bg-white dark:bg-[#2b3946] shadow-lg border border-zinc-200/70 dark:border-white/10 flex items-center justify-center text-zinc-500 dark:text-zinc-300 hover:text-accent cursor-pointer transition-all animate-pop-in"
           title="Прокрутить вниз"
         >
           <IconArrowDown size={22} />
           {(activeRoomId ? unreadCount(activeRoomId) : 0) > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-[#3390ec] text-white flex items-center justify-center border-2 border-white dark:border-[#17212b]">
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-accent text-white flex items-center justify-center border-2 border-white dark:border-surface">
               {unreadCount(activeRoomId)}
             </span>
           )}

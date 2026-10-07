@@ -31,7 +31,7 @@ interface LoginPageProps {
 }
 
 const PRESET_ACCOUNTS = [
-  { id: 'vlad', name: 'Влад', email: 'vlad@telegram.org', pass: 'vladpass', color: 'from-[#0066FF] to-[#3385FF]' },
+  { id: 'vlad', name: 'Влад', email: 'vlad@telegram.org', pass: 'vladpass', color: 'from-accent to-accent' },
   { id: 'anya', name: 'Аня', email: 'anya@telegram.org', pass: 'anyapass', color: 'from-[#FF3385] to-[#FF66AA]' },
   { id: 'mom', name: 'Мама', email: 'mom@telegram.org', pass: 'mompass', color: 'from-[#FF9900] to-[#FFB733]' },
   { id: 'dad', name: 'Папа', email: 'dad@telegram.org', pass: 'dadpass', color: 'from-[#00C2FF] to-[#33D6FF]' },
@@ -115,9 +115,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             
             {/* Header */}
             <CardHeader>
-              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-[18px] bg-linear-to-tr from-[#0066FF] to-[#9933FF] text-white shadow-lg shadow-[#0066FF]/35 mb-2.5 relative">
+              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-[18px] bg-linear-to-tr from-accent to-accent-soft text-white shadow-lg shadow-accent/35 mb-2.5 relative">
                 <AnimatedLockIcon isSpinning={isLoading} size={isMobile ? 24 : 28} />
-                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#00D084] border-2 border-white dark:border-[#17212b] flex items-center justify-center">
+                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#00D084] border-2 border-white dark:border-surface flex items-center justify-center">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                 </div>
               </div>
@@ -131,7 +131,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             {/* Quick Fast Login Buttons */}
             <div className="mb-4">
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5 px-0.5 font-heading">
+              <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5 px-0.5 font-heading">
                 Быстрый вход
               </span>
               <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
@@ -145,14 +145,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       disabled={isLoading}
                       className={`flex flex-col items-center gap-1 p-1.5 rounded-[12px] transition-all cursor-pointer select-none touch-manipulation ${
                         isSelected
-                          ? 'bg-[#0066FF]/20 ring-2 ring-[#0066FF]'
+                          ? 'bg-accent/20 ring-2 ring-accent'
                           : 'hover:bg-white/40 dark:hover:bg-white/5 active:bg-white/30'
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-[10px] bg-linear-to-tr ${acc.color} text-white flex items-center justify-center text-xs font-bold`}>
                         {acc.name.charAt(0)}
                       </div>
-                      <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-200 truncate w-full text-center">
+                      <span className="text-[10px] font-semibold text-zinc-700 dark:text-zinc-200 truncate w-full text-center">
                         {acc.name}
                       </span>
                     </button>
@@ -163,11 +163,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             {/* Divider */}
             <div className="flex items-center gap-3 my-2 sm:my-3">
-              <div className="flex-1 h-px bg-slate-200/80 dark:bg-white/10" />
-              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+              <div className="flex-1 h-px bg-zinc-200/80 dark:bg-white/10" />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
                 Или учетная запись
               </span>
-              <div className="flex-1 h-px bg-slate-200/80 dark:bg-white/10" />
+              <div className="flex-1 h-px bg-zinc-200/80 dark:bg-white/10" />
             </div>
 
             {/* Form */}
@@ -201,7 +201,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 disabled={isLoading}
                 leftIcon={<KeyRound className="w-4 h-4" />}
                 rightIcon={
-                  showPassword ? <EyeOff className="w-4 h-4 text-[#0066FF]" /> : <Eye className="w-4 h-4" />
+                  showPassword ? <EyeOff className="w-4 h-4 text-accent" /> : <Eye className="w-4 h-4" />
                 }
                 onRightIconClick={() => setShowPassword(!showPassword)}
                 required
@@ -213,7 +213,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <button
                     type="button"
                     onClick={onNavigateToResetPassword}
-                    className="text-xs text-[#0066FF] dark:text-[#3385FF] hover:underline cursor-pointer font-medium"
+                    className="text-xs text-accent dark:text-accent hover:underline cursor-pointer font-medium"
                   >
                     Забыли пароль?
                   </button>
@@ -227,7 +227,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
-                    className="p-3 rounded-[12px] bg-[#FF3333]/12 border border-[#FF3333]/30 text-[#FF3333] text-xs text-center flex items-center justify-center gap-2 font-medium"
+                    className="p-3 rounded-[12px] bg-danger/12 border border-danger/30 text-danger text-xs text-center flex items-center justify-center gap-2 font-medium"
                   >
                     <AnimatedErrorIcon size={18} />
                     <span>{error}</span>
@@ -253,12 +253,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             {/* Navigation to Register */}
             {onNavigateToRegister && (
-              <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-white/10 text-center text-xs text-slate-600 dark:text-slate-400">
+              <div className="mt-4 pt-3 border-t border-zinc-200/60 dark:border-white/10 text-center text-xs text-zinc-600 dark:text-zinc-400">
                 <span>Нет учетной записи? </span>
                 <button
                   type="button"
                   onClick={onNavigateToRegister}
-                  className="text-[#0066FF] dark:text-[#3385FF] font-bold hover:underline cursor-pointer"
+                  className="text-accent dark:text-accent font-bold hover:underline cursor-pointer"
                 >
                   Зарегистрироваться
                 </button>

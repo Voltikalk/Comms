@@ -23,7 +23,7 @@ interface LoginScreenProps {
 }
 
 const PRESET_ACCOUNTS = [
-  { id: 'vlad', name: 'Влад', email: 'vlad@telegram.org', pass: 'vladpass', color: 'from-[#3390EC] to-[#2B7ECC]', status: '⚡ Всегда на связи' },
+  { id: 'vlad', name: 'Влад', email: 'vlad@telegram.org', pass: 'vladpass', color: 'from-accent to-accent-strong', status: '⚡ Всегда на связи' },
   { id: 'anya', name: 'Аня', email: 'anya@telegram.org', pass: 'anyapass', color: 'from-[#FF5E62] to-[#FF9966]', status: '❤️ В сети' },
   { id: 'mom', name: 'Мама', email: 'mom@telegram.org', pass: 'mompass', color: 'from-[#F2994A] to-[#F2C94C]', status: '🌸 Дома' },
   { id: 'dad', name: 'Папа', email: 'dad@telegram.org', pass: 'dadpass', color: 'from-[#10B981] to-[#059669]', status: '🔧 На работе' },
@@ -166,7 +166,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="min-h-full h-full overflow-y-auto w-full flex flex-col items-center justify-center p-4 sm:p-6 pt-[max(1.5rem,env(safe-area-inset-top,1.5rem))] pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] auth-canvas text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden font-body"
+      className="min-h-full h-full overflow-y-auto w-full flex flex-col items-center justify-center p-4 sm:p-6 pt-[max(1.5rem,env(safe-area-inset-top,1.5rem))] pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] auth-canvas text-zinc-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden font-body"
     >
       {/* Refined Monochromatic Ambient Glow Orbs */}
       <div className="auth-glow-top pointer-events-none" />
@@ -197,7 +197,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
             {/* Top specular subtle rim line */}
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-white/30 dark:via-white/20 to-transparent pointer-events-none" />
 
-            {/* Interactive 3D Parallax Mascot / Logo with Cerulean Glow */}
+            {/* Logo with subtle pointer tilt */}
             <motion.div
               animate={{
                 rotateX: mouseTilt.rx,
@@ -206,16 +206,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
               transition={{ type: 'spring', stiffness: 350, damping: 22 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#2B7ECC] to-[#3390EC] text-white flex items-center justify-center shadow-lg shadow-[#3390EC]/30 mb-4 cursor-pointer select-none ring-4 ring-[#3390EC]/15"
+              className="w-16 h-16 rounded-[20px] bg-accent text-white flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_20px_-10px_rgba(0,0,0,0.5)] mb-5 cursor-pointer select-none"
             >
-              <Send className="w-9 h-9 text-white -translate-x-0.5 translate-y-0.5" />
+              <Send className="w-7 h-7 text-white -translate-x-0.5 translate-y-0.5" />
             </motion.div>
 
-            <h1 className="text-2xl sm:text-[26px] font-bold font-heading text-slate-900 dark:text-white mb-1.5 tracking-tight">
+            <h1 className="text-2xl sm:text-[26px] font-bold font-heading text-zinc-900 dark:text-white mb-1.5 tracking-tight">
               Вход в Comms
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-6">
-              Ультрапремиальный защищенный мессенджер
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mb-6">
+              Войдите, чтобы продолжить
             </p>
 
             {/* Segmented Switcher: Вход по паролю vs По QR-коду */}
@@ -225,14 +225,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                 onClick={() => setAuthMethod('password')}
                 className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 relative z-10 ${
                   authMethod === 'password'
-                    ? 'text-[#3390EC] dark:text-white'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    ? 'text-accent dark:text-white'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
                 {authMethod === 'password' && (
                   <motion.div
                     layoutId="authSegmentActive"
-                    className="absolute inset-0 rounded-xl bg-white dark:bg-[#1E2D3D] shadow-xs shadow-black/10 dark:shadow-black/40 ring-1 ring-black/[0.04] dark:ring-white/[0.1] -z-10"
+                    className="absolute inset-0 rounded-xl bg-white dark:bg-elevated shadow-xs shadow-black/10 dark:shadow-black/40 ring-1 ring-black/[0.04] dark:ring-white/[0.1] -z-10"
                     transition={{ type: 'spring', stiffness: 450, damping: 30 }}
                   />
                 )}
@@ -245,14 +245,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                 onClick={() => setAuthMethod('qr')}
                 className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 relative z-10 ${
                   authMethod === 'qr'
-                    ? 'text-[#3390EC] dark:text-white'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    ? 'text-accent dark:text-white'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
                 {authMethod === 'qr' && (
                   <motion.div
                     layoutId="authSegmentActive"
-                    className="absolute inset-0 rounded-xl bg-white dark:bg-[#1E2D3D] shadow-xs shadow-black/10 dark:shadow-black/40 ring-1 ring-black/[0.04] dark:ring-white/[0.1] -z-10"
+                    className="absolute inset-0 rounded-xl bg-white dark:bg-elevated shadow-xs shadow-black/10 dark:shadow-black/40 ring-1 ring-black/[0.04] dark:ring-white/[0.1] -z-10"
                     transition={{ type: 'spring', stiffness: 450, damping: 30 }}
                   />
                 )}
@@ -275,7 +275,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                 {/* Login Form */}
                 <form onSubmit={handleLoginSubmit} className="w-full space-y-3.5">
                   <div className="w-full text-left">
-                    <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5 pl-1">
+                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 pl-1">
                       Логин или Email
                     </label>
                     <input
@@ -288,12 +288,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                       }}
                       placeholder="vlad или vlad@telegram.org"
                       disabled={isLoading}
-                      className="w-full px-4 py-3 rounded-2xl text-[14px] bg-slate-100/80 dark:bg-[#0E1621]/90 border border-slate-200/80 dark:border-white/[0.08] focus:border-[#3390EC] focus:ring-4 focus:ring-[#3390EC]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-inner"
+                      className="w-full px-4 py-3 rounded-2xl text-[14px] bg-zinc-100/80 dark:bg-canvas/90 border border-zinc-200/80 dark:border-white/[0.08] focus:border-accent focus:ring-4 focus:ring-accent/15 outline-hidden transition-all text-zinc-900 dark:text-white placeholder:text-zinc-400 shadow-inner"
                     />
                   </div>
 
                   <div className="w-full text-left relative">
-                    <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5 pl-1">
+                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 pl-1">
                       Пароль
                     </label>
                     <div className="relative">
@@ -307,12 +307,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                         onKeyUp={handlePasswordKeyUp}
                         placeholder="••••••••"
                         disabled={isLoading}
-                        className="w-full pl-4 pr-11 py-3 rounded-2xl text-[14px] bg-slate-100/80 dark:bg-[#0E1621]/90 border border-slate-200/80 dark:border-white/[0.08] focus:border-[#3390EC] focus:ring-4 focus:ring-[#3390EC]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-inner"
+                        className="w-full pl-4 pr-11 py-3 rounded-2xl text-[14px] bg-zinc-100/80 dark:bg-canvas/90 border border-zinc-200/80 dark:border-white/[0.08] focus:border-accent focus:ring-4 focus:ring-accent/15 outline-hidden transition-all text-zinc-900 dark:text-white placeholder:text-zinc-400 shadow-inner"
                       />
                       <button
                         type="button"
                         onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer transition-colors"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 cursor-pointer transition-colors"
                       >
                         {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -355,7 +355,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                     <button
                       type="button"
                       onClick={() => setIsRegisterMode(true)}
-                      className="w-full py-2.5 px-4 rounded-full text-xs font-semibold text-[#3390EC] dark:text-[#64B5F6] hover:bg-[#3390EC]/10 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      className="w-full py-2.5 px-4 rounded-full text-xs font-semibold text-accent dark:text-accent-soft hover:bg-accent/10 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>Создать новый аккаунт</span>
@@ -364,11 +364,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                 </form>
 
                 {/* Collapsible Dev Mode Presets */}
-                <div className="w-full mt-5 pt-3.5 border-t border-slate-200/60 dark:border-white/5">
+                <div className="w-full mt-5 pt-3.5 border-t border-zinc-200/60 dark:border-white/5">
                   <button
                     type="button"
                     onClick={() => setShowDevPresets(!showDevPresets)}
-                    className="mx-auto text-[11px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1.5 cursor-pointer py-1 px-3 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                    className="mx-auto text-[11px] text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1.5 cursor-pointer py-1 px-3 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                   >
                     <span>Тестовые профили для демо</span>
                     <span className="text-[9px]">{showDevPresets ? '▲' : '▼'}</span>
@@ -393,14 +393,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                               title={`${acc.name} — ${acc.status}`}
                               className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all cursor-pointer ${
                                 selectedAccountId === acc.id
-                                  ? 'bg-[#3390EC]/15 border-[#3390EC]'
-                                  : 'bg-black/[0.02] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] hover:border-[#3390EC]/50 hover:bg-[#3390EC]/5'
+                                  ? 'bg-accent/15 border-accent'
+                                  : 'bg-black/[0.02] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] hover:border-accent/50 hover:bg-accent/5'
                               }`}
                             >
                               <div className={`w-7 h-7 rounded-full bg-gradient-to-tr ${acc.color} text-white flex items-center justify-center text-[11px] font-bold mb-1 shadow-xs`}>
                                 {acc.name.charAt(0)}
                               </div>
-                              <span className="text-[10px] font-medium text-slate-700 dark:text-slate-300 truncate w-full text-center">
+                              <span className="text-[10px] font-medium text-zinc-700 dark:text-zinc-300 truncate w-full text-center">
                                 {acc.name}
                               </span>
                             </button>
@@ -425,10 +425,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                 className="w-full flex flex-col items-center"
               >
                 {/* Precision QR Matrix Shell */}
-                <div className="relative p-4 rounded-3xl bg-white dark:bg-[#0E1621] border border-black/[0.08] dark:border-white/[0.08] shadow-lg mb-4">
+                <div className="relative p-4 rounded-3xl bg-white dark:bg-canvas border border-black/[0.08] dark:border-white/[0.08] shadow-lg mb-4">
                   <div className="w-48 h-48 relative flex items-center justify-center bg-white rounded-2xl p-2.5">
                     {/* Stylized QR Code Matrix */}
-                    <svg viewBox="0 0 100 100" className="w-full h-full text-slate-900">
+                    <svg viewBox="0 0 100 100" className="w-full h-full text-zinc-900">
                       {/* Outer corner anchors */}
                       <rect x="5" y="5" width="25" height="25" fill="none" stroke="#17212b" strokeWidth="4" rx="4" />
                       <rect x="11" y="11" width="13" height="13" fill="#3390ec" rx="2" />
@@ -459,7 +459,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
 
                     {/* Center Telegram Logo Badge */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-11 h-11 rounded-full bg-[#3390ec] text-white flex items-center justify-center shadow-md border-2 border-white">
+                      <div className="w-11 h-11 rounded-full bg-accent text-white flex items-center justify-center shadow-md border-2 border-white">
                         <Send className="w-5 h-5 -translate-x-0.5 translate-y-0.5 text-white" />
                       </div>
                     </div>
@@ -475,21 +475,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                         repeat: Infinity,
                         ease: 'easeInOut',
                       }}
-                      className="absolute w-44 h-0.5 bg-gradient-to-r from-transparent via-[#3390ec] to-transparent shadow-[0_0_8px_#3390ec]"
+                      className="absolute w-44 h-0.5 bg-gradient-to-r from-transparent via-accent to-transparent shadow-[0_0_8px_#3390ec]"
                     />
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-4 leading-relaxed">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mb-4 leading-relaxed">
                   Откройте Telegram на смартфоне: <br />
-                  <strong className="text-slate-700 dark:text-slate-300 font-semibold">Настройки → Устройства → Подключить</strong>
+                  <strong className="text-zinc-700 dark:text-zinc-300 font-semibold">Настройки → Устройства → Подключить</strong>
                 </p>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleRefreshQr}
-                    className="px-4 py-2 rounded-full bg-[#3390EC]/10 hover:bg-[#3390EC]/20 text-[#3390EC] text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+                    className="px-4 py-2 rounded-full bg-accent/10 hover:bg-accent/20 text-accent text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer active:scale-95"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span className="tg-tabular">Обновить QR ({qrCodeTimer}с)</span>
@@ -507,7 +507,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
                   <button
                     type="button"
                     onClick={() => handleSelectPreset(PRESET_ACCOUNTS[0])}
-                    className="text-xs font-medium text-[#3390ec] hover:underline cursor-pointer flex items-center gap-1.5"
+                    className="text-xs font-medium text-accent hover:underline cursor-pointer flex items-center gap-1.5"
                   >
                     <Smartphone className="w-3.5 h-3.5" />
                     <span>Эмулировать сканирование (Влад)</span>
@@ -517,8 +517,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
             )}
 
             {/* Security Footer Note */}
-            <div className="mt-6 pt-4 border-t border-black/[0.04] dark:border-white/[0.05] w-full flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#3390EC]" />
+            <div className="mt-6 pt-4 border-t border-black/[0.04] dark:border-white/[0.05] w-full flex items-center justify-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+              <ShieldCheck className="w-3.5 h-3.5 text-accent" />
               <span>Comms Web End-to-End Encryption</span>
             </div>
 

@@ -30,7 +30,7 @@ export const AnimatedBorder: React.FC<AnimatedBorderProps> = ({
       {/* 2. Soft Ambient Glow Halo */}
       {glow && active && (
         <div
-          className="absolute inset-0 rounded-[26px] bg-linear-to-tr from-[#0066FF]/40 to-[#9933FF]/40 blur-xl opacity-50 group-hover:opacity-85 transition-opacity duration-300 pointer-events-none"
+          className="absolute inset-0 rounded-[26px] bg-linear-to-tr from-accent/40 to-accent-soft/40 blur-xl opacity-50 group-hover:opacity-85 transition-opacity duration-300 pointer-events-none"
           aria-hidden="true"
         />
       )}

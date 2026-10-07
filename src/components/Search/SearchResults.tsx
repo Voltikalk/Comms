@@ -14,14 +14,14 @@ export interface SearchResultsProps {
 
 export const NoSearchResults: React.FC<{ query?: string }> = ({ query }) => (
   <div className="flex flex-col items-center justify-center p-8 text-center space-y-2.5">
-    <div className="h-14 w-14 rounded-full bg-slate-100 dark:bg-[#242f3d] flex items-center justify-center text-2xl shadow-xs text-[#3390ec]">
+    <div className="h-14 w-14 rounded-full bg-zinc-100 dark:bg-elevated flex items-center justify-center text-2xl shadow-xs text-accent">
       🔍
     </div>
     <div>
-      <h3 className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
+      <h3 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">
         {query ? `Ничего не найдено по запросу «${query}»` : 'Введите запрос для поиска'}
       </h3>
-      <p className="text-[11.5px] text-slate-500 dark:text-slate-400 max-w-xs mt-1">
+      <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 max-w-xs mt-1">
         Попробуйте изменить запрос или переключить категорию фильтра
       </p>
     </div>

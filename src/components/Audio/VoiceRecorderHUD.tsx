@@ -57,15 +57,15 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
             opacity: Math.max(0.4, 1 + dragOffset.y / 80),
           }}
         >
-          <div className="w-9 h-12 rounded-full bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-md shadow-xl border border-slate-200/80 dark:border-white/10 flex flex-col items-center justify-center text-slate-500 dark:text-slate-300 animate-bounce">
-            <IconLock size={16} stroke={2.5} className="text-[#3390ec]" />
-            <span className="text-[8px] font-bold mt-0.5 text-slate-400">▲</span>
+          <div className="w-9 h-12 rounded-full bg-white/95 dark:bg-surface/95 backdrop-blur-md shadow-xl border border-zinc-200/80 dark:border-white/10 flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-300 animate-bounce">
+            <IconLock size={16} stroke={2.5} className="text-accent" />
+            <span className="text-[8px] font-bold mt-0.5 text-zinc-400">▲</span>
           </div>
         </div>
       )}
 
       {/* 2. Main Recording Track (Replaces input field) */}
-      <div className="flex-1 flex items-center justify-between py-1 px-3 select-none min-w-0 bg-white/95 dark:bg-[#17212b]/95 rounded-2xl shadow-xs border border-slate-200/80 dark:border-white/10">
+      <div className="flex-1 flex items-center justify-between py-1 px-3 select-none min-w-0 bg-white/95 dark:bg-surface/95 rounded-2xl shadow-xs border border-zinc-200/80 dark:border-white/10">
         
         {/* Left: Red recording dot & Timer */}
         <div className="flex items-center gap-2 shrink-0">
@@ -74,7 +74,7 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
               isPaused ? 'bg-amber-500' : 'bg-rose-500 animate-pulse'
             }`}
           />
-          <span className="font-mono text-xs font-bold text-slate-800 dark:text-white">
+          <span className="font-mono text-xs font-bold text-zinc-800 dark:text-white">
             {formatTime(recordTime)}
           </span>
           {isPaused && (
@@ -87,10 +87,10 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
         {/* Center: Live Audio Waveform or Slide-to-Cancel Guide */}
         {!isLocked ? (
           <div
-            className="flex items-center gap-1.5 text-slate-400 dark:text-slate-400 text-xs font-medium transition-transform duration-75 min-w-0 overflow-hidden"
+            className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-400 text-xs font-medium transition-transform duration-75 min-w-0 overflow-hidden"
             style={{ transform: `translateX(${slideX * 0.4}px)` }}
           >
-            <IconChevronLeft size={16} className="animate-pulse shrink-0 text-[#3390ec]" />
+            <IconChevronLeft size={16} className="animate-pulse shrink-0 text-accent" />
             <span className="truncate text-[11px] sm:text-xs">
               {isNearCancel ? 'Отпустите для отмены' : 'Проведите влево для отмены'}
             </span>
@@ -105,7 +105,7 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
               <span
                 key={idx}
                 className={`w-[2.5px] rounded-full transition-all duration-75 ease-out ${
-                  isPaused ? 'bg-slate-400 opacity-50' : 'bg-[#3390ec]'
+                  isPaused ? 'bg-zinc-400 opacity-50' : 'bg-accent'
                 }`}
                 style={{
                   height: `${Math.max(4, Math.min(22, (vol / 100) * 22))}px`,
@@ -119,7 +119,7 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
         {!isLocked ? (
           <div
             className={`flex items-center gap-1 transition-all ${
-              isNearCancel ? 'text-rose-500 scale-110' : 'text-slate-400'
+              isNearCancel ? 'text-rose-500 scale-110' : 'text-zinc-400'
             }`}
           >
             <IconTrash size={18} />
@@ -131,7 +131,7 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all cursor-pointer"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all cursor-pointer"
               title="Удалить запись"
             >
               <IconTrash size={17} />
@@ -144,7 +144,7 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
               className={`w-8 h-8 rounded-full flex items-center justify-center active:scale-95 transition-all cursor-pointer ${
                 isPaused
                   ? 'bg-amber-500/15 text-amber-500 hover:bg-amber-500/25'
-                  : 'bg-black/5 dark:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[#3390ec]'
+                  : 'bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-accent'
               }`}
               title={isPaused ? 'Продолжить запись' : 'Поставить на паузу'}
             >
@@ -155,7 +155,7 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
             <button
               type="button"
               onClick={onStopAndPreview}
-              className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 hover:bg-[#3390ec]/15 text-slate-700 dark:text-slate-200 hover:text-[#3390ec] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+              className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 hover:bg-accent/15 text-zinc-700 dark:text-zinc-200 hover:text-accent flex items-center justify-center active:scale-95 transition-all cursor-pointer"
               title="Прослушать перед отправкой"
             >
               <IconSquare size={14} fill="currentColor" />
@@ -165,7 +165,7 @@ export const VoiceRecorderHUD: React.FC<VoiceRecorderHUDProps> = ({
             <button
               type="button"
               onClick={onSend}
-              className="w-8 h-8 rounded-full bg-[#3390ec] text-white hover:bg-[#2879c9] flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-xs"
+              className="w-8 h-8 rounded-full bg-accent text-white hover:bg-accent-strong flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-xs"
               title="Отправить"
             >
               <IconSend size={15} />

@@ -19,8 +19,8 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   };
 
   const colorMap = {
-    primary: 'text-[#0066FF]',
-    secondary: 'text-[#9933FF]',
+    primary: 'text-accent',
+    secondary: 'text-accent-soft',
     white: 'text-white',
     current: 'text-current',
   };

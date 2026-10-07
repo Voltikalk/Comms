@@ -81,7 +81,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
       }}
     >
       {/* Floating HUD Bubble */}
-      <div className="relative flex items-center gap-1 px-1.5 py-1 rounded-2xl bg-white/95 dark:bg-[#1e2936]/95 backdrop-blur-xl text-slate-800 dark:text-white shadow-[0_12px_36px_rgba(0,0,0,0.28)] border border-slate-200/90 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/5">
+      <div className="relative flex items-center gap-1 px-1.5 py-1 rounded-2xl bg-white/95 dark:bg-elevated/95 backdrop-blur-xl text-zinc-800 dark:text-white shadow-[0_12px_36px_rgba(0,0,0,0.28)] border border-zinc-200/90 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/5">
         
         {/* Core Formatting Group */}
         <div className="flex items-center gap-0.5">
@@ -95,7 +95,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
                 e.stopPropagation();
                 onApplyFormat(action.tagOpen, action.tagClose);
               }}
-              className="w-8 h-8 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer text-slate-700 dark:text-slate-200 hover:text-[#3390ec] dark:hover:text-[#6ab3f3]"
+              className="w-8 h-8 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer text-zinc-700 dark:text-zinc-200 hover:text-accent dark:hover:text-accent-soft"
               title={`${action.label} (${action.shortcut})`}
             >
               {action.icon}
@@ -104,7 +104,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
         </div>
 
         {/* Divider */}
-        <div className="w-[1px] h-5 bg-slate-200 dark:bg-white/10 mx-0.5" />
+        <div className="w-[1px] h-5 bg-zinc-200 dark:bg-white/10 mx-0.5" />
 
         {/* Special Action: Telegram Spoiler Button */}
         <button
@@ -115,10 +115,10 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
             e.stopPropagation();
             onApplyFormat('||', '||');
           }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#3390ec]/15 to-[#ac8bdd]/15 hover:from-[#3390ec]/25 hover:to-[#ac8bdd]/25 text-[#3390ec] dark:text-[#6ab3f3] font-semibold text-xs active:scale-95 transition-all cursor-pointer shadow-xs border border-[#3390ec]/20"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-accent/15 to-accent-soft/15 hover:from-accent/25 hover:to-accent-soft/25 text-accent dark:text-accent-soft font-semibold text-xs active:scale-95 transition-all cursor-pointer shadow-xs border border-accent/20"
           title="Скрыть под спойлер (Ctrl+Shift+P)"
         >
-          <IconSparkles size={14} className="text-[#3390ec] dark:text-[#6ab3f3] shrink-0" />
+          <IconSparkles size={14} className="text-accent dark:text-accent-soft shrink-0" />
           <span className="leading-none text-[12px] tracking-wide">Спойлер</span>
         </button>
 
@@ -134,7 +134,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
               onApplyFormat('', ` (${url.trim()})`);
             }
           }}
-          className="w-8 h-8 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer text-slate-700 dark:text-slate-200 hover:text-[#3390ec] dark:hover:text-[#6ab3f3]"
+          className="w-8 h-8 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer text-zinc-700 dark:text-zinc-200 hover:text-accent dark:hover:text-accent-soft"
           title="Добавить ссылку"
         >
           <IconLink size={15} stroke={2.4} />
@@ -150,7 +150,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
               e.stopPropagation();
               onClose();
             }}
-            className="w-7 h-7 rounded-xl hover:bg-rose-500/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer text-slate-400 hover:text-rose-500 ml-0.5"
+            className="w-7 h-7 rounded-xl hover:bg-rose-500/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer text-zinc-400 hover:text-rose-500 ml-0.5"
             title="Закрыть"
           >
             <IconX size={14} />
@@ -158,7 +158,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
         )}
 
         {/* Downward pointing triangle arrow */}
-        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-white dark:bg-[#1e2936] border-r border-b border-slate-200/90 dark:border-white/10" />
+        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-white dark:bg-elevated border-r border-b border-zinc-200/90 dark:border-white/10" />
       </div>
     </div>
   );

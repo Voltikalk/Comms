@@ -151,19 +151,19 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.94, y: 14 }}
           transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-          className="w-full max-w-md bg-white dark:bg-[#1c242f] rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-white/10 flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[85vh]"
+          className="w-full max-w-md bg-white dark:bg-elevated rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-white/10 flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[85vh]"
         >
           {/* Modal Header */}
-          <div className="p-4 pb-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+          <div className="p-4 pb-3 border-b border-zinc-100 dark:border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-accent/10 text-accent flex items-center justify-center">
                 {mode === 'direct' ? <IconUserPlus size={18} /> : <IconUsers size={18} />}
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                <h2 className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
                   {mode === 'direct' ? 'Новое сообщение' : 'Создание группы'}
                 </h2>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-zinc-400">
                   {mode === 'direct' ? 'Найдите человека по нику или имени' : `Выбрано участников: ${selectedUserIds.length}`}
                 </p>
               </div>
@@ -173,7 +173,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <IconX size={18} />
               </button>
@@ -187,8 +187,8 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
               onClick={() => setMode('direct')}
               className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 mode === 'direct'
-                  ? 'bg-[#3390ec] text-white shadow-md shadow-[#3390ec]/25'
-                  : 'bg-black/5 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-black/10 dark:hover:bg-white/10'
+                  ? 'bg-accent text-white shadow-md shadow-accent/25'
+                  : 'bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-black/10 dark:hover:bg-white/10'
               }`}
             >
               <IconUser size={15} />
@@ -199,8 +199,8 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
               onClick={() => setMode('group')}
               className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 mode === 'group'
-                  ? 'bg-[#3390ec] text-white shadow-md shadow-[#3390ec]/25'
-                  : 'bg-black/5 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-black/10 dark:hover:bg-white/10'
+                  ? 'bg-accent text-white shadow-md shadow-accent/25'
+                  : 'bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-black/10 dark:hover:bg-white/10'
               }`}
             >
               <IconUsers size={15} />
@@ -216,7 +216,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
                 placeholder="Название новой группы..."
-                className="w-full px-3.5 py-2.5 bg-black/5 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+                className="w-full px-3.5 py-2.5 bg-black/5 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 rounded-2xl text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-accent"
               />
 
               {/* Selected members chips */}
@@ -227,7 +227,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
                     return (
                       <span
                         key={uId}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#3390ec]/15 text-[#3390ec] dark:text-[#64b5f6] rounded-full text-[11px] font-medium"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent/15 text-accent dark:text-accent-soft rounded-full text-[11px] font-medium"
                       >
                         <span>{u.displayName || u.username}</span>
                         <button
@@ -248,23 +248,23 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
           {/* Search Bar */}
           <div className="p-4 pb-2">
             <div className="relative">
-              <IconSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <IconSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
               <input
                 ref={inputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 placeholder="Поиск по @username или имени..."
-                className="w-full pl-9 pr-8 py-2.5 bg-black/5 dark:bg-white/5 border border-transparent focus:border-[#3390ec]/40 rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3390ec] transition-all"
+                className="w-full pl-9 pr-8 py-2.5 bg-black/5 dark:bg-white/5 border border-transparent focus:border-accent/40 rounded-2xl text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all"
               />
               {isSearching && (
-                <IconLoader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />
+                <IconLoader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 animate-spin" />
               )}
               {!isSearching && searchQuery && (
                 <button
                   type="button"
                   onClick={() => handleSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-white"
                 >
                   <IconX size={14} />
                 </button>
@@ -298,7 +298,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
                     }}
                     className={`w-full p-2.5 rounded-2xl flex items-center justify-between transition-all cursor-pointer select-none ${
                       isSelected
-                        ? 'bg-[#3390ec]/15 border border-[#3390ec]/30'
+                        ? 'bg-accent/15 border border-accent/30'
                         : 'hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'
                     }`}
                   >
@@ -312,24 +312,24 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
                             className="w-10 h-10 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#3390ec] to-[#00d2ff] text-white flex items-center justify-center font-bold text-sm">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-accent to-[#00d2ff] text-white flex items-center justify-center font-bold text-sm">
                             {(user.displayName || user.username || '?').charAt(0).toUpperCase()}
                           </div>
                         )}
                         {user.isOnline && (
-                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-[#1c242f]" />
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-elevated" />
                         )}
                       </div>
 
                       {/* Name and username */}
                       <div className="min-w-0 text-left">
-                        <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                        <div className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
                           {user.displayName || user.username}
                         </div>
-                        <div className="text-[11px] text-[#3390ec] dark:text-[#64b5f6] font-medium flex items-center gap-1.5">
+                        <div className="text-[11px] text-accent dark:text-accent-soft font-medium flex items-center gap-1.5">
                           <span>@{user.username}</span>
                           {user.bio && (
-                            <span className="text-slate-400 font-normal truncate max-w-[150px]">
+                            <span className="text-zinc-400 font-normal truncate max-w-[150px]">
                               · {user.bio}
                             </span>
                           )}
@@ -340,15 +340,15 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
                     {/* Action Indicator */}
                     <div className="shrink-0 ml-2">
                       {mode === 'direct' ? (
-                        <div className="w-8 h-8 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center hover:bg-[#3390ec] hover:text-white transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-accent/10 text-accent flex items-center justify-center hover:bg-accent hover:text-white transition-colors">
                           <IconMessageCircle size={16} />
                         </div>
                       ) : (
                         <div
                           className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${
                             isSelected
-                              ? 'bg-[#3390ec] border-[#3390ec] text-white'
-                              : 'border-slate-300 dark:border-white/20'
+                              ? 'bg-accent border-accent text-white'
+                              : 'border-zinc-300 dark:border-white/20'
                           }`}
                         >
                           {isSelected && <IconCheck size={14} className="stroke-[2.5]" />}
@@ -359,24 +359,24 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
                 );
               })
             ) : hasSearched && !isSearching ? (
-              <div className="py-10 text-center text-slate-400">
-                <IconSparkles size={32} className="mx-auto mb-2 opacity-40 text-[#3390ec]" />
+              <div className="py-10 text-center text-zinc-400">
+                <IconSparkles size={32} className="mx-auto mb-2 opacity-40 text-accent" />
                 <p className="text-xs font-medium">Пользователь не найден</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Проверьте правильность написания @username</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">Проверьте правильность написания @username</p>
               </div>
             ) : (
-              <div className="py-10 text-center text-slate-400">
-                <IconSearch size={32} className="mx-auto mb-2 opacity-30 text-slate-400" />
+              <div className="py-10 text-center text-zinc-400">
+                <IconSearch size={32} className="mx-auto mb-2 opacity-30 text-zinc-400" />
                 <p className="text-xs font-medium">Введите никнейм или имя</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Поиск доступен по всем зарегистрированным пользователям</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">Поиск доступен по всем зарегистрированным пользователям</p>
               </div>
             )}
           </div>
 
           {/* Group Mode Action Footer */}
           {mode === 'group' && (
-            <div className="p-4 pt-3 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="p-4 pt-3 border-t border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] flex items-center justify-between">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
                 {selectedUserIds.length > 0
                   ? `Участников: ${selectedUserIds.length}`
                   : 'Выберите участников'}
@@ -386,7 +386,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
                 type="button"
                 disabled={isCreating || selectedUserIds.length === 0 || !groupName.trim()}
                 onClick={handleCreateGroupSubmit}
-                className="px-4 py-2 bg-[#3390ec] hover:bg-[#2880d9] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-md shadow-[#3390ec]/25 transition-all cursor-pointer"
+                className="px-4 py-2 bg-accent hover:bg-accent-strong disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-md shadow-accent/25 transition-all cursor-pointer"
               >
                 {isCreating ? (
                   <IconLoader2 size={16} className="animate-spin" />

@@ -122,12 +122,12 @@ const VideoFeedbackOverlay: React.FC = () => {
         <IconAlertCircle size={40} className="text-rose-500 animate-bounce" />
         <div>
           <h5 className="text-sm font-semibold text-white">Ошибка воспроизведения</h5>
-          <p className="text-xs text-slate-400 mt-1">{error}</p>
+          <p className="text-xs text-zinc-400 mt-1">{error}</p>
         </div>
         <button
           type="button"
           onClick={restart}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#3390ec] text-white text-xs font-semibold hover:bg-[#3390ec]/90 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-accent text-white text-xs font-semibold hover:bg-accent/90 transition-colors cursor-pointer"
         >
           <IconReload size={14} />
           <span>Повторить</span>

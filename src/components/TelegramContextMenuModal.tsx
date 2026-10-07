@@ -61,6 +61,26 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
   const hasText = !!message.text;
   const canCopy = !!message.text || !!message.poll || !!message.file;
 
+  type MenuItem = { label: string; icon: typeof IconCopy; run: () => void; danger?: boolean; active?: boolean };
+  const items: Array<MenuItem | 'separator'> = [
+    { label: 'Ответить', icon: IconCornerUpLeft, run: () => onReply(message) },
+    { label: isPinned ? 'Открепить' : 'Закрепить', icon: IconPin, run: () => onPin(message), active: isPinned },
+    ...(canCopy
+      ? [{
+          label: message.poll ? 'Копировать опрос' : message.file && !message.text ? 'Копировать имя файла' : 'Копировать текст',
+          icon: IconCopy,
+          run: () => onCopy(message),
+        }]
+      : []),
+    ...(isSelf && hasText && !message.poll ? [{ label: 'Редактировать', icon: IconEdit, run: () => onEdit(message) }] : []),
+    { label: 'Переслать', icon: IconShare3, run: () => onForward(message) },
+    ...(onSaveToFavorites ? [{ label: 'В Избранное', icon: IconBookmark, run: () => onSaveToFavorites(message) }] : []),
+    { label: 'Выделить', icon: IconCircleCheck, run: () => onSelect(message) },
+    ...(!isSelf ? [{ label: 'Отметить прочитанным', icon: IconEye, run: () => onMarkRead(message) }] : []),
+    'separator',
+    { label: 'Удалить', icon: IconTrash, run: () => onDelete(message), danger: true },
+  ];
+
   // Calculate smart screen-boundary coordinates with dynamic width measurement
   useEffect(() => {
     const updatePosition = () => {
@@ -125,7 +145,7 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
       onContextMenu={(e) => { e.preventDefault(); onClose(); }}
     >
       {/* Global Backdrop */}
-      <div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-black/15 dark:bg-black/45 backdrop-blur-[3px]" />
 
       {showFullEmojiPicker ? (
         /* Full Emoji Reaction Picker: Centered on Mobile, Anchored at Message on Desktop */
@@ -166,7 +186,7 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
           onClick={(e) => e.stopPropagation()}
         >
           {/* 1. Top Reaction Pill */}
-          <div className="flex items-center gap-1 p-1 px-1.5 rounded-full bg-white dark:bg-[#1c2733] shadow-2xl border border-slate-200 dark:border-white/10 select-none overflow-x-auto no-scrollbar max-w-[calc(100vw-24px)]">
+          <div className="ui-sheet flex items-center gap-1 p-1 px-1.5 rounded-full select-none overflow-x-auto no-scrollbar max-w-[calc(100vw-24px)]">
             <div className="flex items-center gap-0.5 shrink-0">
               {QUICK_REACTIONS.map((emoji) => (
                 <button
@@ -189,7 +209,7 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
             <button
               type="button"
               onClick={() => setShowFullEmojiPicker(true)}
-              className="w-7 h-7 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 flex items-center justify-center text-slate-500 dark:text-slate-300 cursor-pointer transition-colors ml-0.5 shrink-0"
+              className="w-7 h-7 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center text-muted cursor-pointer transition-colors ml-0.5 shrink-0"
               title="Больше реакций"
             >
               <IconChevronDown size={16} />
@@ -197,110 +217,24 @@ export const TelegramContextMenuModal: React.FC<TelegramContextMenuModalProps> =
           </div>
 
           {/* 2. Vertical Context Menu Card */}
-          <div className="min-w-[220px] bg-white dark:bg-[#17212b] rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 p-1.5 flex flex-col gap-0.5">
-            {/* Ответить */}
-            <button
-              type="button"
-              onClick={() => { onReply(message); onClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-            >
-              <IconCornerUpLeft size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
-              <span>Ответить</span>
-            </button>
-
-            {/* Закрепить / Открепить */}
-            <button
-              type="button"
-              onClick={() => { onPin(message); onClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-            >
-              <IconPin size={19} className={`shrink-0 ${isPinned ? 'text-[#3390ec]' : 'text-slate-400 dark:text-slate-400'}`} />
-              <span className={isPinned ? 'text-[#3390ec]' : ''}>{isPinned ? 'Открепить' : 'Закрепить'}</span>
-            </button>
-
-            {/* Копировать */}
-            {canCopy && (
-              <button
-                type="button"
-                onClick={() => { onCopy(message); onClose(); }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-              >
-                <IconCopy size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
-                <span>
-                  {message.poll
-                    ? 'Копировать опрос'
-                    : message.file && !message.text
-                    ? 'Копировать имя файла'
-                    : 'Копировать текст'}
-                </span>
-              </button>
+          <div role="menu" className="ui-sheet min-w-[224px] rounded-2xl p-1.5 flex flex-col">
+            {items.map((item, i) =>
+              item === 'separator' ? (
+                <div key={`sep-${i}`} className="my-1 mx-2 h-px bg-line" />
+              ) : (
+                <button
+                  key={item.label}
+                  type="button"
+                  role="menuitem"
+                  data-danger={item.danger ? 'true' : undefined}
+                  onClick={() => { item.run(); onClose(); }}
+                  className="ui-menu-item"
+                >
+                  <item.icon size={18} stroke={1.7} className={item.active ? '!text-accent' : undefined} />
+                  <span className={`flex-1 ${item.active ? 'text-accent' : ''}`}>{item.label}</span>
+                </button>
+              )
             )}
-
-            {/* Редактировать */}
-            {isSelf && hasText && !message.poll && (
-              <button
-                type="button"
-                onClick={() => { onEdit(message); onClose(); }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-              >
-                <IconEdit size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
-                <span>Редактировать</span>
-              </button>
-            )}
-
-            {/* Переслать */}
-            <button
-              type="button"
-              onClick={() => { onForward(message); onClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-            >
-              <IconShare3 size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
-              <span>Переслать</span>
-            </button>
-
-            {/* Сохранить в Избранное */}
-            {onSaveToFavorites && (
-              <button
-                type="button"
-                onClick={() => { onSaveToFavorites(message); onClose(); }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-              >
-                <IconBookmark size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
-                <span>В Избранное</span>
-              </button>
-            )}
-
-            {/* Удалить */}
-            {isSelf && (
-              <button
-                type="button"
-                onClick={() => { onDelete(message); onClose(); }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors text-left"
-              >
-                <IconTrash size={19} className="text-rose-500 shrink-0" />
-                <span>Удалить</span>
-              </button>
-            )}
-
-            {/* Выделить */}
-            <button
-              type="button"
-              onClick={() => { onSelect(message); onClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-            >
-              <IconCircleCheck size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
-              <span>Выделить</span>
-            </button>
-
-            {/* Прочитать */}
-            <button
-              type="button"
-              onClick={() => { onMarkRead(message); onClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium text-slate-800 dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors text-left"
-            >
-              <IconEye size={19} className="text-slate-400 dark:text-slate-400 shrink-0" />
-              <span>Прочитать</span>
-            </button>
           </div>
         </div>
       )}

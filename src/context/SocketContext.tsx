@@ -57,6 +57,8 @@ interface SocketContextType {
   forwardMessage: (targetRoomId: string, message: Message) => void;
   editMessage: (messageId: string, newText: string) => void;
   deleteMessage: (messageId: string) => void;
+  /** Hide messages locally for the current user only ("Удалить у меня"). */
+  hideMessagesForMe: (messageIds: string[]) => void;
   toggleReaction: (messageId: string, reaction: string) => void;
   markRoomAsRead: (roomId: string) => void;
   unreadCount: (roomId: string) => number;
@@ -181,6 +183,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     sister: false
   });
   const [messages, setMessages] = useState<Message[]>([]);
+  // Messages the current user removed "for me only" (persisted per account)
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Record<string, Record<string, boolean>>>({});
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
@@ -300,7 +304,39 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const currentUserProfile = currentUser ? (userProfiles[currentUser] || DEFAULT_USER_PROFILES[currentUser]) : null;
   const currentUserName = currentUser ? getUserDisplayName(currentUser) : null;
-  const activeMessages = messages.filter(m => m.roomId === activeRoomId);
+  const visibleMessages = useMemo(
+    () => (hiddenMessageIds.size === 0 ? messages : messages.filter((m) => !hiddenMessageIds.has(m.id))),
+    [messages, hiddenMessageIds]
+  );
+  const activeMessages = useMemo(
+    () => visibleMessages.filter((m) => m.roomId === activeRoomId),
+    [visibleMessages, activeRoomId]
+  );
+
+  // Reload the per-account hidden set when the account changes
+  useEffect(() => {
+    if (!currentUser) return;
+    try {
+      const raw = localStorage.getItem(`chat_hidden_messages_${currentUser}`);
+      setHiddenMessageIds(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+    } catch {
+      setHiddenMessageIds(new Set());
+    }
+  }, [currentUser]);
+
+  const hideMessagesForMe = useCallback((messageIds: string[]) => {
+    if (messageIds.length === 0) return;
+    setHiddenMessageIds((prev) => {
+      const next = new Set(prev);
+      messageIds.forEach((id) => next.add(id));
+      try {
+        // Keep the newest 2000 ids so localStorage never grows unbounded
+        const list = Array.from(next).slice(-2000);
+        localStorage.setItem(`chat_hidden_messages_${currentUser}`, JSON.stringify(list));
+      } catch { /* ignore quota errors */ }
+      return next;
+    });
+  }, [currentUser]);
 
   const cleanupCall = useCallback(() => {
     if (localStreamRef.current) {
@@ -419,7 +455,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const unreadCount = (roomId: string): number => {
     if (!currentUser) return 0;
-    return messages.filter(
+    return visibleMessages.filter(
       (m) =>
         m.roomId === roomId &&
         m.sender !== currentUser &&
@@ -429,7 +465,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const lastMessageOf = (roomId: string): Message | null => {
-    const roomMessages = messages.filter((m) => m.roomId === roomId);
+    const roomMessages = visibleMessages.filter((m) => m.roomId === roomId);
     if (roomMessages.length === 0) return null;
     return roomMessages[roomMessages.length - 1];
   };
@@ -1497,6 +1533,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const deleteMessage = (messageId: string) => {
     if (activeRoomId) {
+      // The server only lets authors delete for everyone. Anything else would be
+      // silently ignored server-side and reappear on reload, so hide it locally.
+      const target = messages.find((m) => m.id === messageId && m.roomId === activeRoomId);
+      if (target && target.sender !== currentUser) {
+        hideMessagesForMe([messageId]);
+        return;
+      }
       setMessages((prev) => prev.filter((msg) => !(msg.id === messageId && msg.roomId === activeRoomId)));
       if (socketRef.current && isConnected) {
         socketRef.current.emit('delete_message', { messageId, roomId: activeRoomId });
@@ -1668,7 +1711,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activeRoom,
         isConnected,
         onlineStatus,
-        messages,
+        messages: visibleMessages,
         activeMessages,
         error,
         login,
@@ -1681,6 +1724,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         forwardMessage,
         editMessage,
         deleteMessage,
+        hideMessagesForMe,
         toggleReaction,
         votePoll,
         closePoll,

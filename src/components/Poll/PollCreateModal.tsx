@@ -121,7 +121,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[90vh]"
+        className="w-full max-w-md bg-white dark:bg-surface rounded-3xl shadow-2xl border border-zinc-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -131,13 +131,13 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
           }`}>
             {quiz ? <IconHelpCircle size={18} /> : <IconChartBar size={18} />}
           </span>
-          <h2 className="flex-1 text-lg font-bold text-slate-900 dark:text-white">
+          <h2 className="flex-1 text-lg font-bold text-zinc-900 dark:text-white">
             {quiz ? 'Новая викторина' : 'Новый опрос'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
           >
             <IconX size={18} />
           </button>
@@ -147,7 +147,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
         <div className="px-5 pb-4 flex flex-col gap-4 overflow-y-auto tg-scrollbar flex-1">
           {/* Question Input */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
               Вопрос
             </label>
             <input
@@ -157,14 +157,14 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
               placeholder="Задайте вопрос"
               autoFocus
               maxLength={255}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-transparent focus:border-[#3390ec] outline-none text-[15px] text-slate-900 dark:text-white placeholder-slate-400 transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[15px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors"
             />
           </div>
 
           {/* Options Section */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                 Варианты ответа
               </label>
               {quiz && (
@@ -185,7 +185,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
                       className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 transition-all cursor-pointer ${
                         correctOptionId === option.id
                           ? 'bg-emerald-500 border-emerald-500 text-white'
-                          : 'border-slate-300 dark:border-white/20 text-transparent hover:border-emerald-400'
+                          : 'border-zinc-300 dark:border-white/20 text-transparent hover:border-emerald-400'
                       }`}
                       title="Выбрать как правильный ответ"
                     >
@@ -201,14 +201,14 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
                     placeholder={`Вариант ${index + 1}`}
                     maxLength={100}
                     onKeyDown={(e) => handleKeyDown(index, e)}
-                    className="flex-1 min-w-0 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-transparent focus:border-[#3390ec] outline-none text-[14px] text-slate-900 dark:text-white placeholder-slate-400 transition-colors"
+                    className="flex-1 min-w-0 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[14px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors"
                   />
 
                   {options.length > MIN_OPTIONS && (
                     <button
                       type="button"
                       onClick={() => removeOption(index)}
-                      className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                      className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
                       title="Удалить вариант"
                     >
                       <IconTrash size={16} />
@@ -222,7 +222,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
               <button
                 type="button"
                 onClick={addOption}
-                className="mt-2 flex items-center gap-1 text-sm font-semibold text-[#3390ec] hover:underline cursor-pointer"
+                className="mt-2 flex items-center gap-1 text-sm font-semibold text-accent hover:underline cursor-pointer"
               >
                 <IconPlus size={15} />
                 Добавить вариант
@@ -231,28 +231,28 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
           </div>
 
           {/* Settings Toggles */}
-          <div className="flex flex-col gap-3 pt-1 border-t border-slate-100 dark:border-white/5">
+          <div className="flex flex-col gap-3 pt-1 border-t border-zinc-100 dark:border-white/5">
             {/* Anonymous Toggle */}
             <label className="flex items-center justify-between cursor-pointer select-none">
-              <span className="text-[14px] text-slate-700 dark:text-slate-200 font-medium">
+              <span className="text-[14px] text-zinc-700 dark:text-zinc-200 font-medium">
                 Анонимное голосование
               </span>
               <input
                 type="checkbox"
                 checked={anonymous}
                 onChange={(e) => setAnonymous(e.target.checked)}
-                className="w-[38px] h-[22px] appearance-none rounded-full bg-slate-300 dark:bg-white/15 checked:bg-[#3390ec] relative cursor-pointer transition-colors before:absolute before:top-[2px] before:left-[2px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-[16px]"
+                className="w-[38px] h-[22px] appearance-none rounded-full bg-zinc-300 dark:bg-white/15 checked:bg-accent relative cursor-pointer transition-colors before:absolute before:top-[2px] before:left-[2px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-[16px]"
               />
             </label>
 
             {/* Multiple Answers Toggle */}
             <label className={`flex items-center justify-between select-none ${quiz ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
               <div>
-                <span className="text-[14px] text-slate-700 dark:text-slate-200 font-medium block">
+                <span className="text-[14px] text-zinc-700 dark:text-zinc-200 font-medium block">
                   Несколько ответов
                 </span>
                 {quiz && (
-                  <span className="text-[11px] text-slate-400">Недоступно в викторине</span>
+                  <span className="text-[11px] text-zinc-400">Недоступно в викторине</span>
                 )}
               </div>
               <input
@@ -260,23 +260,23 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
                 disabled={quiz}
                 checked={multiple}
                 onChange={(e) => setMultiple(e.target.checked)}
-                className="w-[38px] h-[22px] appearance-none rounded-full bg-slate-300 dark:bg-white/15 checked:bg-[#3390ec] relative cursor-pointer transition-colors before:absolute before:top-[2px] before:left-[2px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-[16px]"
+                className="w-[38px] h-[22px] appearance-none rounded-full bg-zinc-300 dark:bg-white/15 checked:bg-accent relative cursor-pointer transition-colors before:absolute before:top-[2px] before:left-[2px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-[16px]"
               />
             </label>
 
             {/* Quiz Mode Toggle */}
             <label className="flex items-center justify-between cursor-pointer select-none">
               <div>
-                <span className="text-[14px] text-slate-700 dark:text-slate-200 font-medium block">
+                <span className="text-[14px] text-zinc-700 dark:text-zinc-200 font-medium block">
                   Режим викторины
                 </span>
-                <span className="text-[11px] text-slate-400">Один правильный ответ</span>
+                <span className="text-[11px] text-zinc-400">Один правильный ответ</span>
               </div>
               <input
                 type="checkbox"
                 checked={quiz}
                 onChange={(e) => toggleQuiz(e.target.checked)}
-                className="w-[38px] h-[22px] appearance-none rounded-full bg-slate-300 dark:bg-white/15 checked:bg-amber-500 relative cursor-pointer transition-colors before:absolute before:top-[2px] before:left-[2px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-[16px]"
+                className="w-[38px] h-[22px] appearance-none rounded-full bg-zinc-300 dark:bg-white/15 checked:bg-amber-500 relative cursor-pointer transition-colors before:absolute before:top-[2px] before:left-[2px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-[16px]"
               />
             </label>
           </div>
@@ -284,7 +284,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
           {/* Quiz Explanation Field */}
           {quiz && (
             <div className="animate-fade-in">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
                 Объяснение (необязательно)
               </label>
               <textarea
@@ -293,9 +293,9 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
                 placeholder="Пользователи увидят это после ответа"
                 rows={2}
                 maxLength={200}
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-transparent focus:border-[#3390ec] outline-none text-[13.5px] text-slate-900 dark:text-white placeholder-slate-400 transition-colors resize-none"
+                className="w-full px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors resize-none"
               />
-              <span className="text-[10px] text-slate-400 float-right mt-0.5">
+              <span className="text-[10px] text-zinc-400 float-right mt-0.5">
                 {explanation.length}/200
               </span>
             </div>
@@ -303,7 +303,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Submit Button */}
-        <div className="px-5 pb-5 pt-2 shrink-0 border-t border-slate-100 dark:border-white/5">
+        <div className="px-5 pb-5 pt-2 shrink-0 border-t border-zinc-100 dark:border-white/5">
           <button
             type="button"
             onClick={handleCreate}
@@ -313,7 +313,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
                 ? quiz
                   ? 'bg-amber-500 hover:bg-amber-600 text-white cursor-pointer active:scale-[0.98]'
                   : 'tg-btn-primary text-white cursor-pointer active:scale-[0.98]'
-                : 'bg-slate-200 dark:bg-white/10 text-slate-400 cursor-not-allowed'
+                : 'bg-zinc-200 dark:bg-white/10 text-zinc-400 cursor-not-allowed'
             }`}
           >
             {quiz ? 'Создать викторину' : 'Создать опрос'}

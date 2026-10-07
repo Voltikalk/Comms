@@ -193,18 +193,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[450px] bg-white dark:bg-[#17212b] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/10 flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[90vh] overflow-hidden animate-pop-in"
+        className="w-full max-w-[450px] bg-white dark:bg-surface rounded-2xl shadow-2xl border border-zinc-200/80 dark:border-white/10 flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] sm:max-h-[90vh] overflow-hidden animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Minimal Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-white/5 shrink-0">
-          <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-white/5 shrink-0">
+          <h2 className="text-[15px] font-semibold text-zinc-900 dark:text-white">
             Обои для чата
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+            className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
           >
             <IconX size={18} />
           </button>
@@ -213,7 +213,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 tg-scrollbar">
           {/* 1. Compact Live Chat Preview (See real-time Blur & Dimming) */}
-          <div className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-inner flex flex-col justify-end p-2.5 select-none">
+          <div className="relative w-full h-32 rounded-xl overflow-hidden border border-zinc-200/80 dark:border-white/10 shadow-inner flex flex-col justify-end p-2.5 select-none">
             {/* Background Canvas Layer */}
             {activeWallpaper.animatedType === 'squares' ? (
               <div className="absolute inset-0 pointer-events-none">
@@ -262,12 +262,12 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             <div className="relative z-10 space-y-1.5 w-full">
               {/* Incoming Bubble */}
               <div className="flex items-end gap-1.5">
-                <div className="w-5 h-5 rounded-full bg-[#3390ec] text-white flex items-center justify-center text-[9px] font-bold shadow-xs">
+                <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shadow-xs">
                   В
                 </div>
-                <div className="px-2.5 py-1 rounded-xl rounded-bl-xs bg-white/95 dark:bg-[#182533]/95 text-slate-900 dark:text-white text-[11px] shadow-xs max-w-[80%] backdrop-blur-xs flex items-baseline gap-1.5">
+                <div className="px-2.5 py-1 rounded-xl rounded-bl-xs bg-white/95 dark:bg-[#182533]/95 text-zinc-900 dark:text-white text-[11px] shadow-xs max-w-[80%] backdrop-blur-xs flex items-baseline gap-1.5">
                   <span>Привет! Как тебе фон? 🎨</span>
-                  <span className="text-[8.5px] text-slate-400">12:30</span>
+                  <span className="text-[8.5px] text-zinc-400">12:30</span>
                 </div>
               </div>
 
@@ -295,7 +295,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   onClick={() => setSelectedAccentId(accent.id)}
                   className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white cursor-pointer transition-all ${
                     isSelected
-                      ? 'scale-110 ring-2 ring-offset-2 ring-[#3390ec] dark:ring-white dark:ring-offset-[#17212b] shadow-xs'
+                      ? 'scale-110 ring-2 ring-offset-2 ring-accent dark:ring-white dark:ring-offset-surface shadow-xs'
                       : 'hover:scale-105 opacity-90 hover:opacity-100'
                   }`}
                   style={{ backgroundColor: accent.hex }}
@@ -323,8 +323,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === tab.id
-                    ? 'bg-[#3390ec] text-white shadow-xs'
-                    : 'bg-black/5 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-black/10 dark:hover:bg-white/10'
+                    ? 'bg-accent text-white shadow-xs'
+                    : 'bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-black/10 dark:hover:bg-white/10'
                 }`}
               >
                 {tab.label}
@@ -340,8 +340,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               onClick={() => fileInputRef.current?.click()}
               className={`relative h-20 rounded-xl border border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer transition-all group ${
                 selectedWallpaperId === 'custom'
-                  ? 'border-[#3390ec] bg-[#3390ec]/10 text-[#3390ec]'
-                  : 'border-slate-300 dark:border-white/15 hover:border-[#3390ec] text-slate-500 dark:text-slate-400 hover:text-[#3390ec]'
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-zinc-300 dark:border-white/15 hover:border-accent text-zinc-500 dark:text-zinc-400 hover:text-accent'
               }`}
             >
               <input
@@ -383,8 +383,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   onClick={() => handleSelectWallpaper(wallpaper.id)}
                   className={`relative h-20 rounded-xl overflow-hidden border transition-all cursor-pointer group flex flex-col justify-end p-1.5 ${
                     isSelected
-                      ? 'border-[#3390ec] dark:border-white ring-2 ring-[#3390ec] shadow-md scale-102 z-10'
-                      : 'border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/30 opacity-90 hover:opacity-100'
+                      ? 'border-accent dark:border-white ring-2 ring-accent shadow-md scale-102 z-10'
+                      : 'border-zinc-200 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 opacity-90 hover:opacity-100'
                   }`}
                   title={wallpaper.title}
                 >
@@ -410,7 +410,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                   {/* Selected checkmark badge */}
                   {isSelected && (
-                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#3390ec] text-white flex items-center justify-center shadow-xs">
+                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center shadow-xs">
                       <IconCheck size={11} stroke={3} />
                     </div>
                   )}
@@ -425,10 +425,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
           {/* 5. Photo Tuning Sliders (Live Blur & Dimming) */}
           {isPhoto && (
-            <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2 text-xs animate-pop-in">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+            <div className="pt-2 border-t border-zinc-100 dark:border-white/5 space-y-2 text-xs animate-pop-in">
+              <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-[11px]">
                 <span>Затемнение</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300">{dimming}%</span>
+                <span className="font-mono text-zinc-700 dark:text-zinc-300">{dimming}%</span>
               </div>
               <input
                 type="range"
@@ -437,12 +437,12 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 step={5}
                 value={dimming}
                 onChange={(e) => setDimming(Number(e.target.value))}
-                className="w-full accent-[#3390ec] cursor-pointer h-1.5 rounded-lg bg-slate-200 dark:bg-white/20"
+                className="w-full accent-accent cursor-pointer h-1.5 rounded-lg bg-zinc-200 dark:bg-white/20"
               />
 
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px] pt-0.5">
+              <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-[11px] pt-0.5">
                 <span>Размытие (Blur)</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300">{blur}px</span>
+                <span className="font-mono text-zinc-700 dark:text-zinc-300">{blur}px</span>
               </div>
               <input
                 type="range"
@@ -451,18 +451,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 step={1}
                 value={blur}
                 onChange={(e) => setBlur(Number(e.target.value))}
-                className="w-full accent-[#3390ec] cursor-pointer h-1.5 rounded-lg bg-slate-200 dark:bg-white/20"
+                className="w-full accent-accent cursor-pointer h-1.5 rounded-lg bg-zinc-200 dark:bg-white/20"
               />
             </div>
           )}
         </div>
 
         {/* Minimal Footer */}
-        <div className="px-4 py-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-white/2">
+        <div className="px-4 py-2.5 border-t border-zinc-100 dark:border-white/5 flex items-center justify-between shrink-0 bg-zinc-50/50 dark:bg-white/2">
           <button
             type="button"
             onClick={handleReset}
-            className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer transition-colors"
+            className="text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-white cursor-pointer transition-colors"
           >
             Сбросить
           </button>
@@ -471,14 +471,14 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
             >
               Отмена
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-1.5 rounded-lg bg-[#3390ec] hover:bg-[#2678ca] text-white text-xs font-medium cursor-pointer shadow-xs transition-transform active:scale-95 flex items-center gap-1"
+              className="px-4 py-1.5 rounded-lg bg-accent hover:bg-accent-strong text-white text-xs font-medium cursor-pointer shadow-xs transition-transform active:scale-95 flex items-center gap-1"
             >
               <IconCheck size={14} />
               <span>Применить</span>

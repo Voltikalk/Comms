@@ -79,7 +79,7 @@ export interface AnimatedErrorIconProps {
 }
 
 export const AnimatedErrorIcon: React.FC<AnimatedErrorIconProps> = ({
-  className = 'w-4 h-4 text-[#FF3333]',
+  className = 'w-4 h-4 text-danger',
   size = 16,
 }) => {
   return (

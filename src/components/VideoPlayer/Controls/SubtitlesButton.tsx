@@ -37,8 +37,8 @@ export const SubtitlesButton: React.FC<SubtitlesButtonProps> = ({ className = ''
         aria-label="Субтитры"
         aria-expanded={isOpen}
         title="Субтитры"
-        className={`comms-video-control-btn focus-visible:ring-2 focus-visible:ring-[#3390ec] outline-none ${
-          activeSubtitleId ? 'text-[#3390ec]' : ''
+        className={`comms-video-control-btn focus-visible:ring-2 focus-visible:ring-accent outline-none ${
+          activeSubtitleId ? 'text-accent' : ''
         }`}
       >
         <IconSubtitles size={20} />
@@ -49,7 +49,7 @@ export const SubtitlesButton: React.FC<SubtitlesButtonProps> = ({ className = ''
           onClick={(e) => e.stopPropagation()}
           className="comms-video-settings-menu animate-pop-in select-none w-44"
         >
-          <div className="text-xs text-slate-400 font-semibold px-2 py-1 border-b border-white/10 mb-1">
+          <div className="text-xs text-zinc-400 font-semibold px-2 py-1 border-b border-white/10 mb-1">
             Субтитры
           </div>
 

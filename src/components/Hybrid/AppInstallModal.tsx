@@ -37,13 +37,13 @@ export const AppInstallModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] bg-black/65 backdrop-blur-md animate-backdrop">
       <div
-        className="w-full max-w-md bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-gray-200/80 dark:border-[#202b36] overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] animate-pop-in"
+        className="w-full max-w-md bg-white dark:bg-surface rounded-3xl shadow-2xl border border-gray-200/80 dark:border-elevated overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3rem)] animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with App Banner */}
-        <div className="relative px-6 pt-6 pb-4 bg-gradient-to-br from-[#3390ec]/15 via-transparent to-transparent flex items-start justify-between">
+        <div className="relative px-6 pt-6 pb-4 bg-gradient-to-br from-accent/15 via-transparent to-transparent flex items-start justify-between">
           <div className="flex items-center space-x-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#3390ec] to-[#2563eb] flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-accent to-accent flex items-center justify-center shadow-lg shadow-blue-500/25">
               {isDesktop ? (
                 <IconDeviceDesktop className="w-6 h-6 text-white" />
               ) : (
@@ -66,7 +66,7 @@ export const AppInstallModal: React.FC = () => {
               triggerHaptic('selection');
               setShowInstallModal(false);
             }}
-            className="p-1.5 rounded-full hover:bg-gray-200/80 dark:hover:bg-[#202b36] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            className="p-1.5 rounded-full hover:bg-gray-200/80 dark:hover:bg-elevated text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
           >
             <IconX className="w-5 h-5" />
           </button>
@@ -81,7 +81,7 @@ export const AppInstallModal: React.FC = () => {
             <span>Мгновенный запуск и плавная работа 60 FPS</span>
           </div>
           <div className="flex items-center space-x-2.5 text-xs text-gray-700 dark:text-gray-300">
-            <div className="w-6 h-6 rounded-full bg-blue-500/15 flex items-center justify-center text-[#3390ec] dark:text-[#5ac8fa] shrink-0">
+            <div className="w-6 h-6 rounded-full bg-blue-500/15 flex items-center justify-center text-accent dark:text-accent-soft shrink-0">
               <IconBell className="w-3.5 h-3.5" />
             </div>
             <span>Фоновые звуковые и push-уведомления</span>
@@ -95,7 +95,7 @@ export const AppInstallModal: React.FC = () => {
         </div>
 
         {/* Platform Specific Instructions */}
-        <div className="px-6 py-3 bg-gray-50 dark:bg-[#101921]/60 border-t border-b border-gray-100 dark:border-[#202b36]">
+        <div className="px-6 py-3 bg-gray-50 dark:bg-canvas/60 border-t border-b border-gray-100 dark:border-elevated">
           {isIos ? (
             <div className="space-y-2">
               <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
@@ -103,7 +103,7 @@ export const AppInstallModal: React.FC = () => {
               </span>
               <ol className="text-xs text-gray-600 dark:text-gray-400 space-y-1.5 list-decimal list-inside">
                 <li>
-                  Нажмите кнопку <strong className="text-[#3390ec]">«Поделиться»</strong> (
+                  Нажмите кнопку <strong className="text-accent">«Поделиться»</strong> (
                   <IconShare className="w-3.5 h-3.5 inline mx-0.5" />) в нижней панели Safari.
                 </li>
                 <li>
@@ -111,7 +111,7 @@ export const AppInstallModal: React.FC = () => {
                   <IconPlus className="w-3.5 h-3.5 inline mx-0.5" />).
                 </li>
                 <li>
-                  Нажмите <strong className="text-[#3390ec]">«Добавить»</strong> в правом верхнем углу.
+                  Нажмите <strong className="text-accent">«Добавить»</strong> в правом верхнем углу.
                 </li>
               </ol>
             </div>
@@ -127,20 +127,20 @@ export const AppInstallModal: React.FC = () => {
         </div>
 
         {/* Actions */}
-        <div className="px-6 py-4 flex items-center justify-end space-x-3 bg-white dark:bg-[#17212b]">
+        <div className="px-6 py-4 flex items-center justify-end space-x-3 bg-white dark:bg-surface">
           <button
             onClick={() => {
               triggerHaptic('selection');
               setShowInstallModal(false);
             }}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#202b36] transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-elevated transition-colors"
           >
             Позже
           </button>
           {!isIos && (
             <button
               onClick={handleInstallClick}
-              className="flex items-center space-x-1.5 px-5 py-2 rounded-xl bg-[#3390ec] hover:bg-[#2678ca] text-white text-xs font-medium shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center space-x-1.5 px-5 py-2 rounded-xl bg-accent hover:bg-accent-strong text-white text-xs font-medium shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <IconDownload className="w-4 h-4" />
               <span>Установить сейчас</span>
@@ -152,7 +152,7 @@ export const AppInstallModal: React.FC = () => {
                 triggerHaptic('success');
                 setShowInstallModal(false);
               }}
-              className="flex items-center space-x-1.5 px-5 py-2 rounded-xl bg-[#3390ec] hover:bg-[#2678ca] text-white text-xs font-medium transition-colors"
+              className="flex items-center space-x-1.5 px-5 py-2 rounded-xl bg-accent hover:bg-accent-strong text-white text-xs font-medium transition-colors"
             >
               <IconCheck className="w-4 h-4" />
               <span>Понятно</span>

@@ -138,11 +138,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         isGroup: room.type === 'group',
         isSavedMessages: isSaved,
         icon: isSaved ? (
-          <IconBookmark size={18} className="text-[#3390ec]" />
+          <IconBookmark size={18} className="text-accent" />
         ) : room.type === 'group' ? (
           <IconUsers size={18} className="text-emerald-500" />
         ) : (
-          <IconMessageCircle size={18} className="text-[#3390ec]" />
+          <IconMessageCircle size={18} className="text-accent" />
         ),
         shortcut: room.id === activeRoomId ? 'Активен' : undefined,
         keywords: [title, subtitle, room.id, isSaved ? 'saved' : '', isDirect ? 'direct dm' : 'group'],
@@ -173,7 +173,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       category: 'actions',
       title: 'Опубликовать историю',
       subtitle: 'Фото, видео или текст на градиенте (24ч)',
-      icon: <IconSparkles size={18} className="text-[#ac8bdd]" />,
+      icon: <IconSparkles size={18} className="text-accent-soft" />,
       shortcut: 'Story',
       keywords: ['история', 'story', 'stories', 'статус', 'фото', 'кружок'],
       onSelect: () => {
@@ -187,7 +187,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       category: 'actions',
       title: 'Глобальный полнотекстовый поиск',
       subtitle: 'Поиск по сообщениям, файлам и опросам всех чатов',
-      icon: <IconWorld size={18} className="text-[#3390ec]" />,
+      icon: <IconWorld size={18} className="text-accent" />,
       shortcut: 'Ctrl+F',
       keywords: ['поиск', 'search', 'fts', 'сообщения', 'файлы', 'текст'],
       onSelect: () => {
@@ -245,7 +245,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       category: 'settings',
       title: 'Мой профиль и аватар',
       subtitle: 'Имя, username, статус-эмодзи и информация о себе',
-      icon: <IconUser size={18} className="text-[#3390ec]" />,
+      icon: <IconUser size={18} className="text-accent" />,
       shortcut: 'Profile',
       keywords: ['профиль', 'аватар', 'фото', 'имя', 'username', 'био', 'статус'],
       onSelect: () => {
@@ -319,7 +319,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       category: 'settings',
       title: document.fullscreenElement ? 'Выйти из полноэкранного режима' : 'Во весь экран',
       subtitle: 'Полноэкранный режим без отвлекающих панелей',
-      icon: document.fullscreenElement ? <IconMinimize size={18} className="text-slate-400" /> : <IconMaximize size={18} className="text-slate-400" />,
+      icon: document.fullscreenElement ? <IconMinimize size={18} className="text-zinc-400" /> : <IconMaximize size={18} className="text-zinc-400" />,
       shortcut: 'F11',
       keywords: ['полноэкранный', 'fullscreen', 'экран', 'f11'],
       onSelect: () => {
@@ -432,12 +432,12 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       }}
     >
       <div
-        className="w-full max-w-2xl bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/80 dark:border-white/10 overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-4rem)] transition-all transform animate-pop-in"
+        className="w-full max-w-2xl bg-white/95 dark:bg-surface/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/80 dark:border-white/10 overflow-hidden flex flex-col max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-4rem)] transition-all transform animate-pop-in"
         onKeyDown={handleKeyDown}
       >
         {/* Header Search Box */}
-        <div className="relative flex items-center px-4 py-3.5 border-b border-gray-200/80 dark:border-white/10 bg-white/50 dark:bg-[#17212b]/50">
-          <IconSearch className="w-5 h-5 text-[#3390ec] shrink-0 mr-3" />
+        <div className="relative flex items-center px-4 py-3.5 border-b border-gray-200/80 dark:border-white/10 bg-white/50 dark:bg-surface/50">
+          <IconSearch className="w-5 h-5 text-accent shrink-0 mr-3" />
           <input
             ref={inputRef}
             type="text"
@@ -464,7 +464,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-gray-100 dark:border-white/5 bg-gray-50/70 dark:bg-[#131b23]/70 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-gray-100 dark:border-white/5 bg-gray-50/70 dark:bg-canvas/70 overflow-x-auto scrollbar-none">
           {(
             [
               { id: 'all', label: 'Все', icon: <IconSparkles size={13} /> },
@@ -484,7 +484,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer shrink-0 ${
                   isActive
-                    ? 'bg-[#3390ec] text-white shadow-xs'
+                    ? 'bg-accent text-white shadow-xs'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
               >
@@ -499,7 +499,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         <div ref={listRef} className="flex-1 overflow-y-auto p-2 space-y-1 divide-y divide-transparent">
           {filteredCommands.length === 0 ? (
             <div className="py-12 text-center text-gray-400 dark:text-gray-500">
-              <IconSearch className="w-10 h-10 mx-auto mb-2 opacity-40 text-[#3390ec]" />
+              <IconSearch className="w-10 h-10 mx-auto mb-2 opacity-40 text-accent" />
               <p className="text-sm font-medium">Ничего не найдено по запросу «{query}»</p>
               <p className="text-xs text-gray-400 mt-1">Попробуйте поискать другое имя, действие или тему</p>
             </div>
@@ -517,7 +517,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl cursor-pointer transition-all ${
                     isSelected
-                      ? 'bg-[#3390ec] text-white shadow-sm scale-[1.005]'
+                      ? 'bg-accent text-white shadow-sm scale-[1.005]'
                       : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200'
                   }`}
                 >
@@ -526,7 +526,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                     {cmd.category === 'chats' ? (
                       <div className="relative shrink-0">
                         {cmd.isSavedMessages ? (
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3390ec] to-[#1c6ec4] flex items-center justify-center text-white shadow-xs">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-[#1c6ec4] flex items-center justify-center text-white shadow-xs">
                             <IconBookmark size={18} fill="currentColor" />
                           </div>
                         ) : cmd.avatarUrl ? (
@@ -538,14 +538,14 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                         ) : (
                           <div
                             className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-xs ${
-                              isSelected ? 'bg-white/20' : 'bg-[#3390ec]'
+                              isSelected ? 'bg-white/20' : 'bg-accent'
                             }`}
                           >
                             {cmd.isGroup ? <IconUsers size={16} /> : cmd.title.charAt(0).toUpperCase()}
                           </div>
                         )}
                         {cmd.isOnline && (
-                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#17212b]" />
+                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-surface" />
                         )}
                       </div>
                     ) : (
@@ -570,8 +570,8 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                           <span
                             className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                               isSelected
-                                ? 'bg-white text-[#3390ec]'
-                                : 'bg-[#3390ec] text-white'
+                                ? 'bg-white text-accent'
+                                : 'bg-accent text-white'
                             }`}
                           >
                             {cmd.unreadCount}
@@ -615,7 +615,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         </div>
 
         {/* Footer Hints */}
-        <div className="px-4 py-2.5 bg-gray-50 dark:bg-[#131b23] border-t border-gray-200/60 dark:border-white/5 flex items-center justify-between text-[11px] text-gray-400 select-none">
+        <div className="px-4 py-2.5 bg-gray-50 dark:bg-canvas border-t border-gray-200/60 dark:border-white/5 flex items-center justify-between text-[11px] text-gray-400 select-none">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 rounded">↑</kbd>
@@ -627,7 +627,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
               <span>выбрать</span>
             </span>
           </div>
-          <div className="flex items-center gap-1 text-[#3390ec] font-medium">
+          <div className="flex items-center gap-1 text-accent font-medium">
             <span>Secure Comms Spotlight</span>
           </div>
         </div>

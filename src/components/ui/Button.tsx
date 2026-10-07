@@ -42,10 +42,10 @@ export const Button: React.FC<ButtonProps> = ({
     primary: isSuccess
       ? 'bg-[#00D084] text-white shadow-lg shadow-[#00D084]/40'
       : 'btn-gradient-primary text-white shadow-md',
-    secondary: 'btn-glass-secondary text-slate-800 dark:text-white',
-    outline: 'bg-transparent border-2 border-[#0066FF] text-[#0066FF] dark:text-[#9933FF] dark:border-[#9933FF] hover:bg-[#0066FF]/10',
-    danger: 'bg-[#FF3333] hover:bg-[#e02424] text-white shadow-sm',
-    ghost: 'bg-transparent hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200',
+    secondary: 'btn-glass-secondary text-zinc-800 dark:text-white',
+    outline: 'bg-transparent border-2 border-accent text-accent dark:text-accent-soft dark:border-accent-soft hover:bg-accent/10',
+    danger: 'bg-danger hover:bg-danger text-white shadow-sm',
+    ghost: 'bg-transparent hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200',
   };
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -67,7 +67,7 @@ export const Button: React.FC<ButtonProps> = ({
       className={`
         relative overflow-hidden inline-flex items-center justify-center select-none cursor-pointer
         rounded-[14px] transition-all duration-300 touch-manipulation
-        focus:outline-none focus:ring-2 focus:ring-[#0066FF]/40
+        focus:outline-none focus:ring-2 focus:ring-accent/40
         ${fullWidth ? 'w-full' : ''}
         ${sizeStyles[size]}
         ${variantStyles[variant]}

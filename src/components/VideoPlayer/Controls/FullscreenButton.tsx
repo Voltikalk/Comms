@@ -21,7 +21,7 @@ export const FullscreenButton: React.FC<FullscreenButtonProps> = ({
       onClick={toggleFullscreen}
       aria-label={isFullscreen ? 'Выйти из полноэкранного режима (F)' : 'Во весь экран (F)'}
       title={isFullscreen ? 'Выйти из полноэкранного режима (F)' : 'Во весь экран (F)'}
-      className={`comms-video-control-btn focus-visible:ring-2 focus-visible:ring-[#3390ec] outline-none ${className}`}
+      className={`comms-video-control-btn focus-visible:ring-2 focus-visible:ring-accent outline-none ${className}`}
     >
       {isFullscreen ? (
         <IconMinimize size={size} className="transition-transform" />

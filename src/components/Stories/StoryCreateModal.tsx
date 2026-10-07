@@ -374,7 +374,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#17212b] rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col sm:max-h-[90vh]"
+        className="w-full max-w-lg bg-white dark:bg-surface rounded-3xl shadow-2xl border border-zinc-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col sm:max-h-[90vh]"
         style={{
           maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 3rem)',
         }}
@@ -383,15 +383,15 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-2 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#3390ec] via-[#ac8bdd] to-[#e6604c] flex items-center justify-center text-white">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-accent via-accent-soft to-[#e6604c] flex items-center justify-center text-white">
               <IconSparkles size={16} />
             </div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Студия историй Telegram</h2>
+            <h2 className="text-base font-bold text-zinc-900 dark:text-white">Студия историй Telegram</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
           >
             <IconX size={18} />
           </button>
@@ -404,8 +404,8 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
             onClick={() => setTab('text')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
               tab === 'text'
-                ? 'bg-[#3390ec] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                ? 'bg-accent text-white shadow-xs'
+                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10'
             }`}
           >
             <IconTypography size={15} />
@@ -417,8 +417,8 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
             onClick={() => setTab('media')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
               tab === 'media'
-                ? 'bg-[#3390ec] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                ? 'bg-accent text-white shadow-xs'
+                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10'
             }`}
           >
             <IconPhoto size={15} />
@@ -430,8 +430,8 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
             onClick={() => setTab('camera')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
               tab === 'camera'
-                ? 'bg-[#3390ec] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                ? 'bg-accent text-white shadow-xs'
+                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10'
             }`}
           >
             <IconCamera size={15} />
@@ -452,7 +452,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
               if (f) handleFile(f);
             }}
             className={`relative w-full aspect-[9/13] max-h-[310px] mx-auto rounded-2xl overflow-hidden flex items-center justify-center shadow-inner transition-all border border-black/10 dark:border-white/10 ${
-              isDragging ? 'ring-4 ring-[#3390ec]' : ''
+              isDragging ? 'ring-4 ring-accent' : ''
             }`}
             style={tab === 'text' ? { background: STORY_GRADIENTS[background] } : { background: '#0a0f1d' }}
           >
@@ -489,7 +489,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                     type="button"
                     onClick={snapPhoto}
                     disabled={!isCameraActive || isRecordingVideo}
-                    className="w-12 h-12 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                    className="w-12 h-12 rounded-full bg-white text-zinc-900 flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform cursor-pointer"
                     title="Сделать фото"
                   >
                     <IconCamera size={22} />
@@ -593,15 +593,15 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
           />
 
           {/* Canvas Tools Toolbar: Doodle, Emoji Stickers, Clear */}
-          <div className="flex items-center justify-between px-1 py-1 rounded-xl bg-slate-100 dark:bg-white/5">
+          <div className="flex items-center justify-between px-1 py-1 rounded-xl bg-zinc-100 dark:bg-white/5">
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setIsDoodleMode((d) => !d)}
                 className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
                   isDoodleMode
-                    ? 'bg-[#3390ec] text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                    ? 'bg-accent text-white shadow-xs'
+                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10'
                 }`}
               >
                 <IconBrush size={14} />
@@ -611,7 +611,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
               <button
                 type="button"
                 onClick={() => setShowEmojiStickerPicker((p) => !p)}
-                className="p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 cursor-pointer"
+                className="p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 cursor-pointer"
               >
                 <IconMoodSmile size={14} />
                 Стикер
@@ -640,7 +640,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                   onClick={() => setBrushColor(c)}
                   style={{ backgroundColor: c }}
                   className={`w-6 h-6 rounded-full shrink-0 border border-white/20 transition-transform ${
-                    brushColor === c ? 'scale-125 ring-2 ring-[#3390ec]' : 'hover:scale-110'
+                    brushColor === c ? 'scale-125 ring-2 ring-accent' : 'hover:scale-110'
                   }`}
                 />
               ))}
@@ -650,7 +650,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                 max="16"
                 value={brushWidth}
                 onChange={(e) => setBrushWidth(Number(e.target.value))}
-                className="w-20 accent-[#3390ec] ml-2"
+                className="w-20 accent-accent ml-2"
                 title="Толщина кисти"
               />
             </div>
@@ -658,7 +658,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
 
           {/* Quick Emoji Sticker Drawer */}
           {showEmojiStickerPicker && (
-            <div className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex flex-wrap gap-2 animate-pop-in">
+            <div className="p-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex flex-wrap gap-2 animate-pop-in">
               {QUICK_EMOJIS.map((emoji) => (
                 <button
                   key={emoji}
@@ -684,8 +684,8 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                     onClick={() => setFontStyle(f.id)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 cursor-pointer transition-colors ${
                       fontStyle === f.id
-                        ? 'bg-[#3390ec] text-white'
-                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300'
+                        ? 'bg-accent text-white'
+                        : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300'
                     }`}
                   >
                     {f.label}
@@ -695,50 +695,50 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
 
               {/* Text Alignment & Background Fill Style */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 p-0.5 rounded-lg">
+                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-white/5 p-0.5 rounded-lg">
                   <button
                     type="button"
                     onClick={() => setTextAlign('left')}
-                    className={`p-1 rounded ${textAlign === 'left' ? 'bg-white dark:bg-white/20 text-[#3390ec]' : 'text-slate-400'}`}
+                    className={`p-1 rounded ${textAlign === 'left' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
                   >
                     <IconAlignLeft size={14} />
                   </button>
                   <button
                     type="button"
                     onClick={() => setTextAlign('center')}
-                    className={`p-1 rounded ${textAlign === 'center' ? 'bg-white dark:bg-white/20 text-[#3390ec]' : 'text-slate-400'}`}
+                    className={`p-1 rounded ${textAlign === 'center' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
                   >
                     <IconAlignCenter size={14} />
                   </button>
                   <button
                     type="button"
                     onClick={() => setTextAlign('right')}
-                    className={`p-1 rounded ${textAlign === 'right' ? 'bg-white dark:bg-white/20 text-[#3390ec]' : 'text-slate-400'}`}
+                    className={`p-1 rounded ${textAlign === 'right' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
                   >
                     <IconAlignRight size={14} />
                   </button>
                 </div>
 
                 {/* Text Background Mode: Normal, Fill, Glow */}
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 p-0.5 rounded-lg text-[11px] font-bold">
+                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-white/5 p-0.5 rounded-lg text-[11px] font-bold">
                   <button
                     type="button"
                     onClick={() => setTextBgStyle('none')}
-                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'none' ? 'bg-white dark:bg-white/20 text-[#3390ec]' : 'text-slate-400'}`}
+                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'none' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
                   >
                     A
                   </button>
                   <button
                     type="button"
                     onClick={() => setTextBgStyle('fill')}
-                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'fill' ? 'bg-white dark:bg-white/20 text-[#3390ec]' : 'text-slate-400'}`}
+                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'fill' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
                   >
                     [A]
                   </button>
                   <button
                     type="button"
                     onClick={() => setTextBgStyle('glow')}
-                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'glow' ? 'bg-white dark:bg-white/20 text-[#3390ec]' : 'text-slate-400'}`}
+                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'glow' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
                   >
                     ✨A
                   </button>
@@ -753,7 +753,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                       onClick={() => setTextColor(c)}
                       style={{ backgroundColor: c }}
                       className={`w-5 h-5 rounded-full border border-black/10 transition-transform ${
-                        textColor === c ? 'scale-125 ring-2 ring-[#3390ec]' : 'hover:scale-110'
+                        textColor === c ? 'scale-125 ring-2 ring-accent' : 'hover:scale-110'
                       }`}
                     />
                   ))}
@@ -768,7 +768,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                     type="button"
                     onClick={() => setBackground(key)}
                     className={`w-7 h-7 rounded-full shrink-0 cursor-pointer transition-transform hover:scale-110 ${
-                      background === key ? 'ring-2 ring-offset-2 ring-[#3390ec] dark:ring-offset-[#17212b]' : ''
+                      background === key ? 'ring-2 ring-offset-2 ring-accent dark:ring-offset-surface' : ''
                     }`}
                     style={{ background: STORY_GRADIENTS[key] }}
                     title={key}
@@ -783,7 +783,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                 placeholder="Текст вашей истории..."
                 maxLength={512}
                 rows={2}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-transparent focus:border-[#3390ec] outline-none text-[14px] text-slate-900 dark:text-white placeholder-slate-400 resize-none transition-colors"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[14px] text-zinc-900 dark:text-white placeholder-zinc-400 resize-none transition-colors"
               />
             </div>
           )}
@@ -792,10 +792,10 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
           {tab === 'media' && (
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                   Подпись к истории
                 </label>
-                <span className="text-[10px] text-slate-400">{caption.length}/200</span>
+                <span className="text-[10px] text-zinc-400">{caption.length}/200</span>
               </div>
               <input
                 type="text"
@@ -803,17 +803,17 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                 onChange={(e) => setCaption(e.target.value)}
                 placeholder="Добавьте подпись, @упоминание или #тег..."
                 maxLength={200}
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-transparent focus:border-[#3390ec] outline-none text-[13.5px] text-slate-900 dark:text-white placeholder-slate-400 transition-colors"
+                className="w-full px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors"
               />
             </div>
           )}
 
           {/* Telegram Stories 2.0 Options: Duration, Privacy & Pin */}
-          <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2.5">
+          <div className="pt-2 border-t border-zinc-100 dark:border-white/5 space-y-2.5">
             {/* Duration Selector (6, 12, 24, 48 hours) */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                <IconClock size={15} className="text-[#3390ec]" />
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                <IconClock size={15} className="text-accent" />
                 <span>Срок жизни</span>
               </div>
               <div className="flex gap-1">
@@ -824,8 +824,8 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                     onClick={() => setDurationHours(d.hours)}
                     className={`px-2 py-0.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
                       durationHours === d.hours
-                        ? 'bg-[#3390ec] text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                        ? 'bg-accent text-white shadow-xs'
+                        : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
                     }`}
                   >
                     {d.label}
@@ -836,8 +836,8 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
 
             {/* Privacy Selector (Everyone, Contacts, Close Friends) */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                <IconLock size={15} className="text-[#3390ec]" />
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                <IconLock size={15} className="text-accent" />
                 <span>Кто видит</span>
               </div>
               <div className="flex gap-1">
@@ -850,8 +850,8 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                       privacy === p.id
                         ? p.id === 'close_friends'
                           ? 'bg-[#00c853] text-white shadow-xs'
-                          : 'bg-[#3390ec] text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                          : 'bg-accent text-white shadow-xs'
+                        : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
                     }`}
                     title={p.desc}
                   >
@@ -864,7 +864,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
 
             {/* Pin to profile toggle */}
             <label className="flex items-center justify-between cursor-pointer py-0.5">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 <IconPin size={15} className="text-amber-500" />
                 <span>Сохранить в профиле (Актуальное)</span>
               </div>
@@ -872,14 +872,14 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
                 type="checkbox"
                 checked={isPinned}
                 onChange={(e) => setIsPinned(e.target.checked)}
-                className="w-4 h-4 accent-[#3390ec] rounded cursor-pointer"
+                className="w-4 h-4 accent-accent rounded cursor-pointer"
               />
             </label>
           </div>
         </div>
 
         {/* Submit Footer */}
-        <div className="px-5 pb-4 pt-2 shrink-0 border-t border-slate-100 dark:border-white/5">
+        <div className="px-5 pb-4 pt-2 shrink-0 border-t border-zinc-100 dark:border-white/5">
           <button
             type="button"
             onClick={handlePost}
@@ -887,7 +887,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
             className={`w-full py-3 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 transition-all shadow-md ${
               canPost && !isUploading && !isPosting
                 ? 'tg-btn-primary text-white cursor-pointer active:scale-[0.98]'
-                : 'bg-slate-200 dark:bg-white/10 text-slate-400 cursor-not-allowed'
+                : 'bg-zinc-200 dark:bg-white/10 text-zinc-400 cursor-not-allowed'
             }`}
           >
             <IconSparkles size={18} />

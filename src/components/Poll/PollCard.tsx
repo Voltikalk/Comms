@@ -129,10 +129,10 @@ export const PollCard: React.FC<PollCardProps> = ({
           {isQuiz ? (
             <IconHelpCircle size={15} className="shrink-0 text-amber-600 dark:text-amber-400" />
           ) : (
-            <IconChartBar size={15} className="shrink-0 text-[#3390ec] dark:text-[#70b1ff]" />
+            <IconChartBar size={15} className="shrink-0 text-accent dark:text-accent-soft" />
           )}
           <span className={`text-[11px] font-bold uppercase tracking-wider truncate ${
-            isQuiz ? 'text-amber-600 dark:text-amber-400' : 'text-[#3390ec] dark:text-[#70b1ff]'
+            isQuiz ? 'text-amber-600 dark:text-amber-400' : 'text-accent dark:text-accent-soft'
           }`}>
             {isQuiz
               ? 'Викторина'
@@ -216,7 +216,7 @@ export const PollCard: React.FC<PollCardProps> = ({
                       poll.multiple && !isQuiz ? 'rounded-[5px]' : 'rounded-full'
                     } ${
                       showQuizResults && isCorrectAnswer
-                        ? 'bg-[#4fae4e] border-transparent text-white'
+                        ? 'bg-tick border-transparent text-white'
                         : showQuizResults && isWrongChoice
                         ? 'bg-[#e6604c] border-transparent text-white'
                         : isMyChoice
@@ -256,7 +256,7 @@ export const PollCard: React.FC<PollCardProps> = ({
 
               {/* Public Poll Non-Anonymous Voter Hover Tooltip */}
               {voterNamesTooltip && (
-                <div className="absolute right-2 -bottom-1 translate-y-full opacity-0 pointer-events-none group-hover/opt:opacity-100 group-hover/opt:pointer-events-auto transition-opacity z-20 bg-slate-900/90 text-white text-[10px] px-2 py-1 rounded-md shadow-lg max-w-[220px] truncate backdrop-blur-xs">
+                <div className="absolute right-2 -bottom-1 translate-y-full opacity-0 pointer-events-none group-hover/opt:opacity-100 group-hover/opt:pointer-events-auto transition-opacity z-20 bg-zinc-900/90 text-white text-[10px] px-2 py-1 rounded-md shadow-lg max-w-[220px] truncate backdrop-blur-xs">
                   {voterNamesTooltip}
                 </div>
               )}
@@ -294,7 +294,7 @@ export const PollCard: React.FC<PollCardProps> = ({
             <button
               type="button"
               onClick={handleRetractVote}
-              className="text-[#3390ec] dark:text-[#70b1ff] hover:underline cursor-pointer font-semibold"
+              className="text-accent dark:text-accent-soft hover:underline cursor-pointer font-semibold"
             >
               Отменить голос
             </button>
@@ -316,8 +316,8 @@ export const PollCard: React.FC<PollCardProps> = ({
         {timestamp && (
           <div className={`flex items-center gap-0.5 text-[10.5px] select-none shrink-0 ${
             isOwnPoll
-              ? 'text-[#4fae4e] dark:text-[#82b1ff]'
-              : 'text-[#8b9ba8] dark:text-[#708499]'
+              ? 'text-tick dark:text-tick'
+              : 'text-muted dark:text-muted'
           }`}>
             <span className="font-sans tabular-nums">{formatTime(timestamp)}</span>
             {isOwnPoll && !isPending && (

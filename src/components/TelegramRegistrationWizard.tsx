@@ -29,13 +29,13 @@ export interface TelegramRegistrationWizardProps {
 
 // Telegram Avatar Gradient Presets
 const AVATAR_GRADIENTS = [
-  { id: 'blue', class: 'from-[#3390ec] to-[#0066FF]', name: 'Классический синий' },
+  { id: 'blue', class: 'from-accent to-accent', name: 'Классический синий' },
   { id: 'sunset', class: 'from-[#FF5E62] to-[#FF9966]', name: 'Закат' },
   { id: 'emerald', class: 'from-[#11998e] to-[#38ef7d]', name: 'Изумруд' },
-  { id: 'purple', class: 'from-[#8E2DE2] to-[#4A00E0]', name: 'Аметист' },
+  { id: 'purple', class: 'from-accent to-[#4A00E0]', name: 'Аметист' },
   { id: 'amber', class: 'from-[#F2994A] to-[#F2C94C]', name: 'Янтарь' },
   { id: 'crimson', class: 'from-[#EC008C] to-[#FC6767]', name: 'Малина' },
-  { id: 'cyan', class: 'from-[#00c6ff] to-[#0072ff]', name: 'Лазурь' },
+  { id: 'cyan', class: 'from-[#00c6ff] to-accent', name: 'Лазурь' },
   { id: 'midnight', class: 'from-[#2c3e50] to-[#3498db]', name: 'Полночь' },
 ];
 
@@ -393,11 +393,11 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-50 dark:bg-[#0e1621] text-slate-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-zinc-50 dark:bg-canvas text-zinc-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden">
       
       {/* Subtle Background Glow Orbs */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-[#3390ec]/10 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-[#0066FF]/10 blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-accent/10 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-accent/10 blur-[100px] pointer-events-none" />
 
       {/* Top Bar: Back button (Step > 1) & Theme toggle */}
       <div className="fixed top-4 left-4 right-4 max-w-lg mx-auto flex items-center justify-between z-40 pointer-events-auto">
@@ -405,7 +405,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
           <button
             type="button"
             onClick={goToPrevStep}
-            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
+            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
             title="Назад"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -414,7 +414,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
           <button
             type="button"
             onClick={onCancel}
-            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
+            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
             title="Назад ко входу"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -427,13 +427,13 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
           <button
             type="button"
             onClick={toggleDarkMode}
-            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
+            className="p-2.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-xs"
             title={darkMode ? 'Светлая тема' : 'Ночной режим'}
           >
             {darkMode ? (
               <Sun className="w-5 h-5 text-amber-400" />
             ) : (
-              <Moon className="w-5 h-5 text-[#3390ec]" />
+              <Moon className="w-5 h-5 text-accent" />
             )}
           </button>
         )}
@@ -461,15 +461,15 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               <motion.div 
                 whileHover={{ scale: 1.06, rotate: 4 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#3390ec] to-[#0072ff] text-white flex items-center justify-center shadow-lg shadow-[#3390ec]/25 mb-6 cursor-pointer"
+                className="w-20 h-20 rounded-full bg-gradient-to-tr from-accent to-accent text-white flex items-center justify-center shadow-lg shadow-accent/25 mb-6 cursor-pointer"
               >
                 <Mail className="w-9 h-9 text-white" />
               </motion.div>
 
-              <h1 className="text-2xl sm:text-[26px] font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+              <h1 className="text-2xl sm:text-[26px] font-bold text-zinc-900 dark:text-white mb-2 tracking-tight">
                 Регистрация
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-7">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mb-7">
                 Введите ваш адрес эл. почты для получения кода подтверждения
               </p>
 
@@ -484,10 +484,10 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                       if (emailError) setEmailError(null);
                     }}
                     placeholder="Электронная почта"
-                    className={`w-full px-4 py-3.5 rounded-2xl text-base bg-white dark:bg-[#17212b] border outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 ${
+                    className={`w-full px-4 py-3.5 rounded-2xl text-base bg-white dark:bg-surface border outline-hidden transition-all text-zinc-900 dark:text-white placeholder:text-zinc-400 ${
                       emailError 
                         ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
-                        : 'border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 shadow-xs'
+                        : 'border-zinc-200 dark:border-white/10 focus:border-accent focus:ring-4 focus:ring-accent/15 shadow-xs'
                     }`}
                   />
                   {isEmailValid && (
@@ -504,8 +504,8 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 )}
 
                 {/* Trust badge */}
-                <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#3390ec]" />
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                  <ShieldCheck className="w-3.5 h-3.5 text-accent" />
                   <span>Ваши данные надежно защищены сквозным шифрованием</span>
                 </div>
 
@@ -514,8 +514,8 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                   disabled={!isEmailValid}
                   className={`w-full py-3.5 px-6 rounded-2xl text-base font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
                     isEmailValid
-                      ? 'bg-[#3390ec] hover:bg-[#2b7ac9] active:bg-[#2469ab] text-white shadow-[#3390ec]/25 hover:shadow-lg active:scale-[0.99]'
-                      : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70 shadow-none'
+                      ? 'bg-accent hover:bg-accent-strong active:bg-accent-strong text-white shadow-accent/25 hover:shadow-lg active:scale-[0.99]'
+                      : 'bg-zinc-200 dark:bg-white/10 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-70 shadow-none'
                   }`}
                 >
                   <span>Далее</span>
@@ -527,7 +527,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="text-xs font-medium text-[#3390ec] hover:underline cursor-pointer"
+                    className="text-xs font-medium text-accent hover:underline cursor-pointer"
                   >
                     Уже зарегистрированы? Войти
                   </button>
@@ -563,15 +563,15 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 </motion.div>
               )}
 
-              <div className="w-16 h-16 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center mb-5">
+              <div className="w-16 h-16 rounded-full bg-accent/10 text-accent flex items-center justify-center mb-5">
                 <Sparkles className="w-8 h-8 animate-pulse" />
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">
                 Код подтверждения
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-6">
-                Мы отправили 6-значный код на <strong className="font-semibold text-slate-800 dark:text-slate-200">{email}</strong>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mb-6">
+                Мы отправили 6-значный код на <strong className="font-semibold text-zinc-800 dark:text-zinc-200">{email}</strong>
               </p>
 
               {/* 6 Digit Input Cells */}
@@ -588,7 +588,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     autoFocus={idx === 0}
                     onChange={(e) => handleDigitChange(idx, e.target.value)}
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
-                    className="w-12 h-14 sm:w-13 sm:h-15 text-center text-2xl font-bold font-mono rounded-2xl bg-white dark:bg-[#17212b] border border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/20 outline-hidden transition-all text-slate-900 dark:text-white shadow-xs"
+                    className="w-12 h-14 sm:w-13 sm:h-15 text-center text-2xl font-bold font-mono rounded-2xl bg-white dark:bg-surface border border-zinc-200 dark:border-white/10 focus:border-accent focus:ring-4 focus:ring-accent/20 outline-hidden transition-all text-zinc-900 dark:text-white shadow-xs"
                   />
                 ))}
               </div>
@@ -598,7 +598,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 <button
                   type="button"
                   onClick={handleAutoFillDemoCode}
-                  className="px-3 py-1.5 rounded-full bg-[#3390ec]/10 hover:bg-[#3390ec]/20 text-[#3390ec] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  className="px-3 py-1.5 rounded-full bg-accent/10 hover:bg-accent/20 text-accent text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
                   title="Нажмите для тестового ввода кода 777777"
                 >
                   <Zap className="w-3.5 h-3.5" />
@@ -615,14 +615,14 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               {/* Resend Code Timer or Action */}
               <div className="mb-6">
                 {resendTimer > 0 ? (
-                  <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                  <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">
                     Отправить код повторно через 0:{resendTimer < 10 ? `0${resendTimer}` : resendTimer}
                   </span>
                 ) : (
                   <button
                     type="button"
                     onClick={handleResendCode}
-                    className="text-xs font-semibold text-[#3390ec] hover:underline cursor-pointer flex items-center gap-1.5 mx-auto"
+                    className="text-xs font-semibold text-accent hover:underline cursor-pointer flex items-center gap-1.5 mx-auto"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>Отправить код повторно</span>
@@ -641,8 +641,8 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 disabled={codeDigits.join('').length < 6}
                 className={`w-full py-3.5 px-6 rounded-2xl text-base font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
                   codeDigits.join('').length === 6
-                    ? 'bg-[#3390ec] hover:bg-[#2b7ac9] text-white shadow-[#3390ec]/25 active:scale-[0.99]'
-                    : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70 shadow-none'
+                    ? 'bg-accent hover:bg-accent-strong text-white shadow-accent/25 active:scale-[0.99]'
+                    : 'bg-zinc-200 dark:bg-white/10 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-70 shadow-none'
                 }`}
               >
                 <span>Далее</span>
@@ -671,7 +671,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                   initial={{ scale: 0.9 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                  className={`w-24 h-24 sm:w-26 sm:h-26 rounded-full bg-gradient-to-tr ${AVATAR_GRADIENTS[selectedGradientIndex].class} text-white flex items-center justify-center text-3xl sm:text-4xl font-bold shadow-xl ring-4 ring-white dark:ring-[#17212b] select-none`}
+                  className={`w-24 h-24 sm:w-26 sm:h-26 rounded-full bg-gradient-to-tr ${AVATAR_GRADIENTS[selectedGradientIndex].class} text-white flex items-center justify-center text-3xl sm:text-4xl font-bold shadow-xl ring-4 ring-white dark:ring-surface select-none`}
                 >
                   {getInitials()}
                 </motion.div>
@@ -690,7 +690,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     title={grad.name}
                     className={`w-6 h-6 rounded-full bg-gradient-to-tr ${grad.class} transition-all cursor-pointer flex items-center justify-center ${
                       selectedGradientIndex === idx && !selectedEmoji
-                        ? 'ring-2 ring-[#3390ec] scale-110 shadow-xs'
+                        ? 'ring-2 ring-accent scale-110 shadow-xs'
                         : 'opacity-70 hover:opacity-100'
                     }`}
                   >
@@ -703,14 +703,14 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
               {/* Emoji Sticker Presets */}
               <div className="flex items-center justify-center gap-1.5 mb-5 overflow-x-auto max-w-xs py-1 px-2 rounded-xl bg-black/5 dark:bg-white/5">
-                <Smile className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <Smile className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                 {EMOJI_STICKER_PRESETS.slice(0, 6).map((emoji) => (
                   <button
                     key={emoji}
                     type="button"
                     onClick={() => setSelectedEmoji(selectedEmoji === emoji ? null : emoji)}
                     className={`text-base p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-all cursor-pointer ${
-                      selectedEmoji === emoji ? 'bg-[#3390ec]/20 scale-115' : 'opacity-70'
+                      selectedEmoji === emoji ? 'bg-accent/20 scale-115' : 'opacity-70'
                     }`}
                   >
                     {emoji}
@@ -718,10 +718,10 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 ))}
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-white mb-1">
                 Ваше имя
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-4">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mb-4">
                 Введите ваше имя и выберите уникальный username
               </p>
 
@@ -736,10 +736,10 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                       if (nameError) setNameError(null);
                     }}
                     placeholder="Имя (обязательно)"
-                    className={`w-full px-4 py-3 rounded-2xl text-base bg-white dark:bg-[#17212b] border outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 ${
+                    className={`w-full px-4 py-3 rounded-2xl text-base bg-white dark:bg-surface border outline-hidden transition-all text-zinc-900 dark:text-white placeholder:text-zinc-400 ${
                       nameError 
                         ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
-                        : 'border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 shadow-xs'
+                        : 'border-zinc-200 dark:border-white/10 focus:border-accent focus:ring-4 focus:ring-accent/15 shadow-xs'
                     }`}
                   />
                 </div>
@@ -750,7 +750,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Фамилия (опционально)"
-                    className="w-full px-4 py-3 rounded-2xl text-base bg-white dark:bg-[#17212b] border border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs"
+                    className="w-full px-4 py-3 rounded-2xl text-base bg-white dark:bg-surface border border-zinc-200 dark:border-white/10 focus:border-accent focus:ring-4 focus:ring-accent/15 outline-hidden transition-all text-zinc-900 dark:text-white placeholder:text-zinc-400 shadow-xs"
                   />
                 </div>
 
@@ -761,13 +761,13 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     value={username}
                     onChange={(e) => setUsername(e.target.value.replace(/\s+/g, '').toLowerCase())}
                     placeholder="username (никнейм)"
-                    className="w-full pl-8 pr-10 py-3 rounded-2xl text-base bg-white dark:bg-[#17212b] border border-slate-200 dark:border-white/10 focus:border-[#3390ec] focus:ring-4 focus:ring-[#3390ec]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs font-mono text-sm"
+                    className="w-full pl-8 pr-10 py-3 rounded-2xl text-base bg-white dark:bg-surface border border-zinc-200 dark:border-white/10 focus:border-accent focus:ring-4 focus:ring-accent/15 outline-hidden transition-all text-zinc-900 dark:text-white placeholder:text-zinc-400 shadow-xs font-mono text-sm"
                   />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm">@</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-mono text-sm">@</span>
                   <button
                     type="button"
                     onClick={generateRandomUsername}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-[#3390ec] hover:bg-[#3390ec]/10 transition-all cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-zinc-400 hover:text-accent hover:bg-accent/10 transition-all cursor-pointer"
                     title="Сгенерировать случайный никнейм"
                   >
                     <Dices className="w-4 h-4" />
@@ -785,8 +785,8 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                   disabled={!firstName.trim()}
                   className={`w-full mt-2 py-3.5 px-6 rounded-2xl text-base font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
                     firstName.trim()
-                      ? 'bg-[#3390ec] hover:bg-[#2b7ac9] text-white shadow-[#3390ec]/25 active:scale-[0.99]'
-                      : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70 shadow-none'
+                      ? 'bg-accent hover:bg-accent-strong text-white shadow-accent/25 active:scale-[0.99]'
+                      : 'bg-zinc-200 dark:bg-white/10 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-70 shadow-none'
                   }`}
                 >
                   <span>Далее</span>
@@ -809,10 +809,10 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
               exit="exit"
               className="w-full flex flex-col items-center text-center"
             >
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1.5">
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-white mb-1.5">
                 Фото профиля
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-5">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mb-5">
                 Загрузите собственное фото или оставьте стильную аватарку
               </p>
 
@@ -840,16 +840,16 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                       <img 
                         src={avatarCroppedUrl} 
                         alt="Avatar Preview" 
-                        className="w-32 h-32 sm:w-36 sm:h-36 rounded-full object-cover shadow-xl ring-4 ring-[#3390ec]/30 group-hover:opacity-90 transition-all"
+                        className="w-32 h-32 sm:w-36 sm:h-36 rounded-full object-cover shadow-xl ring-4 ring-accent/30 group-hover:opacity-90 transition-all"
                       />
                     ) : (
-                      <div className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-tr ${AVATAR_GRADIENTS[selectedGradientIndex].class} text-white flex items-center justify-center text-4xl sm:text-5xl font-bold shadow-xl ring-4 ring-white dark:ring-[#17212b] group-hover:scale-[1.02] transition-all select-none`}>
+                      <div className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-tr ${AVATAR_GRADIENTS[selectedGradientIndex].class} text-white flex items-center justify-center text-4xl sm:text-5xl font-bold shadow-xl ring-4 ring-white dark:ring-surface group-hover:scale-[1.02] transition-all select-none`}>
                         {getInitials()}
                       </div>
                     )}
 
                     {/* Camera Badge Overlay */}
-                    <div className="absolute bottom-1 right-1 p-3 rounded-full bg-[#3390ec] text-white shadow-lg group-hover:bg-[#2b7ac9] group-hover:scale-110 transition-all">
+                    <div className="absolute bottom-1 right-1 p-3 rounded-full bg-accent text-white shadow-lg group-hover:bg-accent-strong group-hover:scale-110 transition-all">
                       <Camera className="w-5 h-5" />
                     </div>
                   </div>
@@ -858,7 +858,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-3.5 py-1.5 rounded-full bg-[#3390ec]/10 hover:bg-[#3390ec]/20 text-[#3390ec] text-xs font-semibold transition-all cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-full bg-accent/10 hover:bg-accent/20 text-accent text-xs font-semibold transition-all cursor-pointer"
                     >
                       Загрузить фото
                     </button>
@@ -878,15 +878,15 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                 </div>
               ) : (
                 /* Built-in Circular Crop Interface with Filters & Rotation */
-                <div className="w-full flex flex-col items-center mb-5 bg-slate-100 dark:bg-[#17212b] p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-lg">
+                <div className="w-full flex flex-col items-center mb-5 bg-zinc-100 dark:bg-surface p-4 rounded-3xl border border-zinc-200 dark:border-white/10 shadow-lg">
                   <div className="flex items-center justify-between w-full mb-3 px-1">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                       Перетащите и настройте фото:
                     </span>
                     <button
                       type="button"
                       onClick={() => setCropRotation((prev) => (prev + 90) % 360)}
-                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer flex items-center gap-1 text-xs"
+                      className="p-1.5 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer flex items-center gap-1 text-xs"
                       title="Повернуть на 90°"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
@@ -896,7 +896,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
                   {/* Circular Crop Viewport */}
                   <div 
-                    className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-[#3390ec] shadow-2xl cursor-grab active:cursor-grabbing select-none touch-none bg-black flex items-center justify-center"
+                    className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-accent shadow-2xl cursor-grab active:cursor-grabbing select-none touch-none bg-black flex items-center justify-center"
                     onMouseDown={(e) => {
                       setIsDraggingCrop(true);
                       dragStartRef.current = {
@@ -960,7 +960,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
 
                   {/* Zoom Slider */}
                   <div className="flex items-center gap-3 w-full max-w-[240px] mt-3">
-                    <ZoomOut className="w-4 h-4 text-slate-400 shrink-0" />
+                    <ZoomOut className="w-4 h-4 text-zinc-400 shrink-0" />
                     <input
                       type="range"
                       min={1}
@@ -968,14 +968,14 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                       step={0.05}
                       value={cropZoom}
                       onChange={(e) => setCropZoom(parseFloat(e.target.value))}
-                      className="w-full accent-[#3390ec] cursor-pointer"
+                      className="w-full accent-accent cursor-pointer"
                     />
-                    <ZoomIn className="w-4 h-4 text-slate-400 shrink-0" />
+                    <ZoomIn className="w-4 h-4 text-zinc-400 shrink-0" />
                   </div>
 
                   {/* Filter Swatches */}
                   <div className="flex items-center gap-1.5 mt-3">
-                    <Sliders className="w-3.5 h-3.5 text-slate-400 mr-1" />
+                    <Sliders className="w-3.5 h-3.5 text-zinc-400 mr-1" />
                     {(['none', 'vivid', 'mono', 'warm'] as const).map((f) => (
                       <button
                         key={f}
@@ -983,8 +983,8 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                         onClick={() => setCropFilter(f)}
                         className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
                           cropFilter === f 
-                            ? 'bg-[#3390ec] text-white shadow-xs' 
-                            : 'bg-black/5 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-black/10'
+                            ? 'bg-accent text-white shadow-xs' 
+                            : 'bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-black/10'
                         }`}
                       >
                         {f === 'none' ? 'Оригинал' : f === 'vivid' ? 'Яркий' : f === 'mono' ? 'Ч/Б' : 'Теплый'}
@@ -997,14 +997,14 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 py-2 px-3 text-xs font-semibold rounded-xl bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                      className="flex-1 py-2 px-3 text-xs font-semibold rounded-xl bg-zinc-200 dark:bg-white/10 hover:bg-zinc-300 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-200 transition-colors cursor-pointer"
                     >
                       Сменить
                     </button>
                     <button
                       type="button"
                       onClick={applyCrop}
-                      className="flex-1 py-2 px-3 text-xs font-semibold rounded-xl bg-[#3390ec] hover:bg-[#2b7ac9] text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      className="flex-1 py-2 px-3 text-xs font-semibold rounded-xl bg-accent hover:bg-accent-strong text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                     >
                       <Check className="w-4 h-4" />
                       <span>Применить</span>
@@ -1026,7 +1026,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     type="button"
                     onClick={handleFinalSubmit}
                     disabled={isSubmitting}
-                    className="flex-1 py-3.5 px-4 rounded-2xl text-sm font-semibold bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-700 dark:text-slate-300 transition-all cursor-pointer text-center"
+                    className="flex-1 py-3.5 px-4 rounded-2xl text-sm font-semibold bg-zinc-200 dark:bg-white/10 hover:bg-zinc-300 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 transition-all cursor-pointer text-center"
                   >
                     Пропустить
                   </button>
@@ -1034,7 +1034,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     type="button"
                     onClick={handleFinalSubmit}
                     disabled={isSubmitting}
-                    className="flex-1 py-3.5 px-4 rounded-2xl text-sm font-semibold bg-[#3390ec] hover:bg-[#2b7ac9] active:bg-[#2469ab] text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#3390ec]/25 active:scale-[0.99]"
+                    className="flex-1 py-3.5 px-4 rounded-2xl text-sm font-semibold bg-accent hover:bg-accent-strong active:bg-accent-strong text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-accent/25 active:scale-[0.99]"
                   >
                     {isSubmitting ? (
                       <span>Создание...</span>

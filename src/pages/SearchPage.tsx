@@ -102,7 +102,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     const suffix = end < cleanText.length ? '...' : '';
     const matchSegment = cleanText.slice(index, index + q.length);
 
-    return `${prefix}${cleanText.slice(start, index)}<span class="text-[#3390ec] font-bold">${matchSegment}</span>${cleanText.slice(index + q.length, end)}${suffix}`;
+    return `${prefix}${cleanText.slice(start, index)}<span class="text-accent font-bold">${matchSegment}</span>${cleanText.slice(index + q.length, end)}${suffix}`;
   };
 
   // In-memory instant search across all loaded messages
@@ -221,14 +221,14 @@ export const SearchPage: React.FC<SearchPageProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-white dark:bg-[#0e1621] text-slate-900 dark:text-white">
+    <div className="w-full h-full flex flex-col bg-white dark:bg-canvas text-zinc-900 dark:text-white">
       {/* Top Mobile-Friendly Header */}
-      <div className="px-3 sm:px-4 py-2.5 pt-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.5rem))] border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#17212b] flex items-center gap-2 shrink-0">
+      <div className="px-3 sm:px-4 py-2.5 pt-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.5rem))] border-b border-zinc-200 dark:border-white/5 bg-white dark:bg-surface flex items-center gap-2 shrink-0">
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-full text-slate-500 hover:text-[#3390ec] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+            className="p-1 rounded-full text-zinc-500 hover:text-accent hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
             title="Назад"
           >
             <IconChevronLeft size={24} />
@@ -250,7 +250,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-xs sm:text-[13px] font-medium text-[#3390ec] hover:text-[#3390ec]/80 px-1 py-1 cursor-pointer shrink-0 transition-colors"
+            className="text-xs sm:text-[13px] font-medium text-accent hover:text-accent/80 px-1 py-1 cursor-pointer shrink-0 transition-colors"
           >
             Отмена
           </button>
@@ -258,7 +258,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
       </div>
 
       {/* Scope Switcher & Category Tabs Bar */}
-      <div className="px-3 sm:px-4 py-2 border-b border-slate-200/70 dark:border-white/5 flex items-center gap-1.5 overflow-x-auto no-scrollbar select-none bg-slate-50 dark:bg-[#17212b]/60 shrink-0">
+      <div className="px-3 sm:px-4 py-2 border-b border-zinc-200/70 dark:border-white/5 flex items-center gap-1.5 overflow-x-auto no-scrollbar select-none bg-zinc-50 dark:bg-surface/60 shrink-0">
         {/* Scope Toggle: Everywhere vs This Chat */}
         {roomId && (
           <>
@@ -267,8 +267,8 @@ export const SearchPage: React.FC<SearchPageProps> = ({
               onClick={() => setSearchScope('all')}
               className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all flex items-center gap-1 cursor-pointer ${
                 searchScope === 'all'
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'bg-slate-200/60 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-300/70 dark:hover:bg-white/10'
+                  ? 'bg-accent text-white shadow-xs'
+                  : 'bg-zinc-200/60 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-300/70 dark:hover:bg-white/10'
               }`}
             >
               <IconWorld size={13} />
@@ -279,14 +279,14 @@ export const SearchPage: React.FC<SearchPageProps> = ({
               onClick={() => setSearchScope('room')}
               className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all flex items-center gap-1 cursor-pointer ${
                 searchScope === 'room'
-                  ? 'bg-[#3390ec] text-white shadow-xs'
-                  : 'bg-slate-200/60 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-300/70 dark:hover:bg-white/10'
+                  ? 'bg-accent text-white shadow-xs'
+                  : 'bg-zinc-200/60 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-300/70 dark:hover:bg-white/10'
               }`}
             >
               <IconMessageDots size={13} />
               <span>В этом чате</span>
             </button>
-            <div className="w-[1px] h-4 bg-slate-300 dark:bg-white/10 mx-0.5 shrink-0" />
+            <div className="w-[1px] h-4 bg-zinc-300 dark:bg-white/10 mx-0.5 shrink-0" />
           </>
         )}
 
@@ -303,8 +303,8 @@ export const SearchPage: React.FC<SearchPageProps> = ({
             onClick={() => handleTabChange(tab.id as any)}
             className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
               activeTab === tab.id
-                ? 'bg-[#3390ec] text-white shadow-xs'
-                : 'bg-slate-200/60 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-300/70 dark:hover:bg-white/10'
+                ? 'bg-accent text-white shadow-xs'
+                : 'bg-zinc-200/60 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-300/70 dark:hover:bg-white/10'
             }`}
           >
             {tab.label}

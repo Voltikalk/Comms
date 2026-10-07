@@ -44,13 +44,13 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
     <motion.div
       whileTap={{ scale: 0.99 }}
       onClick={() => onClick && onClick(item)}
-      className="p-2.5 sm:p-3 rounded-2xl bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 cursor-pointer transition-all space-y-1 group"
+      className="p-2.5 sm:p-3 rounded-2xl bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 border border-zinc-100 dark:border-white/5 cursor-pointer transition-all space-y-1 group"
     >
       {/* Top Row: Sender Info & Time */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
           {/* Avatar */}
-          <div className="h-7 w-7 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-tr from-[#3390ec] to-sky-400 flex items-center justify-center font-bold text-white text-xs shadow-xs">
+          <div className="h-7 w-7 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-tr from-accent to-sky-400 flex items-center justify-center font-bold text-white text-xs shadow-xs">
             {avatarUrl ? (
               <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -59,25 +59,25 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
           </div>
 
           <div className="min-w-0 flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-slate-900 dark:text-white group-hover:text-[#3390ec] transition-colors truncate">
+            <span className="text-xs font-semibold text-zinc-900 dark:text-white group-hover:text-accent transition-colors truncate">
               {senderName}
             </span>
             {displayRoomName && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-white/60 truncate">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-200/60 dark:bg-white/10 text-zinc-600 dark:text-white/60 truncate">
                 {displayRoomName}
               </span>
             )}
           </div>
         </div>
 
-        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono shrink-0 ml-2">
+        <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono shrink-0 ml-2">
           {formatTime(displayTime)}
         </span>
       </div>
 
       {/* Snippet Content with Highlight */}
       <div
-        className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed break-words line-clamp-2 pl-9.5"
+        className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed break-words line-clamp-2 pl-9.5"
         dangerouslySetInnerHTML={{ __html: contentHtml }}
       />
 
@@ -85,7 +85,7 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
       {(item.file || (item.attachments && item.attachments.length > 0)) && (
         <div className="flex items-center gap-1.5 pt-0.5 pl-9.5">
           {item.file ? (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-200/50 dark:bg-black/30 border border-slate-200 dark:border-white/10 text-[11px] text-[#3390ec]">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-200/50 dark:bg-black/30 border border-zinc-200 dark:border-white/10 text-[11px] text-accent">
               <span>📎</span>
               <span className="truncate max-w-[140px]">{item.file.name}</span>
             </div>
@@ -93,7 +93,7 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
             item.attachments?.slice(0, 2).map((att: any) => (
               <div
                 key={att.id}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-200/50 dark:bg-black/30 border border-slate-200 dark:border-white/10 text-[11px] text-[#3390ec]"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-200/50 dark:bg-black/30 border border-zinc-200 dark:border-white/10 text-[11px] text-accent"
               >
                 <span>📎</span>
                 <span className="truncate max-w-[120px]">{att.file_name}</span>

@@ -74,7 +74,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               transition={{ type: 'spring', stiffness: 420, damping: 24 }}
               className={`
                 text-xs font-semibold tracking-wide font-body transition-colors duration-200
-                ${isFocused ? 'text-[#0066FF] dark:text-[#9933FF]' : error ? 'text-[#FF3333]' : 'text-slate-700 dark:text-slate-200'}
+                ${isFocused ? 'text-accent dark:text-accent-soft' : error ? 'text-danger' : 'text-zinc-700 dark:text-zinc-200'}
               `}
             >
               {label}
@@ -86,7 +86,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="text-[10px] font-mono text-slate-400 dark:text-slate-500"
+              className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500"
             >
               {stringValue.length}{maxLength ? `/${maxLength}` : ''}
             </motion.span>
@@ -101,7 +101,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               animate={isFocused ? 'focused' : isHovered ? 'hovered' : 'idle'}
               className={`
                 absolute left-3.5 pointer-events-none flex items-center justify-center origin-center transition-colors duration-200 z-10
-                ${isFocused ? 'text-[#0066FF] dark:text-[#9933FF]' : 'text-slate-400 dark:text-slate-200'}
+                ${isFocused ? 'text-accent dark:text-accent-soft' : 'text-zinc-400 dark:text-zinc-200'}
               `}
             >
               {leftIcon}
@@ -130,9 +130,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               glass-input transition-all duration-200
               ${leftIcon ? 'pl-11' : 'pl-4'}
               ${rightIcon || (showClearButton && hasValue) ? 'pr-12' : 'pr-4'}
-              ${error ? 'input-error !bg-[#FF3333]/[0.08] !border-[#FF3333]' : ''}
-              placeholder-slate-400/80 dark:placeholder-slate-500/80
-              focus:placeholder-slate-400/40
+              ${error ? 'input-error !bg-danger/[0.08] !border-danger' : ''}
+              placeholder-zinc-400/80 dark:placeholder-zinc-500/80
+              focus:placeholder-zinc-400/40
               disabled:opacity-50 disabled:cursor-not-allowed
               ${className}
             `}
@@ -150,7 +150,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 exit={{ opacity: 0, scale: 0.6, rotate: 45 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                 className={`
-                  absolute right-3.5 p-1.5 rounded-full bg-slate-200/80 dark:bg-white/15 text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white
+                  absolute right-3.5 p-1.5 rounded-full bg-zinc-200/80 dark:bg-white/15 text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white
                   hover:scale-110 active:scale-95 transition-all flex items-center justify-center cursor-pointer touch-target
                   ${rightIcon ? 'right-11' : 'right-3.5'}
                 `}
@@ -169,7 +169,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               onClick={onRightIconClick}
               tabIndex={-1}
               className={`
-                absolute right-3 p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white
+                absolute right-3 p-2 rounded-lg text-zinc-400 hover:text-zinc-600 dark:text-zinc-200 dark:hover:text-white
                 hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center
                 ${onRightIconClick ? 'cursor-pointer' : 'pointer-events-none'}
               `}
@@ -187,7 +187,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               initial="initial"
               animate="animate"
               exit="exit"
-              className="text-xs text-[#FF3333] font-medium font-body flex items-center gap-1.5 mt-0.5 select-none"
+              className="text-xs text-danger font-medium font-body flex items-center gap-1.5 mt-0.5 select-none"
             >
               <span className="inline-block animate-icon-wobble">⚠️</span>
               {error}
@@ -199,7 +199,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="text-[11px] text-slate-500 dark:text-slate-400 font-body select-none"
+              className="text-[11px] text-zinc-500 dark:text-zinc-400 font-body select-none"
             >
               {helperText}
             </motion.span>
