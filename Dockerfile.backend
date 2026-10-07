@@ -11,6 +11,7 @@ RUN npm ci --omit=dev || npm install --omit=dev
 
 # Copy application code
 COPY server.js ./
+COPY server/ ./server/
 COPY scripts/ ./scripts/
 COPY supabase/ ./supabase/
 

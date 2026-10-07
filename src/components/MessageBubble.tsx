@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useSocket } from '../context/SocketContext';
+import { MessageMeta, type MetaDeliveryStatus } from './Chat/Feed/MessageMeta';
+import { BubbleTail } from './Chat/Feed/BubbleTail';
+import { getBubbleCorners } from '../lib/message-grouping';
+import { useSocket } from '../context/contexts';
 import { USER_NAMES, DEFAULT_USER_PROFILES } from '../constants';
 import { parseAndRenderRichText } from '../lib/markdown-parser';
 import { normalizeWaveform, generateFallbackWaveform } from '../lib/audio-waveform';
@@ -12,7 +15,6 @@ import {
   IconFileText, 
   IconX,
   IconCheck,
-  IconChecks,
   IconTrash,
   IconShare3,
   IconPhoto,
@@ -20,8 +22,10 @@ import {
   IconMicrophone,
   IconMoodSmile,
   IconCamera,
-  IconChartBar
+  IconChartBar,
+  IconArrowBackUp
 } from '@tabler/icons-react';
+import { usePlatform } from '../context/platform-context';
 import { VideoPlayer } from './VideoPlayer';
 import { PollCard } from './Poll/PollCard';
 import { triggerTelegramDisintegrate } from './effects/disintegrate';
@@ -119,6 +123,9 @@ interface MessageBubbleProps {
   groupedBelow?: boolean;
 }
 
+/** Horizontal pull (px) that arms swipe-to-reply. */
+const SWIPE_REPLY_THRESHOLD = 60;
+
 export const MessageBubble = React.memo<MessageBubbleProps>(({ 
   message, 
   isSelf, 
@@ -144,6 +151,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   groupedAbove = false,
   groupedBelow = false
 }) => {
+  const { triggerHaptic } = usePlatform();
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editText, setEditText] = useState(message.text);
@@ -393,7 +401,9 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   const isPending = !!message.pending;
 
   const readersCount = (message.readBy || []).filter((u) => u !== currentUser).length;
-  const deliveryStatus: 'pending' | 'sent' | 'read' = isPending
+  const deliveryStatus: MetaDeliveryStatus = message.queued
+    ? 'queued'
+    : isPending
     ? 'pending'
     : readersCount > 0
       ? 'read'
@@ -406,13 +416,15 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
       ? 'tg-bubble-self' 
       : 'tg-bubble-peer';
 
-  // Telegram-style grouped corner flattening
-  const groupCornerStyle: React.CSSProperties = (isVideoNote || isSticker) ? {} : {
-    borderTopRightRadius: isSelf && groupedAbove ? 6 : undefined,
-    borderBottomRightRadius: isSelf && groupedBelow ? 6 : undefined,
-    borderTopLeftRadius: !isSelf && groupedAbove ? 6 : undefined,
-    borderBottomLeftRadius: !isSelf && groupedBelow ? 6 : undefined
-  };
+  // Telegram clustering: adaptive radii inside a run, SVG tail on the last bubble only
+  const hasBubbleChrome = !isVideoNote && !isSticker;
+  const corners = getBubbleCorners(isSelf, groupedAbove, groupedBelow);
+  const groupCornerStyle: React.CSSProperties = hasBubbleChrome
+    ? {
+        borderRadius: `${corners.topLeft}px ${corners.topRight}px ${corners.bottomRight}px ${corners.bottomLeft}px`,
+      }
+    : {};
+  const showTail = hasBubbleChrome && corners.showTail;
 
   // Real audio waveform or deterministic speech fallback
   const waveform = useMemo(() => {
@@ -436,9 +448,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
     if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
     touchTimerRef.current = setTimeout(() => {
       if (touchStartPosRef.current && !isSwipeLockedRef.current) {
-        try {
-          if (navigator.vibrate) navigator.vibrate(40);
-        } catch {}
+        triggerHaptic('medium');
         onOpenContextMenu(message, touchStartPosRef.current);
       }
     }, 360);
@@ -479,8 +489,12 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
         const offset = Math.min(diffX, 80);
         setSwipeOffset(offset);
 
-        if (offset >= 60 && !hasTriggeredSwipeRef.current) {
+        if (offset >= SWIPE_REPLY_THRESHOLD && !hasTriggeredSwipeRef.current) {
           hasTriggeredSwipeRef.current = true;
+          triggerHaptic('light');
+        } else if (offset < SWIPE_REPLY_THRESHOLD && hasTriggeredSwipeRef.current) {
+          // Pulled back below the threshold — re-arm so the next crossing ticks again.
+          hasTriggeredSwipeRef.current = false;
         }
       }
     }
@@ -489,7 +503,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   const handleTouchEnd = () => {
     if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
 
-    if (swipeOffset >= 60) {
+    if (swipeOffset >= SWIPE_REPLY_THRESHOLD) {
       onReply(message);
     }
 
@@ -513,7 +527,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           onToggleSelect(message.id);
         }
       }}
-      className={`w-full py-1 px-1.5 sm:px-2 relative group animate-message-appear transition-colors duration-150 rounded-xl ${
+      className={`w-full ${groupedAbove ? 'pt-px' : 'pt-1'} ${groupedBelow ? 'pb-px' : 'pb-1'} px-1.5 sm:px-2 relative group animate-message-appear transition-colors duration-150 rounded-xl ${
         isSelectMode ? 'cursor-pointer' : ''
       } ${
         isSelected 
@@ -523,6 +537,20 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
             : ''
       }`}
     >
+      {/* Swipe-to-reply indicator */}
+      {swipeOffset > 0 && (
+        <div
+          aria-hidden
+          className="absolute right-2 top-1/2 w-8 h-8 rounded-full bg-black/25 dark:bg-white/15 text-white flex items-center justify-center pointer-events-none"
+          style={{
+            opacity: Math.min(1, swipeOffset / SWIPE_REPLY_THRESHOLD),
+            transform: `translateY(-50%) scale(${swipeOffset >= SWIPE_REPLY_THRESHOLD ? 1.1 : 0.6 + 0.4 * (swipeOffset / SWIPE_REPLY_THRESHOLD)})`,
+          }}
+        >
+          <IconArrowBackUp size={18} />
+        </div>
+      )}
+
       {/* Message Row */}
       <div 
         className={`flex items-end gap-2 w-full min-w-0 max-w-full ${isSelf ? 'justify-end' : 'justify-start'}`}
@@ -531,7 +559,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
         onTouchEnd={handleTouchEnd}
         style={{
           transform: `translateX(-${swipeOffset}px)`,
-          transition: swipeOffset === 0 ? 'transform 0.2s ease' : 'none'
+          // Overshooting ease ≈ spring(stiffness 400, damping 28) for the snap-back
+          transition: swipeOffset === 0 ? 'transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1)' : 'none'
         }}
       >
         {/* Telegram Selection Circle Checkbox */}
@@ -742,7 +771,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                   onVote={onVotePoll ?? (() => {})}
                   onClose={onClosePoll ? (id) => onClosePoll(id, message.roomId) : undefined}
                   timestamp={message.timestamp}
-                  deliveryStatus={deliveryStatus}
+                  deliveryStatus={deliveryStatus === 'queued' ? 'pending' : deliveryStatus}
                   isPending={isPending}
                   formatTime={formatTime}
                   getUserDisplayName={getUserDisplayName}
@@ -777,13 +806,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 <div className={`mt-0.5 px-2.5 py-0.5 rounded-full bg-black/45 text-white backdrop-blur-xs text-[10px] font-mono flex items-center gap-1 select-none shadow-xs ${
                   isSelf ? 'self-end' : 'self-start'
                 }`}>
-                  {message.isEdited && <span className="opacity-75 text-[8px]">изм.</span>}
-                  <span>{formatTime(message.timestamp)}</span>
-                  {isSelf && !isPending && (
-                    <span className="text-[#4fae4e] dark:text-[#82b1ff]">
-                      {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
-                    </span>
-                  )}
+                  <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="" checkClassName="text-[#4fae4e] dark:text-[#82b1ff]" />
                 </div>
               </div>
             )}
@@ -794,7 +817,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 message={message}
                 isSelf={isSelf}
                 isPending={isPending}
-                deliveryStatus={deliveryStatus}
+                deliveryStatus={deliveryStatus === 'queued' ? 'pending' : deliveryStatus}
                 formatTime={formatTime}
               />
             )}
@@ -838,13 +861,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 </div>
                 {!hasText && (
                   <div className="flex items-center justify-end px-1 pt-1 text-[10px] text-slate-500 dark:text-slate-400 select-none">
-                    {message.isEdited && <span className="opacity-75 text-[8px] mr-1">изм.</span>}
-                    <span className="font-mono">{formatTime(message.timestamp)}</span>
-                    {isSelf && !isPending && (
-                      <span className="ml-1 text-[#4fae4e] dark:text-[#82b1ff]">
-                        {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
-                      </span>
-                    )}
+                    <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="font-mono" checkClassName="text-[#4fae4e] dark:text-[#82b1ff]" />
                   </div>
                 )}
               </div>
@@ -877,13 +894,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 )}
                 {isPureImage && !message.file.isUploading && (
                   <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/50 text-[10px] text-white font-mono flex items-center gap-1">
-                    {message.isEdited && <span className="opacity-75 text-[8px]">изм.</span>}
-                    <span>{formatTime(message.timestamp)}</span>
-                    {isSelf && !isPending && (
-                      <span className="ml-0.5 text-[#4fae4e] dark:text-[#82b1ff]">
-                        {deliveryStatus === 'read' ? <IconChecks size={13} stroke={2} /> : <IconCheck size={13} stroke={2} />}
-                      </span>
-                    )}
+                    <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="" checkClassName="text-[#4fae4e] dark:text-[#82b1ff]" />
                   </div>
                 )}
               </div>
@@ -1031,16 +1042,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                             ? 'text-[#4fae4e] dark:text-[#82b1ff]' 
                             : 'text-[#8b9ba8] dark:text-[#708499]'
                         }`}>
-                          <span className="font-sans">{formatTime(message.timestamp)}</span>
-                          {isSelf && !isPending && (
-                            <span className="ml-0.5">
-                              {deliveryStatus === 'read' ? (
-                                <IconChecks size={13} stroke={2} />
-                              ) : (
-                                <IconCheck size={13} stroke={2} />
-                              )}
-                            </span>
-                          )}
+                          <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} timeClassName="font-sans" />
                         </div>
                       )}
                     </div>
@@ -1134,17 +1136,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                         ? 'text-[#4fae4e] dark:text-[#82b1ff]' 
                         : 'text-[#8b9ba8] dark:text-[#708499]'
                     }`}>
-                      {message.isEdited && <span className="text-[9px] opacity-75 mr-0.5 font-sans">изм.</span>}
-                      <span className="font-sans tabular-nums">{formatTime(message.timestamp)}</span>
-                      {isSelf && !isPending && (
-                        <span className="ml-0.5 inline-flex items-center">
-                          {deliveryStatus === 'read' ? (
-                            <IconChecks size={13} stroke={2} />
-                          ) : (
-                            <IconCheck size={13} stroke={2} />
-                          )}
-                        </span>
-                      )}
+                      <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />
                     </span>
                   </>
                 )}
@@ -1186,6 +1178,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 })}
               </div>
             )}
+            {showTail && <BubbleTail isSelf={isSelf} />}
           </div>
         </div>
       </div>

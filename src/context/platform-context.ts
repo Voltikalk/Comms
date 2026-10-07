@@ -1,0 +1,12 @@
+import { createContext, useContext } from 'react';
+import type { PlatformContextType } from '../types/platform.types';
+
+export const PlatformContext = createContext<PlatformContextType | null>(null);
+
+export const usePlatform = (): PlatformContextType => {
+  const context = useContext(PlatformContext);
+  if (!context) {
+    throw new Error('usePlatform must be used within a PlatformProvider');
+  }
+  return context;
+};

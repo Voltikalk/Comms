@@ -19,7 +19,8 @@ import {
   IconVideo,
   IconCircleDot
 } from '@tabler/icons-react';
-import { useStories } from '../../context/StoriesContext';
+import { useStories } from '../../context/stories-context';
+import { useAuth } from '../../context/contexts';
 import {
   STORY_GRADIENTS,
   STORY_FONT_FAMILIES,
@@ -53,7 +54,7 @@ const QUICK_EMOJIS = ['🔥', '❤️', '😍', '✨', '⚡', '🎉', '👏', '�
 
 export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onClose }) => {
   const { sendStory } = useStories();
-  const me = (typeof window !== 'undefined' ? localStorage.getItem('chat_user_v2') : null) || '';
+  const me: string = useAuth().currentUser ?? '';
   const myProfileName = me.charAt(0).toUpperCase() + me.slice(1);
 
   const [tab, setTab] = useState<'text' | 'media' | 'camera'>('text');

@@ -1,0 +1,101 @@
+/* =========================================================
+   TELEGRAM DESIGN TOKENS (v3.30.0)
+   Radii mirror `BUBBLE_RADIUS` / `BUBBLE_RADIUS_GROUPED` in
+   src/lib/message-grouping.ts — keep them in sync.
+   ========================================================= */
+
+:root {
+  --tg-bubble-radius: 18px;
+  --tg-bubble-radius-grouped: 4px;
+  --tg-bubble-self-bg: #eeffde;
+  --tg-bubble-peer-bg: #ffffff;
+
+  --tg-glass-bg: rgba(255, 255, 255, 0.72);
+  --tg-glass-border: rgba(0, 0, 0, 0.07);
+  --tg-glass-blur: 20px;
+  --tg-glass-saturate: 180%;
+}
+
+.dark {
+  --tg-bubble-self-bg: #204162;
+  --tg-bubble-peer-bg: #182533;
+  --tg-glass-bg: rgba(23, 33, 43, 0.72);
+  --tg-glass-border: rgba(255, 255, 255, 0.07);
+}
+
+/* ---------- Bubble tails (SVG appendix) ---------- */
+
+.tg-tail {
+  position: absolute;
+  bottom: -1px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 0.5px rgba(16, 35, 47, 0.1));
+}
+
+.tg-tail-self {
+  right: -6px;
+  color: var(--tg-bubble-self-bg);
+}
+
+.tg-tail-peer {
+  left: -6px;
+  color: var(--tg-bubble-peer-bg);
+  transform: scaleX(-1);
+}
+
+/* ---------- Glass surfaces ---------- */
+
+.tg-glass,
+.tg-glass-bar {
+  background-color: var(--tg-glass-bg);
+  -webkit-backdrop-filter: blur(var(--tg-glass-blur)) saturate(var(--tg-glass-saturate));
+  backdrop-filter: blur(var(--tg-glass-blur)) saturate(var(--tg-glass-saturate));
+}
+
+.tg-glass-bar {
+  border-bottom: 1px solid var(--tg-glass-border);
+}
+
+/* ---------- Album (bento) ---------- */
+
+.tg-album {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-rows: 92px;
+  gap: 2px;
+  width: min(360px, 100%);
+}
+
+@media (min-width: 640px) {
+  .tg-album {
+    grid-auto-rows: 116px;
+  }
+}
+
+.tg-album-tile {
+  position: relative;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+}
+
+.tg-album-tile > img,
+.tg-album-tile > video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.tg-album-tile:hover > img,
+.tg-album-tile:hover > video {
+  transform: scale(1.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tg-album-tile > img,
+  .tg-album-tile > video {
+    transition: none;
+  }
+}

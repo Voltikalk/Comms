@@ -12,6 +12,7 @@ import { StoryCreateModal } from '../../Stories/StoryCreateModal';
 import { MediaGalleryModal } from '../../Media/MediaGalleryModal';
 import { CommandPaletteModal } from '../../Navigation/CommandPaletteModal';
 import { TelegramContextMenuModal } from '../../TelegramContextMenuModal';
+import { CallOverlay } from '../../Call/CallOverlay';
 import { AdminArchive } from '../../../pages/AdminArchive';
 import { NewChatModal } from '../NewChatModal';
 import {
@@ -20,10 +21,6 @@ import {
   IconShare3,
   IconTrash,
   IconCheck,
-  IconPhone,
-  IconPhoneOff,
-  IconVideo,
-  IconMicrophone,
   IconQrcode
 } from '@tabler/icons-react';
 
@@ -103,6 +100,7 @@ export interface ChatModalsHostProps {
   onReplyMessage: (msg: Message) => void;
   onEditMessage: (msg: Message) => void;
   onPinMessage: (id: string) => void;
+  isMessagePinned: (id: string) => boolean;
   onDeleteMessageAnimated: (id: string) => void;
   onToggleReaction: (msgId: string, emoji: string) => void;
   forwardMessage: (targetRoomId: string, msg: Message) => void;
@@ -111,18 +109,6 @@ export interface ChatModalsHostProps {
   setToast: (toast: any) => void;
   showToast: (msg: string) => void;
   // WebRTC Calling
-  callSession: any;
-  remoteAudioRef: React.RefObject<HTMLAudioElement | null>;
-  localAudioRef: React.RefObject<HTMLAudioElement | null>;
-  remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
-  localVideoRef: React.RefObject<HTMLVideoElement | null>;
-  acceptCall: () => void;
-  rejectCall: () => void;
-  endCall: () => void;
-  toggleMute: () => void;
-  isMuted: boolean;
-  toggleCamera: () => void;
-  isCameraOff: boolean;
   // Video Note Circle Record
   isRecordingVideo: boolean;
   videoPreviewRef: React.RefObject<HTMLVideoElement | null>;
@@ -201,24 +187,13 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
   onReplyMessage,
   onEditMessage,
   onPinMessage,
+  isMessagePinned,
   onDeleteMessageAnimated,
   onToggleReaction,
   forwardMessage,
   toast,
   setToast,
   showToast,
-  callSession,
-  remoteAudioRef,
-  localAudioRef,
-  remoteVideoRef,
-  localVideoRef,
-  acceptCall,
-  rejectCall,
-  endCall,
-  toggleMute,
-  isMuted,
-  toggleCamera,
-  isCameraOff,
   isRecordingVideo,
   videoPreviewRef,
   videoRecordTime,
@@ -383,6 +358,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
           x={contextMenuTarget.x}
           y={contextMenuTarget.y}
           isSelf={contextMenuTarget.isSelf}
+          isPinned={isMessagePinned(contextMenuTarget.message.id)}
           currentUser={currentUser}
           onClose={() => setContextMenuTarget(null)}
           onReply={(msg: Message) => {
@@ -494,109 +470,8 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
         </div>
       )}
 
-      {/* 13. WebRTC Calling Overlay */}
-      {callSession && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center text-white select-none animate-pop-in pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] px-4">
-          {callSession.status === 'active' && callSession.type === 'audio' && (
-            <div style={{ position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden' }}>
-              <audio ref={remoteAudioRef as any} autoPlay playsInline />
-              <audio ref={localAudioRef as any} autoPlay muted playsInline />
-            </div>
-          )}
-
-          <div className="w-full max-w-sm p-6 flex flex-col items-center justify-center gap-5">
-            <div className="flex flex-col items-center gap-2.5">
-              <div className="w-20 h-20 rounded-full bg-[#3390ec] flex items-center justify-center text-3xl font-bold select-none uppercase shadow-lg">
-                {activeRoom ? getRoomDisplayName(activeRoom).charAt(0) : '?'}
-              </div>
-              <h2 className="text-xl font-bold text-white mt-1">
-                {activeRoom ? getRoomDisplayName(activeRoom) : 'Собеседник'}
-              </h2>
-              <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
-                {callSession.status === 'calling' && 'Исходящий вызов...'}
-                {callSession.status === 'incoming' && `Входящий ${callSession.type === 'video' ? 'видеовызов' : 'аудиовызов'}...`}
-                {callSession.status === 'active' && `Разговор (${callSession.type === 'video' ? 'Видео' : 'Аудио'})`}
-              </span>
-            </div>
-
-            {callSession.status === 'active' && callSession.type === 'video' && (
-              <div className="w-full aspect-video rounded-2xl overflow-hidden relative bg-black shadow-xl border border-white/10">
-                <video
-                  ref={remoteVideoRef as any}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-2 right-2 w-1/3 aspect-video rounded-xl overflow-hidden bg-black shadow-md border border-white/20">
-                  <video
-                    ref={localVideoRef as any}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover scale-x-[-1]"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Controls */}
-            <div className="flex items-center gap-4 mt-4">
-              {callSession.status === 'incoming' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={rejectCall}
-                    className="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg cursor-pointer"
-                  >
-                    <IconPhoneOff size={22} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={acceptCall}
-                    className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg cursor-pointer"
-                  >
-                    <IconPhone size={22} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  {callSession.status === 'active' && (
-                    <button
-                      type="button"
-                      onClick={toggleMute}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${
-                        isMuted ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-                      }`}
-                    >
-                      <IconMicrophone size={20} />
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={endCall}
-                    className="w-14 h-14 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg cursor-pointer"
-                  >
-                    <IconPhoneOff size={22} />
-                  </button>
-
-                  {callSession.status === 'active' && callSession.type === 'video' && (
-                    <button
-                      type="button"
-                      onClick={toggleCamera}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${
-                        isCameraOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-                      }`}
-                    >
-                      <IconVideo size={20} />
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 13. WebRTC call overlay (full-screen ↔ floating PiP, screen share) */}
+      <CallOverlay peerName={activeRoom ? getRoomDisplayName(activeRoom) : 'Собеседник'} />
 
       {/* 14. Video Circle Record Modal */}
       {isRecordingVideo && (
