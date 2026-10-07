@@ -62,11 +62,12 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
   SUPABASE_CONFIG.url,
   SUPABASE_CONFIG.anonKey,
   {
+    // Sessions are owned by our JWT backend (HttpOnly refresh cookie + in-memory
+    // access token). The browser client must never write tokens to localStorage.
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storageKey: 'comms-supabase-auth-token',
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
     },
     realtime: {
       params: {

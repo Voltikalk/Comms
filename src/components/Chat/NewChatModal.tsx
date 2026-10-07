@@ -10,9 +10,10 @@ import {
   IconArrowRight,
   IconLoader2,
   IconMessageCircle,
-  IconUserPlus
+  IconUserPlus,
+  IconLock
 } from '@tabler/icons-react';
-import { useSocket } from '../../context/SocketContext';
+import { useSocket } from '../../context/contexts';
 import type { UserSearchResult } from '../../types';
 
 export interface NewChatModalProps {
@@ -22,10 +23,10 @@ export interface NewChatModalProps {
 }
 
 export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onRoomOpened }) => {
-  const { currentUser, searchUsers, createDirectChat, createGroupChat } = useSocket();
+  const { currentUser, searchUsers, createDirectChat, createGroupChat, createSecretChat } = useSocket();
 
-  // Mode: 'direct' (find user to chat) | 'group' (select multiple users)
-  const [mode, setMode] = useState<'direct' | 'group'>('direct');
+  // Mode: 'direct' (find user to chat) | 'secret' (E2EE 1:1) | 'group' (select multiple users)
+  const [mode, setMode] = useState<'direct' | 'secret' | 'group'>('direct');
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,7 +87,8 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
     setIsCreating(true);
     setCreateError(null);
     try {
-      const room = await createDirectChat(user.username || user.userId);
+      const target = user.username || user.userId;
+      const room = mode === 'secret' ? await createSecretChat(target) : await createDirectChat(target);
       if (room) {
         if (onRoomOpened) onRoomOpened(room.id);
         onClose();
@@ -157,14 +159,18 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
           <div className="p-4 pb-3 border-b border-zinc-100 dark:border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-accent/10 text-accent flex items-center justify-center">
-                {mode === 'direct' ? <IconUserPlus size={18} /> : <IconUsers size={18} />}
+                {mode === 'direct' ? <IconUserPlus size={18} /> : mode === 'secret' ? <IconLock size={18} /> : <IconUsers size={18} />}
               </div>
               <div>
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
-                  {mode === 'direct' ? 'Новое сообщение' : 'Создание группы'}
+                  {mode === 'direct' ? 'Новое сообщение' : mode === 'secret' ? 'Секретный чат' : 'Создание группы'}
                 </h2>
                 <p className="text-[11px] text-zinc-400">
-                  {mode === 'direct' ? 'Найдите человека по нику или имени' : `Выбрано участников: ${selectedUserIds.length}`}
+                  {mode === 'direct'
+                    ? 'Найдите человека по нику или имени'
+                    : mode === 'secret'
+                      ? 'Сквозное шифрование · только на этом устройстве'
+                      : `Выбрано участников: ${selectedUserIds.length}`}
                 </p>
               </div>
             </div>
@@ -193,6 +199,18 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
             >
               <IconUser size={15} />
               <span>Личный диалог</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('secret')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                mode === 'secret'
+                  ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
+                  : 'bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-black/10 dark:hover:bg-white/10'
+              }`}
+            >
+              <IconLock size={15} />
+              <span>Секретный</span>
             </button>
             <button
               type="button"
@@ -290,7 +308,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
                   <div
                     key={uId}
                     onClick={() => {
-                      if (mode === 'direct') {
+                      if (mode !== 'group') {
                         handleSelectDirectUser(user);
                       } else {
                         toggleUserInGroup(user);
@@ -339,7 +357,11 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onR
 
                     {/* Action Indicator */}
                     <div className="shrink-0 ml-2">
-                      {mode === 'direct' ? (
+                      {mode === 'secret' ? (
+                        <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-colors">
+                          <IconLock size={16} />
+                        </div>
+                      ) : mode === 'direct' ? (
                         <div className="w-8 h-8 rounded-full bg-accent/10 text-accent flex items-center justify-center hover:bg-accent hover:text-white transition-colors">
                           <IconMessageCircle size={16} />
                         </div>

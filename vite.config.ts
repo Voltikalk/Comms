@@ -24,6 +24,14 @@ export default defineConfig({
     react(), 
     tailwindcss()
   ],
+  resolve: {
+    alias: [
+      // The full lottie player evaluates After Effects expressions with `eval`,
+      // which our CSP (no 'unsafe-eval') forbids. TGS stickers render with the
+      // SVG-only light build, which has no expression engine.
+      { find: /^lottie-web$/, replacement: 'lottie-web/build/player/lottie_light.js' },
+    ],
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

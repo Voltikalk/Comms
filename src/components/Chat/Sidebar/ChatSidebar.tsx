@@ -5,12 +5,14 @@ import type { MobileTab } from '../../Mobile/MobileBottomNav';
 import { StoriesBar } from '../../Stories/StoriesBar';
 import { ChatFolderTabs } from '../../Navigation/ChatFolderTabs';
 import { MobileBottomNav } from '../../Mobile/MobileBottomNav';
+import { SecuritySettingsModal } from '../../Settings/SecuritySettingsModal';
 import {
   IconMenu2,
   IconSearch,
   IconUser,
   IconDeviceMobile,
   IconPalette,
+  IconShieldLock,
   IconDownload,
   IconKeyboard,
   IconTrash,
@@ -122,8 +124,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   startResizingSidebar,
   totalUnreadCount,
 }) => {
+  const [showSecurityModal, setShowSecurityModal] = React.useState(false);
   return (
     <>
+      {showSecurityModal && <SecuritySettingsModal onClose={() => setShowSecurityModal(false)} />}
       <aside
         style={{
           '--sidebar-width': `${sidebarWidth}px`,
@@ -271,6 +275,20 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     <span className="flex items-center gap-2.5">
                       <IconPalette size={18} className="text-accent" />
                       <span>Оформление и обои</span>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSecurityModal(true);
+                      setShowMenuDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <IconShieldLock size={18} className="text-[#3390ec]" />
+                      <span>Конфиденциальность</span>
                     </span>
                   </button>
 

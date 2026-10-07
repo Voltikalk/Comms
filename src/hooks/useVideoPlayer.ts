@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useVideoPlayerContext } from '../components/VideoPlayer/VideoPlayerContext';
+import { useVideoPlayerContext } from '../components/VideoPlayer/video-player-context';
 
 /**
  * Format raw seconds into mm:ss or hh:mm:ss string

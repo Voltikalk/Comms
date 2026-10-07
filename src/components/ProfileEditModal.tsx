@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useSocket } from '../context/SocketContext';
+import { useSocket } from '../context/contexts';
 import { 
   IconX, 
   IconCheck, 

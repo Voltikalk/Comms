@@ -1,21 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSocket } from '../context/SocketContext';
-import { 
-  Eye, 
-  EyeOff, 
-  ArrowRight, 
-  Send, 
-  Sparkles, 
-  QrCode, 
-  KeyRound, 
-  RefreshCw,
-  ShieldCheck,
-  Smartphone,
-  CheckCircle2
-} from 'lucide-react';
+import { useAuth } from '../context/contexts';
+import { Eye, EyeOff, QrCode, KeyRound, RefreshCw, Send, Smartphone, CheckCircle2, ChevronDown, Loader2 } from 'lucide-react';
 import { TelegramRegistrationWizard } from './TelegramRegistrationWizard';
-import { Skiper26ThemeToggle } from './ui/skiper26';
+import { TwoFactorStep } from './Auth/TwoFactorStep';
+import { AuthLayout } from './Auth/AuthLayout';
+import { AuthField } from './Auth/AuthField';
 
 interface LoginScreenProps {
   darkMode: boolean;
@@ -23,17 +13,62 @@ interface LoginScreenProps {
 }
 
 const PRESET_ACCOUNTS = [
-  { id: 'vlad', name: 'Влад', email: 'vlad@telegram.org', pass: 'vladpass', color: 'from-accent to-accent-strong', status: '⚡ Всегда на связи' },
+  { id: 'vlad', name: 'Влад', email: 'vlad@telegram.org', pass: 'vladpass', color: 'from-[#3390EC] to-[#2B7ECC]', status: '⚡ Всегда на связи' },
   { id: 'anya', name: 'Аня', email: 'anya@telegram.org', pass: 'anyapass', color: 'from-[#FF5E62] to-[#FF9966]', status: '❤️ В сети' },
   { id: 'mom', name: 'Мама', email: 'mom@telegram.org', pass: 'mompass', color: 'from-[#F2994A] to-[#F2C94C]', status: '🌸 Дома' },
   { id: 'dad', name: 'Папа', email: 'dad@telegram.org', pass: 'dadpass', color: 'from-[#10B981] to-[#059669]', status: '🔧 На работе' },
   { id: 'sister', name: 'Сестра', email: 'sister@telegram.org', pass: 'sispass', color: 'from-[#8B5CF6] to-[#6D28D9]', status: '✨ Слушает музыку' }
 ];
 
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+const QR_STEPS = [
+  'Откройте Comms на телефоне',
+  'Перейдите в Настройки → Устройства',
+  'Нажмите «Подключить устройство» и наведите камеру',
+] as const;
+
+/** Decorative QR matrix with the brand badge and a scanning line. */
+const QrMatrix: React.FC<{ expired: boolean }> = ({ expired }) => (
+  <div className="relative w-[200px] h-[200px] rounded-[20px] bg-white p-3 ring-1 ring-black/[0.08] dark:ring-white/10 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.25)]">
+    <svg viewBox="0 0 100 100" className={`w-full h-full transition-[filter,opacity] duration-300 ${expired ? 'blur-[3px] opacity-40' : ''}`}>
+      {[
+        [5, 5],
+        [70, 5],
+        [5, 70],
+      ].map(([x, y]) => (
+        <g key={`${x}-${y}`}>
+          <rect x={x} y={y} width="25" height="25" fill="none" stroke="#17212b" strokeWidth="4" rx="6" />
+          <rect x={x + 7} y={y + 7} width="11" height="11" fill="#2481CC" rx="3" />
+        </g>
+      ))}
+      {[
+        [36, 8], [46, 8], [56, 14], [36, 20], [50, 24], [8, 38], [20, 42], [62, 38], [80, 42], [90, 36],
+        [38, 60], [62, 60], [74, 72], [86, 66], [40, 84], [54, 88], [66, 82], [84, 86], [12, 54], [26, 58],
+      ].map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width="6" height="6" rx="1.5" fill="#17212b" />
+      ))}
+    </svg>
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="w-12 h-12 rounded-full bg-[linear-gradient(135deg,#37AEE2,#1E96C8)] text-white flex items-center justify-center ring-4 ring-white">
+        <Send className="w-5 h-5 -translate-x-px translate-y-px" />
+      </div>
+    </div>
+    {!expired && (
+      <motion.div
+        aria-hidden
+        animate={{ top: ['8%', '92%', '8%'] }}
+        transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute left-4 right-4 h-0.5 rounded-full bg-gradient-to-r from-transparent via-[#3390EC] to-transparent shadow-[0_0_10px_#3390EC]"
+      />
+    )}
+  </div>
+);
+
 export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMode }) => {
   const [authMethod, setAuthMethod] = useState<'password' | 'qr'>('password');
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
-  
+
   // Login Form States
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -46,14 +81,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
   const [qrCodeTimer, setQrCodeTimer] = useState<number>(60);
   const [isQrRefreshed, setIsQrRefreshed] = useState<boolean>(false);
 
-  // 3D Tilt effect on Mascot
-  const [mouseTilt, setMouseTilt] = useState<{ rx: number; ry: number }>({ rx: 0, ry: 0 });
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { login, error: serverError } = useSocket();
+  const { login, error: serverError, twoFactor } = useAuth();
 
   // QR Code Countdown
   useEffect(() => {
@@ -75,22 +106,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
     }
   }, [serverError]);
 
-  // Mouse Parallax for Mascot Tilt
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width / 2;
-    const y = e.clientY - rect.top - rect.height / 2;
-    setMouseTilt({
-      rx: -(y / 28),
-      ry: x / 28,
-    });
-  };
-
-  const handleMouseLeave = () => {
-    setMouseTilt({ rx: 0, ry: 0 });
-  };
-
   // Handle Sign In Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,10 +123,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
 
     setIsLoading(true);
     try {
-      const success = await login(loginIdentifier.trim(), loginPassword);
-      if (!success && !serverError) {
-        setError('Неверный логин или пароль');
-      }
+      // Failures surface through the auth context error; `false` without an
+      // error means the cloud-password (2FA) step is now shown.
+      await login(loginIdentifier.trim(), loginPassword);
     } catch (err: any) {
       setError(err?.message || 'Ошибка входа');
     } finally {
@@ -161,372 +175,280 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ darkMode, toggleDarkMo
     );
   }
 
+  const canSubmit = !!loginIdentifier.trim() && !isLoading;
+
   return (
-    <div 
-      ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className="min-h-full h-full overflow-y-auto w-full flex flex-col items-center justify-center p-4 sm:p-6 pt-[max(1.5rem,env(safe-area-inset-top,1.5rem))] pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] auth-canvas text-zinc-900 dark:text-white transition-colors duration-300 relative select-none overflow-x-hidden font-body"
-    >
-      {/* Refined Monochromatic Ambient Glow Orbs */}
-      <div className="auth-glow-top pointer-events-none" />
-      <div className="auth-glow-bottom pointer-events-none" />
-
-      {/* Top Bar: Skiper 26 Theme Toggle */}
-      <div className="fixed top-[max(1rem,env(safe-area-inset-top,1rem))] right-4 z-40 pointer-events-auto">
-        {toggleDarkMode && (
-          <Skiper26ThemeToggle 
-            darkMode={darkMode} 
-            toggleDarkMode={toggleDarkMode}
-            variant="circle"
-            start="top-right"
-          />
-        )}
-      </div>
-
-      {/* Main Centered Container with Double-Bezel (Doppelrand) Architecture */}
-      <motion.div 
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-[420px] relative z-10"
+    <AuthLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: EASE }}
+        className="w-full flex flex-col items-center text-center"
       >
-        <div className="tg-double-bezel-shell">
-          <div className="tg-double-bezel-core p-6 sm:p-8 flex flex-col items-center text-center relative overflow-hidden">
-            
-            {/* Top specular subtle rim line */}
-            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-white/30 dark:via-white/20 to-transparent pointer-events-none" />
+        <h1 className="text-[26px] sm:text-[28px] font-heading font-bold tracking-tight">
+          {twoFactor ? 'Облачный пароль' : authMethod === 'qr' ? 'Вход по QR-коду' : 'Вход в аккаунт'}
+        </h1>
+        <p className="mt-1.5 text-[14.5px] text-slate-500 dark:text-slate-400 max-w-[320px] leading-snug">
+          {twoFactor
+            ? 'Для аккаунта включена двухэтапная аутентификация. Введите дополнительный пароль.'
+            : authMethod === 'qr'
+              ? 'Отсканируйте код телефоном, на котором вы уже вошли'
+              : 'Введите логин или email и пароль от Comms'}
+        </p>
 
-            {/* Logo with subtle pointer tilt */}
+        {/* Segmented switcher */}
+        {!twoFactor && (
+          <div role="tablist" aria-label="Способ входа" className="mt-7 mb-6 w-full grid grid-cols-2 p-1 rounded-full bg-slate-100 dark:bg-[#0E1621]">
+            {(
+              [
+                { id: 'password', label: 'Пароль', icon: KeyRound },
+                { id: 'qr', label: 'QR-код', icon: QrCode },
+              ] as const
+            ).map(({ id, label, icon: Icon }) => {
+              const active = authMethod === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setAuthMethod(id)}
+                  className={`relative h-9 rounded-full text-[13.5px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                    active ? 'text-[#2481CC] dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="authSegmentActive"
+                      className="absolute inset-0 rounded-full bg-white dark:bg-[#2B5278] shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    />
+                  )}
+                  <Icon className="relative w-4 h-4" />
+                  <span className="relative">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <AnimatePresence mode="wait" initial={false}>
+          {authMethod === 'password' ? (
             <motion.div
-              animate={{
-                rotateX: mouseTilt.rx,
-                rotateY: mouseTilt.ry,
-              }}
-              transition={{ type: 'spring', stiffness: 350, damping: 22 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-16 h-16 rounded-[20px] bg-accent text-white flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_20px_-10px_rgba(0,0,0,0.5)] mb-5 cursor-pointer select-none"
+              key="method-password"
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="w-full"
             >
-              <Send className="w-7 h-7 text-white -translate-x-0.5 translate-y-0.5" />
-            </motion.div>
-
-            <h1 className="text-2xl sm:text-[26px] font-bold font-heading text-zinc-900 dark:text-white mb-1.5 tracking-tight">
-              Вход в Comms
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mb-6">
-              Войдите, чтобы продолжить
-            </p>
-
-            {/* Segmented Switcher: Вход по паролю vs По QR-коду */}
-            <div className="flex p-1 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] w-full mb-6 relative ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
-              <button
-                type="button"
-                onClick={() => setAuthMethod('password')}
-                className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 relative z-10 ${
-                  authMethod === 'password'
-                    ? 'text-accent dark:text-white'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                {authMethod === 'password' && (
-                  <motion.div
-                    layoutId="authSegmentActive"
-                    className="absolute inset-0 rounded-xl bg-white dark:bg-elevated shadow-xs shadow-black/10 dark:shadow-black/40 ring-1 ring-black/[0.04] dark:ring-white/[0.1] -z-10"
-                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                  />
-                )}
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>По паролю</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAuthMethod('qr')}
-                className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 relative z-10 ${
-                  authMethod === 'qr'
-                    ? 'text-accent dark:text-white'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                {authMethod === 'qr' && (
-                  <motion.div
-                    layoutId="authSegmentActive"
-                    className="absolute inset-0 rounded-xl bg-white dark:bg-elevated shadow-xs shadow-black/10 dark:shadow-black/40 ring-1 ring-black/[0.04] dark:ring-white/[0.1] -z-10"
-                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                  />
-                )}
-                <QrCode className="w-3.5 h-3.5" />
-                <span>По QR-коду</span>
-              </button>
-            </div>
-
-            {/* ================================================================= */}
-            {/* MODE 1: PASSWORD LOGIN                                            */}
-            {/* ================================================================= */}
-            {authMethod === 'password' && (
-              <motion.div
-                key="method-password"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full"
-              >
-                {/* Login Form */}
-                <form onSubmit={handleLoginSubmit} className="w-full space-y-3.5">
-                  <div className="w-full text-left">
-                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 pl-1">
-                      Логин или Email
-                    </label>
-                    <input
+              {twoFactor ? (
+                <div className="mt-6">
+                  <TwoFactorStep />
+                </div>
+              ) : (
+                <>
+                  <form onSubmit={handleLoginSubmit} noValidate className="w-full flex flex-col gap-4">
+                    <AuthField
+                      label="Логин или email"
                       type="text"
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      spellCheck={false}
                       value={loginIdentifier}
                       onChange={(e) => {
                         setLoginIdentifier(e.target.value);
                         setSelectedAccountId(null);
                         setError(null);
                       }}
-                      placeholder="vlad или vlad@telegram.org"
                       disabled={isLoading}
-                      className="w-full px-4 py-3 rounded-2xl text-[14px] bg-zinc-100/80 dark:bg-canvas/90 border border-zinc-200/80 dark:border-white/[0.08] focus:border-accent focus:ring-4 focus:ring-accent/15 outline-hidden transition-all text-zinc-900 dark:text-white placeholder:text-zinc-400 shadow-inner"
                     />
-                  </div>
 
-                  <div className="w-full text-left relative">
-                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 pl-1">
-                      Пароль
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showLoginPassword ? 'text' : 'password'}
-                        value={loginPassword}
-                        onChange={(e) => {
-                          setLoginPassword(e.target.value);
-                          setError(null);
-                        }}
-                        onKeyUp={handlePasswordKeyUp}
-                        placeholder="••••••••"
-                        disabled={isLoading}
-                        className="w-full pl-4 pr-11 py-3 rounded-2xl text-[14px] bg-zinc-100/80 dark:bg-canvas/90 border border-zinc-200/80 dark:border-white/[0.08] focus:border-accent focus:ring-4 focus:ring-accent/15 outline-hidden transition-all text-zinc-900 dark:text-white placeholder:text-zinc-400 shadow-inner"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 cursor-pointer transition-colors"
-                      >
-                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
+                    <AuthField
+                      label="Пароль"
+                      type={showLoginPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      value={loginPassword}
+                      onChange={(e) => {
+                        setLoginPassword(e.target.value);
+                        setError(null);
+                      }}
+                      onKeyUp={handlePasswordKeyUp}
+                      disabled={isLoading}
+                      error={error}
+                      trailing={
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          aria-label={showLoginPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+                        >
+                          {showLoginPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+                        </button>
+                      }
+                    />
 
-                  {/* Caps Lock Indicator Warning */}
-                  {isCapsLockOn && (
-                    <div className="text-[11px] text-amber-500 text-left px-1.5 font-medium flex items-center gap-1.5 bg-amber-500/10 py-1 px-2 rounded-lg">
-                      <span>⚠️ Caps Lock включен</span>
-                    </div>
-                  )}
+                    <AnimatePresence>
+                      {isCapsLockOn && (
+                        <motion.p
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="-mt-2 px-1 text-left text-[12.5px] font-medium text-amber-600 dark:text-amber-400"
+                        >
+                          Включён Caps Lock
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
 
-                  {error && (
-                    <p className="text-xs text-rose-500 text-left px-1 font-medium bg-rose-500/10 py-1.5 px-3 rounded-xl">
-                      {error}
-                    </p>
-                  )}
-
-                  {/* Island Button with Button-in-Button Architecture */}
-                  <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={isLoading || !loginIdentifier.trim()}
-                      className={`w-full group tg-island-btn tg-island-btn-primary py-3.5 px-6 rounded-full text-sm font-semibold transition-all ${
-                        loginIdentifier.trim()
-                          ? 'opacity-100 cursor-pointer'
-                          : 'opacity-50 cursor-not-allowed shadow-none'
-                      }`}
+                      disabled={!canSubmit}
+                      className="mt-1 w-full h-[52px] rounded-xl bg-[#3390EC] hover:bg-[#2B83DB] active:bg-[#2475C6] text-white text-[15px] font-semibold tracking-wide uppercase flex items-center justify-center gap-2 transition-[background-color,opacity,transform] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer shadow-[0_6px_16px_-6px_rgba(51,144,236,0.6)]"
                     >
-                      <span>{isLoading ? 'Выполняется вход...' : 'Войти в Comms'}</span>
-                      <div className="tg-btn-inner-icon">
-                        <ArrowRight className="w-4 h-4 text-white" />
-                      </div>
+                      {isLoading && <Loader2 className="w-[18px] h-[18px] animate-spin" />}
+                      <span>{isLoading ? 'Вход…' : 'Далее'}</span>
                     </button>
-                  </div>
+                  </form>
 
-                  {/* Clean Register Prompt */}
-                  <div className="pt-1">
+                  <p className="mt-6 text-[14px] text-slate-500 dark:text-slate-400">
+                    Нет аккаунта?{' '}
                     <button
                       type="button"
                       onClick={() => setIsRegisterMode(true)}
-                      className="w-full py-2.5 px-4 rounded-full text-xs font-semibold text-accent dark:text-accent-soft hover:bg-accent/10 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      className="font-semibold text-[#3390EC] hover:underline underline-offset-2 cursor-pointer"
                     >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Создать новый аккаунт</span>
+                      Создать
                     </button>
+                  </p>
+
+                  {/* Dev presets */}
+                  <div className="mt-6 pt-4 border-t border-slate-200/80 dark:border-white/[0.07]">
+                    <button
+                      type="button"
+                      onClick={() => setShowDevPresets(!showDevPresets)}
+                      aria-expanded={showDevPresets}
+                      className="mx-auto flex items-center gap-1 py-1 px-3 rounded-full text-[12.5px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors"
+                    >
+                      <span>Тестовые профили</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDevPresets ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {showDevPresets && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pt-3 flex justify-center gap-3">
+                            {PRESET_ACCOUNTS.map((acc) => (
+                              <button
+                                key={acc.id}
+                                type="button"
+                                onClick={() => handleSelectPreset(acc)}
+                                disabled={isLoading}
+                                title={`${acc.name} — ${acc.status}`}
+                                className="group w-14 flex flex-col items-center gap-1 cursor-pointer disabled:cursor-wait"
+                              >
+                                <span
+                                  className={`w-11 h-11 rounded-full bg-gradient-to-tr ${acc.color} text-white flex items-center justify-center text-[15px] font-semibold transition-[transform,box-shadow] group-hover:scale-105 ${
+                                    selectedAccountId === acc.id
+                                      ? 'ring-2 ring-[#3390EC] ring-offset-2 ring-offset-white dark:ring-offset-[#17212B]'
+                                      : ''
+                                  }`}
+                                >
+                                  {acc.name.charAt(0)}
+                                </span>
+                                <span className="w-full truncate text-[11.5px] text-slate-600 dark:text-slate-300">{acc.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                </form>
-
-                {/* Collapsible Dev Mode Presets */}
-                <div className="w-full mt-5 pt-3.5 border-t border-zinc-200/60 dark:border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setShowDevPresets(!showDevPresets)}
-                    className="mx-auto text-[11px] text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1.5 cursor-pointer py-1 px-3 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                  >
-                    <span>Тестовые профили для демо</span>
-                    <span className="text-[9px]">{showDevPresets ? '▲' : '▼'}</span>
-                  </button>
-
-                  <AnimatePresence>
-                    {showDevPresets && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="mt-3 overflow-hidden"
-                      >
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {PRESET_ACCOUNTS.map((acc) => (
-                            <button
-                              key={acc.id}
-                              type="button"
-                              onClick={() => handleSelectPreset(acc)}
-                              disabled={isLoading}
-                              title={`${acc.name} — ${acc.status}`}
-                              className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all cursor-pointer ${
-                                selectedAccountId === acc.id
-                                  ? 'bg-accent/15 border-accent'
-                                  : 'bg-black/[0.02] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] hover:border-accent/50 hover:bg-accent/5'
-                              }`}
-                            >
-                              <div className={`w-7 h-7 rounded-full bg-gradient-to-tr ${acc.color} text-white flex items-center justify-center text-[11px] font-bold mb-1 shadow-xs`}>
-                                {acc.name.charAt(0)}
-                              </div>
-                              <span className="text-[10px] font-medium text-zinc-700 dark:text-zinc-300 truncate w-full text-center">
-                                {acc.name}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ================================================================= */}
-            {/* MODE 2: TELEGRAM QR CODE LOGIN                                    */}
-            {/* ================================================================= */}
-            {authMethod === 'qr' && (
-              <motion.div
-                key="method-qr"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full flex flex-col items-center"
-              >
-                {/* Precision QR Matrix Shell */}
-                <div className="relative p-4 rounded-3xl bg-white dark:bg-canvas border border-black/[0.08] dark:border-white/[0.08] shadow-lg mb-4">
-                  <div className="w-48 h-48 relative flex items-center justify-center bg-white rounded-2xl p-2.5">
-                    {/* Stylized QR Code Matrix */}
-                    <svg viewBox="0 0 100 100" className="w-full h-full text-zinc-900">
-                      {/* Outer corner anchors */}
-                      <rect x="5" y="5" width="25" height="25" fill="none" stroke="#17212b" strokeWidth="4" rx="4" />
-                      <rect x="11" y="11" width="13" height="13" fill="#3390ec" rx="2" />
-                      <rect x="70" y="5" width="25" height="25" fill="none" stroke="#17212b" strokeWidth="4" rx="4" />
-                      <rect x="76" y="11" width="13" height="13" fill="#3390ec" rx="2" />
-                      <rect x="5" y="70" width="25" height="25" fill="none" stroke="#17212b" strokeWidth="4" rx="4" />
-                      <rect x="11" y="76" width="13" height="13" fill="#3390ec" rx="2" />
-                      
-                      {/* Decorative QR points */}
-                      <rect x="35" y="10" width="6" height="6" fill="#17212b" />
-                      <rect x="45" y="10" width="6" height="6" fill="#17212b" />
-                      <rect x="55" y="10" width="6" height="6" fill="#17212b" />
-                      <rect x="35" y="22" width="6" height="6" fill="#17212b" />
-                      <rect x="50" y="25" width="6" height="6" fill="#17212b" />
-                      
-                      <rect x="10" y="38" width="6" height="6" fill="#17212b" />
-                      <rect x="22" y="42" width="6" height="6" fill="#17212b" />
-                      <rect x="35" y="40" width="8" height="8" fill="#3390ec" />
-                      <rect x="65" y="38" width="6" height="6" fill="#17212b" />
-                      <rect x="80" y="42" width="6" height="6" fill="#17212b" />
-
-                      <rect x="38" y="60" width="6" height="6" fill="#17212b" />
-                      <rect x="48" y="65" width="8" height="8" fill="#17212b" />
-                      <rect x="62" y="60" width="6" height="6" fill="#17212b" />
-                      <rect x="75" y="72" width="6" height="6" fill="#17212b" />
-                      <rect x="85" y="80" width="8" height="8" fill="#3390ec" />
-                    </svg>
-
-                    {/* Center Telegram Logo Badge */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-11 h-11 rounded-full bg-accent text-white flex items-center justify-center shadow-md border-2 border-white">
-                        <Send className="w-5 h-5 -translate-x-0.5 translate-y-0.5 text-white" />
-                      </div>
-                    </div>
-
-                    {/* Laser Scanning Line */}
-                    <motion.div
-                      animate={{
-                        y: [-80, 80, -80],
-                        opacity: [0.3, 0.9, 0.3],
-                      }}
-                      transition={{
-                        duration: 3,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
-                      className="absolute w-44 h-0.5 bg-gradient-to-r from-transparent via-accent to-transparent shadow-[0_0_8px_#3390ec]"
-                    />
-                  </div>
-                </div>
-
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mb-4 leading-relaxed">
-                  Откройте Telegram на смартфоне: <br />
-                  <strong className="text-zinc-700 dark:text-zinc-300 font-semibold">Настройки → Устройства → Подключить</strong>
-                </p>
-
-                <div className="flex items-center gap-2">
+                </>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="method-qr"
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="w-full flex flex-col items-center"
+            >
+              <div className="relative">
+                <QrMatrix expired={qrCodeTimer === 0} />
+                {qrCodeTimer === 0 && (
                   <button
                     type="button"
                     onClick={handleRefreshQr}
-                    className="px-4 py-2 rounded-full bg-accent/10 hover:bg-accent/20 text-accent text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+                    className="absolute inset-0 m-auto w-fit h-fit px-4 py-2 rounded-full bg-[#3390EC] text-white text-[13px] font-semibold flex items-center gap-1.5 shadow-lg cursor-pointer active:scale-95"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span className="tg-tabular">Обновить QR ({qrCodeTimer}с)</span>
+                    <RefreshCw className="w-4 h-4" />
+                    Обновить код
                   </button>
-                  {isQrRefreshed && (
-                    <span className="text-xs text-emerald-500 font-medium flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Обновлен</span>
-                    </span>
-                  )}
-                </div>
+                )}
+              </div>
 
-                {/* Quick Demo QR Simulator Button */}
-                <div className="mt-4">
+              <ol className="mt-6 w-full flex flex-col gap-3 text-left">
+                {QR_STEPS.map((step, i) => (
+                  <li key={step} className="flex items-center gap-3 text-[14px] text-slate-700 dark:text-slate-300">
+                    <span className="w-6 h-6 shrink-0 rounded-full bg-[#3390EC] text-white text-[12.5px] font-semibold flex items-center justify-center">
+                      {i + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="mt-5 flex items-center gap-3 text-[13px]">
+                {qrCodeTimer > 0 && (
                   <button
                     type="button"
-                    onClick={() => handleSelectPreset(PRESET_ACCOUNTS[0])}
-                    className="text-xs font-medium text-accent hover:underline cursor-pointer flex items-center gap-1.5"
+                    onClick={handleRefreshQr}
+                    className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-[#3390EC] cursor-pointer transition-colors"
                   >
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>Эмулировать сканирование (Влад)</span>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span className="tg-tabular">Код обновится через {qrCodeTimer} с</span>
                   </button>
-                </div>
-              </motion.div>
-            )}
+                )}
+                {isQrRefreshed && (
+                  <span className="flex items-center gap-1 font-medium text-emerald-500">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Обновлён
+                  </span>
+                )}
+              </div>
 
-            {/* Security Footer Note */}
-            <div className="mt-6 pt-4 border-t border-black/[0.04] dark:border-white/[0.05] w-full flex items-center justify-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-              <ShieldCheck className="w-3.5 h-3.5 text-accent" />
-              <span>Comms Web End-to-End Encryption</span>
-            </div>
-
-          </div>
-        </div>
+              <div className="mt-6 w-full flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => setAuthMethod('password')}
+                  className="w-full h-11 rounded-xl text-[14px] font-semibold uppercase tracking-wide text-[#3390EC] hover:bg-[#3390EC]/10 cursor-pointer transition-colors"
+                >
+                  Войти по паролю
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset(PRESET_ACCOUNTS[0])}
+                  disabled={isLoading}
+                  className="mx-auto flex items-center gap-1.5 py-1 text-[12.5px] text-slate-400 dark:text-slate-500 hover:text-[#3390EC] cursor-pointer transition-colors"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  Эмулировать сканирование (демо)
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
-
-    </div>
+    </AuthLayout>
   );
 };
 

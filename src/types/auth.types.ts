@@ -41,6 +41,8 @@ export interface UserSanitized {
   phoneNumber?: string;
   avatarUrl?: string;
   statusEmoji?: string;
+  /** Two-step verification (cloud password) is enabled. */
+  hasCloudPassword?: boolean;
 }
 
 /**
@@ -70,11 +72,11 @@ export interface LoginAttempt {
 }
 
 /**
- * Access & Refresh token pair response with expiration metadata
+ * Access token returned to the browser. The refresh token is never exposed to
+ * JavaScript: it travels only in the `HttpOnly` `comms_rt` cookie.
  */
 export interface AuthToken {
   accessToken: string;
-  refreshToken: string;
   expiresIn: number; // in seconds (e.g. 900 for 15 minutes)
   tokenType: 'Bearer';
 }
@@ -87,7 +89,7 @@ export interface JwtPayload {
   email: string;
   username: string;
   sessionId: string;
-  type: 'access' | 'refresh';
+  type: 'access' | 'refresh' | '2fa';
   iat?: number;
   exp?: number;
 }
@@ -117,22 +119,22 @@ export interface LoginRequest {
 }
 
 /**
- * Refresh Token request payload
- */
-export interface RefreshTokenRequest {
-  refreshToken: string;
-}
-
-/**
  * Standard Auth Response returned on successful login or registration
  */
 export interface AuthResponse {
   user: UserSanitized;
   tokens: AuthToken;
-  session: {
-    sessionId: string;
-    expiresAt: Date;
-  };
+}
+
+/** Result of `POST /api/auth/login`: a session, or a cloud password challenge. */
+export type LoginResult =
+  | { kind: 'session'; session: AuthResponse }
+  | { kind: '2fa'; challenge: string; hint: string };
+
+/** `GET /api/auth/2fa` */
+export interface TwoFactorStatus {
+  enabled: boolean;
+  hint?: string;
 }
 
 /**

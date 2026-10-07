@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { Message, UserId, Room } from '../../../types';
 import { MessageBubble } from '../../MessageBubble';
+import type { PinnedMessagesState } from '../../../hooks/usePinnedMessages';
+import { buildFeedEntries } from '../../../lib/message-grouping';
+import { PinnedBar } from './PinnedBar';
+import { AlbumBubble } from './AlbumBubble';
 import {
-  IconX,
   IconPaperclip,
   IconArrowDown
 } from '@tabler/icons-react';
@@ -16,9 +19,8 @@ export interface ChatMessageFeedProps {
   handleScroll: (e: React.UIEvent<HTMLElement>) => void;
   slicedMessages: Message[];
   messageMap: Map<string, Message>;
-  currentPinnedMessage: Message | null;
+  pinned: PinnedMessagesState;
   onJumpToMessage: (id: string) => void;
-  onTogglePinMessage: (id: string) => void;
   getCleanMessageText: (msg: Message) => string;
   formatDateHeader: (timestamp: number) => string;
   isChatDragging: boolean;
@@ -40,6 +42,9 @@ export interface ChatMessageFeedProps {
   onContextMenu: (e: React.MouseEvent | { clientX: number; clientY: number; preventDefault?: () => void }, msg: Message) => void;
 }
 
+const formatPinTime = (ts: number) =>
+  new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
 export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
   activeRoomId,
   activeRoom,
@@ -49,9 +54,8 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
   handleScroll,
   slicedMessages,
   messageMap,
-  currentPinnedMessage,
+  pinned,
   onJumpToMessage,
-  onTogglePinMessage,
   getCleanMessageText,
   formatDateHeader,
   isChatDragging,
@@ -70,6 +74,13 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
   onOpenGalleryMedia,
   onContextMenu,
 }) => {
+  const entries = useMemo(
+    () => buildFeedEntries(slicedMessages, { isGroupChat: activeRoom?.type === 'group' }),
+    [slicedMessages, activeRoom?.type],
+  );
+  const openContextMenu = (msg: Message, pos: { x: number; y: number }) =>
+    onContextMenu({ clientX: pos.x, clientY: pos.y, preventDefault: () => {} }, msg);
+
   return (
     <>
       {/* Offline Connection Banner */}
@@ -82,35 +93,13 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
         </div>
       )}
 
-      {/* Pinned Message Banner */}
-      {currentPinnedMessage && (
-        <div
-          onClick={() => {
-            onJumpToMessage(currentPinnedMessage.id);
-          }}
-          className="px-4 py-1.5 bg-white/95 dark:bg-surface/95 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors z-20 backdrop-blur-md animate-pop-in select-none shadow-xs w-full min-w-0"
-        >
-          <div className="flex items-center gap-2.5 min-w-0 border-l-[3px] border-accent pl-2.5">
-            <div className="min-w-0">
-              <span className="text-[11.5px] font-bold text-accent block">Закреплённое сообщение</span>
-              <span className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate block">
-                {getCleanMessageText(currentPinnedMessage)}
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onTogglePinMessage(currentPinnedMessage.id);
-            }}
-            className="p-1 rounded-full text-zinc-400 hover:text-rose-500 cursor-pointer shrink-0"
-            title="Открепить"
-          >
-            <IconX size={16} />
-          </button>
-        </div>
-      )}
+      {/* Multi-pin bar + slide-out list */}
+      <PinnedBar
+        pinned={pinned}
+        onJumpToMessage={onJumpToMessage}
+        getCleanMessageText={getCleanMessageText}
+        formatTime={formatPinTime}
+      />
 
       {/* Message Feed Scroll Area */}
       <section
@@ -122,68 +111,61 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
           {/* Top flexible spacer to anchor short chat history cleanly at bottom without jumping */}
           <div className="flex-1 min-h-0" />
 
-          {slicedMessages.map((message, index) => {
+          {entries.map((entry) => {
+            const { message } = entry;
             const isSelf = message.sender === currentUser;
             const senderName = isSelf ? 'Вы' : message.sender;
-            const parentMessage = message.replyToId ? messageMap.get(message.replyToId) || null : null;
-
-            const prevMessage = index > 0 ? slicedMessages[index - 1] : null;
-            const nextMessage = index < slicedMessages.length - 1 ? slicedMessages[index + 1] : null;
-            const showDateSeparator = !prevMessage ||
-              new Date(prevMessage.timestamp).toDateString() !== new Date(message.timestamp).toDateString();
-
-            // Telegram grouping logic: same sender within 5 mins, no reply
-            const canGroupWith = (a: Message | null, b: Message | null) =>
-              Boolean(a && b && a.sender === b.sender &&
-                !b.replyToId &&
-                (b.timestamp - a.timestamp) < 5 * 60 * 1000 &&
-                new Date(a.timestamp).toDateString() === new Date(b.timestamp).toDateString());
-
-            const groupedAbove = canGroupWith(prevMessage, message);
-            const groupedBelow = canGroupWith(message, nextMessage);
-
-            const isSameSender = prevMessage && prevMessage.sender === message.sender && !showDateSeparator;
-            const showSenderLabel = activeRoom?.type === 'group' && !isSameSender;
 
             return (
-              <React.Fragment key={message.id}>
-                {showDateSeparator && (
+              <React.Fragment key={entry.key}>
+                {entry.showDateSeparator && (
                   <div className="flex justify-center my-2.5 select-none">
-                    <span className="px-3 py-1 bg-black/30 dark:bg-black/40 text-white text-[11.5px] font-medium rounded-full backdrop-blur-md shadow-xs border border-white/10">
-                      {formatDateHeader(message.timestamp)}
-                    </span>
+                    <span className="tg-date-pill shadow-xs">{formatDateHeader(message.timestamp)}</span>
                   </div>
                 )}
 
-                <div 
-                  id={`msg-${message.id}`} 
-                  data-message-id={message.id} 
-                  className="transition-all duration-300"
-                >
-                  <MessageBubble
-                    message={message}
+                {entry.kind === 'album' ? (
+                  <AlbumBubble
+                    items={entry.items}
                     isSelf={isSelf}
                     senderName={senderName}
-                    parentMessage={parentMessage}
+                    showSenderLabel={entry.showSenderLabel}
+                    groupedAbove={entry.groupedAbove}
+                    groupedBelow={entry.groupedBelow}
                     currentUser={currentUser}
                     isSelectMode={isSelectMode}
-                    isSelected={selectedMessageIds.has(message.id)}
+                    selectedMessageIds={selectedMessageIds}
                     onToggleSelect={onToggleSelectMessage}
-                    onReply={onReplyMessage}
-                    deleteMessage={onDeleteMessageAnimated}
-                    editMessage={(_id, _text) => onEditMessage(message)}
-                    toggleReaction={onToggleReaction}
-                    onVotePoll={onVotePoll}
-                    onClosePoll={onClosePoll}
                     onOpenGallery={onOpenGalleryMedia}
-                    onJumpToMessage={onJumpToMessage}
-                    groupedAbove={groupedAbove}
-                    groupedBelow={groupedBelow}
-                    showSenderLabel={showSenderLabel}
-                    roomParticipantCount={activeRoom?.participants?.length || 0}
-                    onOpenContextMenu={(msg, pos) => onContextMenu({ clientX: pos.x, clientY: pos.y, preventDefault: () => {} }, msg)}
+                    onOpenContextMenu={openContextMenu}
                   />
-                </div>
+                ) : (
+                  <div data-message-id={message.id} className="transition-all duration-300">
+                    <MessageBubble
+                      message={message}
+                      isSelf={isSelf}
+                      senderName={senderName}
+                      parentMessage={message.replyToId ? messageMap.get(message.replyToId) || null : null}
+                      currentUser={currentUser}
+                      isSelectMode={isSelectMode}
+                      isSelected={selectedMessageIds.has(message.id)}
+                      onToggleSelect={onToggleSelectMessage}
+                      onReply={onReplyMessage}
+                      deleteMessage={onDeleteMessageAnimated}
+                      editMessage={(_id, _text) => onEditMessage(message)}
+                      toggleReaction={onToggleReaction}
+                      onVotePoll={onVotePoll}
+                      onClosePoll={onClosePoll}
+                      onOpenGallery={onOpenGalleryMedia}
+                      onJumpToMessage={onJumpToMessage}
+                      groupedAbove={entry.groupedAbove}
+                      groupedBelow={entry.groupedBelow}
+                      showSenderLabel={entry.showSenderLabel}
+                      roomParticipantCount={activeRoom?.participants?.length || 0}
+                      onOpenContextMenu={openContextMenu}
+                    />
+                  </div>
+                )}
               </React.Fragment>
             );
           })}

@@ -2,6 +2,7 @@
 @import "./styles/animations.css";
 @import "./styles/responsive.css";
 @import "./styles/video-player.css";
+@import "./styles/telegram-tokens.css";
 
 @import "tailwindcss";
 
@@ -153,6 +154,7 @@ html, body {
   border-right: 1px solid var(--line);
 }
 
+/* Right User Info Panel */
 .tg-user-panel {
   background-color: var(--surface);
   border-left: 1px solid var(--line);
@@ -206,23 +208,24 @@ html, body {
    MESSAGE BUBBLES
    ========================================= */
 
+/* Radius geometry follows main's tail model (the tail corner is square, clusters get
+   inline radii from message-grouping.ts); fills come from the Graphite tokens. */
 .tg-bubble-self,
 .tg-bubble-peer {
-  border-radius: var(--radius-bubble);
   letter-spacing: -0.006em;
 }
 
 .tg-bubble-self {
   background-color: var(--bubble-self);
   color: var(--bubble-self-ink);
-  border-bottom-right-radius: 6px;
+  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) 0 var(--tg-bubble-radius);
   box-shadow: var(--shadow-sm);
 }
 
 .tg-bubble-peer {
   background-color: var(--bubble-peer);
   color: var(--bubble-peer-ink);
-  border-bottom-left-radius: 6px;
+  border-radius: var(--tg-bubble-radius) var(--tg-bubble-radius) var(--tg-bubble-radius) 0;
   box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--line);
 }
 

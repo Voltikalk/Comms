@@ -31,7 +31,7 @@ interface ThemeToggleProps {
 
 const STYLE_ID = 'skiper26-theme-transition-styles';
 
-export const createAnimation = (
+const createAnimation = (
   variant: AnimationVariant = 'circle',
   start: AnimationStart = 'top-right',
   blur = false,

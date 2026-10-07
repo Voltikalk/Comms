@@ -1,8 +1,6 @@
 import React from 'react';
-import {
-  VideoPlayerProvider,
-  useVideoPlayerContext,
-} from './VideoPlayerContext';
+import { VideoPlayerProvider } from './VideoPlayerContext';
+import { useVideoPlayerContext } from './video-player-context';
 import { useVideoPlayer } from '../../hooks/useVideoPlayer';
 import type { VideoPlayerProps } from '../../types/video-player.types';
 import { ControlBar } from './Controls/ControlBar';

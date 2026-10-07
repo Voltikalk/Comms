@@ -19,8 +19,10 @@ import {
   IconBell,
   IconBellOff,
   IconPalette,
-  IconUser
+  IconUser,
+  IconLock
 } from '@tabler/icons-react';
+import { SecretChatMenu } from './SecretChatMenu';
 
 export interface ChatHeaderProps {
   activeRoom: Room | null;
@@ -269,7 +271,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 className="min-w-0 flex-1 cursor-pointer select-none"
               >
                 <div className="flex items-center gap-1.5">
-                  <h2 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                  {activeRoom.secret && (
+                    <IconLock size={14} className="text-emerald-500 shrink-0" aria-label="Секретный чат" />
+                  )}
+                  <h2 className={`text-sm font-bold truncate ${activeRoom.secret ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}`}>
                     {activeRoomDisplayName}
                   </h2>
                   {isRoomMuted && (
@@ -288,11 +293,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                       <span>{activeRoomTypingUsers.join(', ')} печатает...</span>
                     </span>
                   ) : activeRoom.type === 'direct' ? (
-                    isPeerOnline ? (
-                      <span className="text-emerald-500 font-medium">в сети</span>
-                    ) : (
-                      <span>был(а) недавно</span>
-                    )
+                    <>
+                      {isPeerOnline ? (
+                        <span className="text-emerald-500 font-medium">в сети</span>
+                      ) : (
+                        <span>был(а) недавно</span>
+                      )}
+                      {activeRoom.secret && <span className="text-emerald-500/80">· секретный чат</span>}
+                    </>
                   ) : (
                     <span>{activeRoom.participants?.length || 0} участников</span>
                   )}
@@ -323,6 +331,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   </button>
                 </>
               )}
+
+              {activeRoom.secret && <SecretChatMenu roomId={activeRoom.id} />}
 
               <button
                 type="button"

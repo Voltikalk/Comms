@@ -15,7 +15,8 @@ import {
   IconDotsVertical,
   IconSearch
 } from '@tabler/icons-react';
-import { useStories } from '../../context/StoriesContext';
+import { useStories } from '../../context/stories-context';
+import { useAuth } from '../../context/contexts';
 import {
   STORY_GRADIENTS,
   STORY_FONT_FAMILIES,
@@ -60,7 +61,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     markStoryViewedLocal
   } = useStories();
 
-  const me = (typeof window !== 'undefined' ? localStorage.getItem('chat_user_v2') : null) || '';
+  const me: string = useAuth().currentUser ?? '';
 
   // Build the list of active user IDs
   const allUserIds = useMemo(() => [
