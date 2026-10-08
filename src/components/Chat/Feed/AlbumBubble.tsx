@@ -5,6 +5,8 @@ import type { Message, UserId } from '../../../types';
 import { bubbleRadiusCss, getAlbumLayout, getAlbumTileRadius, getBubbleCorners } from '../../../lib/message-grouping';
 import { MessageMeta, type MetaDeliveryStatus } from './MessageMeta';
 import { BubbleTail } from './BubbleTail';
+import { ReactionChips } from './ReactionChips';
+import { mergeReactions } from '../../../lib/reactions';
 
 const SPRING = { type: 'spring', stiffness: 400, damping: 28 } as const;
 /** Inner tile radius: bubble radius minus the 3px collage padding. */
@@ -23,6 +25,7 @@ export interface AlbumBubbleProps {
   onToggleSelect: (id: string) => void;
   onOpenGallery: (messageId: string) => void;
   onOpenContextMenu: (message: Message, pos: { x: number; y: number }) => void;
+  onToggleReaction: (messageId: string, reaction: string) => void;
 }
 
 const formatTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -51,10 +54,14 @@ export const AlbumBubble: React.FC<AlbumBubbleProps> = ({
   onToggleSelect,
   onOpenGallery,
   onOpenContextMenu,
+  onToggleReaction,
 }) => {
   const layout = useMemo(() => getAlbumLayout(items.length), [items.length]);
   const last = items[items.length - 1];
   const caption = albumCaption(items);
+  // The context menu reacts on the last item; chips show the union over the whole album.
+  const reactions = mergeReactions(items, currentUser, last.id);
+  const hasFooter = Boolean(caption) || reactions.length > 0;
   const corners = getBubbleCorners(isSelf, groupedAbove, groupedBelow);
   const radius = bubbleRadiusCss(corners);
   const allSelected = items.every((m) => selectedMessageIds.has(m.id));
@@ -124,8 +131,8 @@ export const AlbumBubble: React.FC<AlbumBubbleProps> = ({
             {items.map((m, i) => {
               const cell = layout.cells[i];
               const [tl, tr, br, bl] = getAlbumTileRadius(layout, i, TILE_RADIUS).split(' ');
-              // With a caption below the collage, the bottom row keeps tight corners.
-              const tileRadius = caption ? `${tl} ${tr} 2px 2px` : `${tl} ${tr} ${br} ${bl}`;
+              // With a caption or reactions below the collage, the bottom row keeps tight corners.
+              const tileRadius = hasFooter ? `${tl} ${tr} 2px 2px` : `${tl} ${tr} ${br} ${bl}`;
               return (
                 <button
                   type="button"
@@ -167,15 +174,32 @@ export const AlbumBubble: React.FC<AlbumBubbleProps> = ({
             })}
           </div>
 
-          {caption ? (
-            // w-0 + min-w-full: the caption wraps to the collage width instead of widening the bubble.
+          {/* w-0 + min-w-full: caption and reactions wrap to the collage width instead of widening the bubble. */}
+          {caption && (
             <div className="w-0 min-w-full px-2 pt-1.5 pb-1 text-[14px] leading-snug break-words whitespace-pre-wrap">
               {caption}
-              <span className="float-right ml-2 mt-1.5 inline-flex items-center gap-0.5 text-[11px] opacity-60">
+              {reactions.length === 0 && (
+                <span className="float-right ml-2 mt-1.5 inline-flex items-center gap-0.5 text-[11px] opacity-60">
+                  <MessageMeta message={last} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />
+                </span>
+              )}
+            </div>
+          )}
+          {reactions.length > 0 && (
+            <div className="w-0 min-w-full flex items-end gap-2 px-1.5 pt-1.5 pb-1">
+              <ReactionChips
+                entries={reactions}
+                currentUser={currentUser}
+                align="start"
+                onToggle={onToggleReaction}
+                className="min-w-0 flex-1"
+              />
+              <span className="shrink-0 inline-flex items-center gap-0.5 pb-0.5 text-[11px] opacity-60">
                 <MessageMeta message={last} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />
               </span>
             </div>
-          ) : (
+          )}
+          {!hasFooter && (
             <span className="absolute right-2 bottom-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/45 text-white text-[11px]">
               <MessageMeta message={last} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />
             </span>
