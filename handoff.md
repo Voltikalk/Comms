@@ -40,7 +40,7 @@ npm run dev
 
 ### 5. Тестирование, проверка качества и сборка
 ```bash
-# Запуск юнит-тестов Vitest (272/272 тестов)
+# Запуск юнит-тестов Vitest (316/316 тестов)
 npm test
 
 # Линтинг кодовой базы (Oxlint)
@@ -91,7 +91,14 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 60 — Telegram Fidelity, E2EE Secret Chats, Security Hardening & Modular Architecture [v3.30.1]):
+### 📌 Текущая стадия разработки (Status: Phase 62 — Telegram Groups & Channels, Composer Emoji/Sticker Panel & Multi-File Albums [v3.32.1]):
+* ✅ **Группы и каналы [v3.32.0]**: роли и права (`server/services/roles.js`, `src/lib/roles.ts`), экраны управления (`Chat/Manage/RoomManageSheet.tsx`, `JoinRoomModal.tsx`), поиск публичных групп и каналов, сервисные сообщения, ограниченное поле ввода для участников без права писать; миграция `007_groups_and_channels.sql`.
+* ✅ **Поле ввода [v3.32.0]**: новая панель эмодзи (поиск RU/EN, категории, «Часто используемые», вставка в позицию курсора, удаление графемами) и стикеров (поиск, лента наборов, «Недавние» / «Избранные»); отправка нескольких файлов разом — фото и видео уходят альбомами до 10 штук.
+* ✅ **Реакции на альбомах [v3.32.1]**: общая строка плашек под коллажем, реакции со всех элементов альбома сводятся вместе (`ReactionChips`, `mergeReactions`).
+* ✅ **Кружки, удаление и контекстное меню [v3.31.0]**: квадратная запись 480×480 с переключением камеры, плеер-кружок как в Telegram, диалог удаления «Также удалить для …», data-driven контекстное меню на токенах Graphite.
+* ✅ **Качество**: `npm test` — 316/316 (35 файлов), `npm run lint` — 0 ошибок, `npm run build` — OK.
+
+### 📌 Предыдущая стадия разработки (Status: Phase 60 — Telegram Fidelity, E2EE Secret Chats, Security Hardening & Modular Architecture [v3.30.1]):
 * ✅ **Экраны входа и регистрации [v3.30.1]**: общий каркас `AuthLayout` в стиле Telegram Desktop/Web — на десктопе брендовая панель с живым превью секретного чата и карточками возможностей, справа форма; на мобильных — компактный логотип и форма. Поля `AuthField` с плавающими метками как в Telegram Web K.
 * ✅ **Дизайн «как в Telegram»**: кластеризация сообщений с SVG-хвостиками `.tg-tail-self` / `.tg-tail-peer` только у последнего сообщения серии и адаптивными радиусами (`src/lib/message-grouping.ts`), Bento-альбомы 2–10 медиа (`AlbumBubble`), spring-анимации (stiffness 400 / damping 28), swipe-to-reply с хаптикой, glass-сайдбар / шапка / поле ввода (`src/styles/telegram-tokens.css`).
 * ✅ **Функциональность**: E2EE секретные чаты (ECDH P-256 + AES-GCM-256, таймер самоуничтожения, сверка отпечатка ключа), меню отправки «Отправить без звука» / «Отправить позже», мульти-закрепы с циклической плашкой и выезжающим списком, офлайн-очередь в IndexedDB со статусом «ожидание 🕒», демонстрация экрана WebRTC и плавающее PiP-окно звонка.
@@ -568,7 +575,7 @@ npm run server
 # 2. Запуск Vite Dev сервера (порт 5173)
 npm run dev
 
-# 3. Запуск юнит-тестов Vitest (272/272 тестов)
+# 3. Запуск юнит-тестов Vitest (316/316 тестов)
 npm test
 
 # 4. Проверка линтером Oxlint
@@ -584,6 +591,67 @@ npm run storybook
 ---
 
 ## 📜 Журнал изменений (Changelog)
+
+### [v3.32.1] — 9 октября 2026 г.
+* **Phase 62.1 — Реакции на альбомах** ([PR #4](https://github.com/Voltikalk/Comms/pull/4))
+
+#### Исправлено
+* Реакции на альбомы (группы фото и видео) не отображались. Контекстное меню ставило реакцию на последний элемент альбома, но `AlbumBubble` реакции не рендерил вовсе, поэтому их нельзя было ни увидеть, ни снять.
+
+#### Новые компоненты и функции
+* [`src/components/Chat/Feed/ReactionChips.tsx`](src/components/Chat/Feed/ReactionChips.tsx) — общие плашки реакций (анимированный эмодзи, счётчик, подсказка «кто поставил»). Используются в `MessageBubble` и `AlbumBubble`; проп `align: 'start' | 'end'`.
+* [`src/lib/reactions.ts`](src/lib/reactions.ts) — `mergeReactions(messages, currentUser, fallbackId)`: объединяет реакции нескольких сообщений в одну строку без дублей пользователей. `targetId` — элемент, на котором уже стоит моя реакция (чтобы снять её там же), иначе `fallbackId`. Тесты — [`src/lib/reactions.test.ts`](src/lib/reactions.test.ts) (+3).
+
+#### Изменённые компоненты
+* [`AlbumBubble.tsx`](src/components/Chat/Feed/AlbumBubble.tsx): новый проп `onToggleReaction` (пробрасывается из `ChatMessageFeed`). При наличии реакций под коллажем (и под подписью) — строка «плашки слева, время и галочки справа»; мета-пилюля поверх фото остаётся только у альбома без подписи и реакций. Строка ограничена шириной коллажа (`w-0 min-w-full`) и не растягивает пузырь; много реакций переносятся на вторую строку.
+* Итог: `npm test` — **316/316** (35 файлов), `npm run lint` — 0 ошибок, `npm run build` — OK.
+
+### [v3.32.0] — 9 октября 2026 г.
+* **Phase 62 — Telegram Groups & Channels, Composer Emoji/Sticker Panel & Multi-File Albums** ([PR #3](https://github.com/Voltikalk/Comms/pull/3))
+
+#### 1. Группы и каналы
+* **Роли и права**: сервер — [`server/services/roles.js`](server/services/roles.js), клиент — [`src/lib/roles.ts`](src/lib/roles.ts) (владелец, администраторы с наборами прав, участники).
+* **Сокеты**: новые обработчики [`server/sockets/groups.js`](server/sockets/groups.js) и [`server/sockets/profiles.js`](server/sockets/profiles.js), доработан `stories.js`; тесты `groups.test.js`, `profiles.test.js`, `stories.test.js`. Миграция [`supabase/migrations/007_groups_and_channels.sql`](supabase/migrations/007_groups_and_channels.sql).
+* **UI**: `Chat/Manage/RoomManageSheet.tsx` (управление группой или каналом), `Chat/Manage/JoinRoomModal.tsx`, `Chat/Sidebar/PublicRoomResults.tsx` (поиск публичных комнат), `Chat/Input/RestrictedComposer.tsx` (вместо поля ввода у тех, кому нельзя писать), сервисные сообщения — [`src/lib/service-messages.ts`](src/lib/service-messages.ts). `NewChatModal` переделан под создание групп и каналов.
+
+#### 2. Сообщения, навигация и настройки
+* **Контекстное меню** `TelegramContextMenuModal`: строка быстрых реакций с раскрытием полного списка (`src/lib/reactions.ts`: `quickReactionStrip`, `fullReactionList`, недавние реакции).
+* **Внешний вид чата** — [`src/lib/appearance.ts`](src/lib/appearance.ts) (шрифт сообщений и др.), переработан `ThemeSettingsModal`.
+* **Навигация**: `Chat/Sidebar/ChatListItem.tsx`, `ChatContextMenu.tsx` (меню чата в списке), `SidebarAccountMenu.tsx`; мобильные экраны `Mobile/MobileContactsScreen.tsx` и `MobileSettingsScreen.tsx`; обновлены `MobileBottomNav` и `ChatFolderTabs`.
+* **Профиль**: исправлено сохранение профиля и настроек; редактор обрезки аватара `AvatarCropEditor.tsx` ([`src/lib/avatar-crop.ts`](src/lib/avatar-crop.ts)); дни рождения — [`src/lib/birthday.ts`](src/lib/birthday.ts).
+* **Истории**: переписаны `StoryCreateModal` и `StoryViewer`, общие части — `Stories/storyCanvas.tsx`, `Stories/storyStyle.ts`.
+* `ui/ConfirmDialog.tsx` — общий диалог подтверждения.
+
+#### 3. Поле ввода: эмодзи и стикеры
+* [`TelegramEmojiPickerModal.tsx`](src/components/TelegramEmojiPickerModal.tsx) переписан: поиск по ключевым словам RU/EN ([`src/lib/emoji-catalog.ts`](src/lib/emoji-catalog.ts)), лента категорий, одна прокручиваемая лента с липкими заголовками, «Часто используемые», переключатель «Эмодзи · Стикеры» и кнопка ⌫. Переход в категорию из поиска сбрасывает запрос и прокручивает к разделу.
+* Эмодзи вставляются в позицию курсора или заменяют выделение (`insertAtSelection`); ⌫ удаляет графему целиком — флаги, оттенки кожи (`deleteBackward`). На мобильных клавиатура не открывается.
+* [`StickerPicker.tsx`](src/components/Stickers/StickerPicker.tsx) на токенах Graphite: поиск, лента наборов, разделы «Недавние», «Избранные» и наборы; общие части — `Stickers/PickerParts.tsx`.
+
+#### 4. Поле ввода: несколько файлов
+* Выбор нескольких файлов, drag & drop и вставка из буфера — до 30 файлов за раз. Полоса вложений: сводка («3 фото, 1 файл · альбомом»), удаление по одному и «удалить все», плитка «добавить ещё».
+* [`src/lib/outgoing-batch.ts`](src/lib/outgoing-batch.ts): фото и видео уходят альбомами до 10 штук (общий `albumId` проходит существующую серверную проверку `CLIENT_ID_RE`), остальные файлы — отдельными сообщениями; подпись и ответ — у первого элемента.
+
+#### 5. Исправления
+* **Анимированные стикеры** не работали нигде: `lottie-web` подменён на `lottie_light` (только SVG, без `eval` из-за CSP), а плеер запрашивал `canvas` — падал с ошибкой «RendererClass is not a constructor» и показывал битый `<img>`. `TgsStickerPlayer` теперь использует `renderer: 'svg'`.
+* **Ширина альбома**: у `.tg-album` было `min(360px, 100%)` внутри пузыря «по содержимому», и большие фото (сканы документов) растягивали пузырь на весь чат. Теперь `width: 360px; max-width: 100%`, подпись переносится по ширине коллажа.
+* Итог: `npm test` — **313/313**, `npm run lint` — 0 ошибок, `npm run build` — OK.
+
+### [v3.31.0] — 7 октября 2026 г.
+* **Phase 61 — Видео-кружки, удаление сообщений и контекстное меню на токенах Graphite** ([PR #2](https://github.com/Voltikalk/Comms/pull/2))
+
+#### Видео-кружки
+* Хук [`src/hooks/useVideoNoteRecorder.ts`](src/hooks/useVideoNoteRecorder.ts): камера сводится на холст 480×480 (центральный кроп, зеркальная фронтальная камера) и пишется вместе с микрофоном — файл всегда квадратный; камеру можно переключить во время записи; авто-стоп через 60 с, клипы короче 0,7 с отбрасываются, устройства освобождаются при размонтировании.
+* `Media/VideoNoteRecorderOverlay.tsx` — полноэкранный круг с кольцом прогресса, кнопки «Отмена», «Отправить» и «Сменить камеру»; Enter — отправить, Esc — отмена. Заменил старое окно записи и состояние видео в `ChatScreen`.
+* `TelegramVideoNotePlayer` переписан как конечный автомат (превью → воспроизведение ⇄ пауза): беззвучное зацикленное превью в зоне видимости, тап — со звуком и увеличением, перемотка по кольцу, одновременно играет только один кружок, сворачивается по тапу вне, Esc или прокрутке. Если WebM сообщает длительность `Infinity`, берётся записанная.
+
+#### Удаление сообщений
+* `Chat/Modals/DeleteMessagesDialog.tsx` — карточка на десктопе и шторка на мобильных; для своих сообщений — «Также удалить для <собеседник>» (включено по умолчанию), чужие скрываются только у себя (`hideMessagesForMe`).
+* Один поток `requestDelete` → `confirmDelete` для одиночного удаления, выделения и очистки истории; заменил `window.confirm` и неиспользуемое окно в `MessageBubble`.
+* Эффект распада (`effects/disintegrate.ts`): общий бюджет частиц и страховочная очистка, если rAF приостановлен в фоновой вкладке.
+
+#### Прочее
+* `TelegramContextMenuModal` — data-driven на `ui-sheet` / `ui-menu-item`; «Удалить» доступно для любого сообщения.
+* Оставшиеся захардкоженные цвета (~50 компонентов) переведены на токены Graphite; упрощена шапка экрана входа.
 
 ### [v3.30.1] — 7 октября 2026 г.
 * **Phase 60.1 — Редизайн экранов входа и регистрации**
