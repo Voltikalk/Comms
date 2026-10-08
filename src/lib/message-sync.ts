@@ -59,9 +59,9 @@ export function sanitizeMessage(msg: Message, serverUrl = ''): Message {
   };
 }
 
-/** Drops empty system rows. E2EE messages have an empty `text` but carry ciphertext. */
+/** Drops empty rows. E2EE messages have an empty `text` but carry ciphertext; service messages carry an event. */
 export function isMeaningfulMessage(m: Message): boolean {
-  return Boolean((m.text && m.text.trim().length > 0) || m.file || m.forwardedFrom || m.poll || m.sticker || m.encrypted);
+  return Boolean((m.text && m.text.trim().length > 0) || m.file || m.forwardedFrom || m.poll || m.sticker || m.encrypted || m.service);
 }
 
 const sameMessage = (a: Message, b: Message) => a.id === b.id || Boolean(a.clientId && a.clientId === b.clientId);

@@ -32,9 +32,17 @@ export interface CustomWallpaperSettings {
   dimming?: number; // 0 to 85 %
 }
 
+export type MessageFont = 'system' | 'app';
+
 export interface ChatThemeConfig {
   wallpaperId: string;
   accentColorId: string;
   customWallpaper?: CustomWallpaperSettings;
   patternOpacity?: number;
+  /** Message text size, px (12–20, default 15). */
+  textSize?: number;
+  /** Outer bubble corner radius, px (4–22, default 18). */
+  bubbleRadius?: number;
+  /** `system` = platform UI font like Telegram, `app` = Geist. */
+  messageFont?: MessageFont;
 }

@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import { checkSocketRateLimit } from '../middleware/rateLimit.js';
 import { CLIENT_ID_RE, MAX_MESSAGE_LENGTH } from '../middleware/validate.js';
 import { isEncryptedEnvelope, isValidPublicKey, isValidTtl, pickEnvelope } from '../services/crypto.js';
+import { ensureManaged, hasRight, isManaged, roleOf, sendRestriction } from '../services/roles.js';
 import { isUuid, resolveRoomUuid, resolveUserUuid, supabase } from '../services/supabase.js';
 import {
   MAX_SCHEDULE_AHEAD_MS,
@@ -18,6 +19,7 @@ import {
   e2eePublicKeys,
   isRoomAllowedForUser,
   isSecretRoom,
+  memoryRooms,
   messageHistory,
   pushMessage,
   scheduledFor,
@@ -27,9 +29,21 @@ import {
   userSockets,
 } from '../services/store.js';
 import { decodeBase64Payload, storeUpload } from '../routes/upload.js';
+import { displayNameOf, getUser } from '../services/users.js';
 
 /** Scheduled messages must be at least this far in the future. */
 export const MIN_SCHEDULE_DELAY_MS = 5000;
+
+const managedRoom = (roomId) => {
+  const room = memoryRooms.get(roomId);
+  return isManaged(room) ? ensureManaged(room) : null;
+};
+
+/** `${roomId}:${user}` -> last send time, for group slow mode. */
+const slowModeLastSent = new Map();
+
+/** Channel post viewers (kept server-side; clients only get the count). */
+const channelViewers = new Map();
 
 const findMessage = (messageId, roomId, user) =>
   messageHistory.find((m) => m.id === messageId && m.roomId === roomId && canSeeMessage(m, user));
@@ -45,7 +59,7 @@ async function swallow(label, fn) {
 
 /** Persists a plaintext message (+ attachment) to Supabase. E2EE messages are never persisted. */
 export async function persistMessage(message) {
-  if (message.encrypted) return;
+  if (message.encrypted || message.service) return;
   try {
     const senderUuid = await resolveUserUuid(message.sender);
     const roomUuid = await resolveRoomUuid(message.roomId);
@@ -153,6 +167,20 @@ export function registerChatHandlers({ io, socket, user, on }) {
     const hasContent = Boolean(encrypted || text.trim() || data.file || data.forwardedFrom || data.poll || data.sticker);
     if (!hasContent) return reject(ack, 'Пустое сообщение.');
 
+    // --- Groups & channels: who may post what, slow mode ---------------------
+    const managed = managedRoom(roomId);
+    if (managed) {
+      const kind = data.poll ? 'poll' : data.file && data.file.type !== 'sticker' ? 'media' : 'text';
+      const restriction = sendRestriction(managed, user, kind);
+      if (restriction) return reject(ack, restriction);
+      if (managed.type === 'group' && managed.slowMode > 0 && roleOf(managed, user) === 'member') {
+        const key = `${roomId}:${user}`;
+        const wait = (slowModeLastSent.get(key) || 0) + managed.slowMode * 1000 - Date.now();
+        if (wait > 0) return reject(ack, `Медленный режим: следующее сообщение через ${Math.ceil(wait / 1000)} с.`);
+        slowModeLastSent.set(key, Date.now());
+      }
+    }
+
     let finalFile = data.file && typeof data.file === 'object' ? data.file : undefined;
     if (
       finalFile &&
@@ -197,6 +225,8 @@ export function registerChatHandlers({ io, socket, user, on }) {
       encrypted: encrypted ? pickEnvelope(encrypted) : undefined,
       ttl,
       expiresAt: ttl ? now + ttl * 1000 : undefined,
+      signature: managed?.type === 'channel' && managed.signMessages ? displayNameOf(getUser(user), user) : undefined,
+      views: managed?.type === 'channel' ? 0 : undefined,
       readBy: [],
     };
 
@@ -235,7 +265,11 @@ export function registerChatHandlers({ io, socket, user, on }) {
     if (!checkSocketRateLimit(socket.id, 'edit_message', 15, 10000)) return;
     if (!isRoomAllowedForUser(roomId, user)) return;
     const msg = findMessage(messageId, roomId, user);
-    if (!msg || msg.sender !== user) return;
+    if (!msg || msg.service) return;
+    const managed = managedRoom(roomId);
+    // Channel admins with "Редактирование публикаций" may edit any post.
+    const mayEdit = msg.sender === user || (managed?.type === 'channel' && hasRight(managed, user, 'editMessages'));
+    if (!mayEdit) return;
 
     if (msg.encrypted) {
       if (!isEncryptedEnvelope(encrypted)) return;
@@ -260,10 +294,14 @@ export function registerChatHandlers({ io, socket, user, on }) {
     if (!checkSocketRateLimit(socket.id, 'delete_message', 20, 10000)) return;
     if (!isRoomAllowedForUser(roomId, user)) return;
     const msgIndex = messageHistory.findIndex((m) => m.id === messageId && m.roomId === roomId && canSeeMessage(m, user));
-    if (msgIndex === -1 || messageHistory[msgIndex].sender !== user) return;
+    if (msgIndex === -1) return;
+    const msg = messageHistory[msgIndex];
+    const managed = managedRoom(roomId);
+    if (msg.sender !== user && !(managed && hasRight(managed, user, 'deleteMessages'))) return;
 
     messageHistory.splice(msgIndex, 1);
-    io.to(broadcastTarget(roomId, user)).emit('message_deleted', { messageId, roomId });
+    channelViewers.delete(messageId);
+    io.to(broadcastTarget(roomId, msg.sender)).emit('message_deleted', { messageId, roomId });
     if (isUuid(messageId)) {
       await swallow('Delete Warning', () =>
         supabase.from('messages').update({ deleted_at: new Date().toISOString() }).eq('id', messageId),
@@ -336,6 +374,23 @@ export function registerChatHandlers({ io, socket, user, on }) {
     if (!isRoomAllowedForUser(roomId, user) || !Array.isArray(messageIds)) return;
     const ids = messageIds.slice(0, 500);
     const updatedMessages = [];
+
+    // Channels: count views without revealing who the subscribers are.
+    if (managedRoom(roomId)?.type === 'channel') {
+      for (const messageId of ids) {
+        const msg = findMessage(messageId, roomId, user);
+        if (!msg || msg.sender === user || msg.service) continue;
+        const viewers = channelViewers.get(messageId) || new Set();
+        if (viewers.has(user)) continue;
+        viewers.add(user);
+        channelViewers.set(messageId, viewers);
+        msg.views = viewers.size;
+        updatedMessages.push({ messageId, readBy: [], views: msg.views });
+      }
+      if (updatedMessages.length > 0) io.to(roomId).emit('messages_read', { roomId, updatedMessages });
+      return;
+    }
+
     for (const messageId of ids) {
       const msg = findMessage(messageId, roomId, user);
       if (!msg || msg.sender === user) continue;

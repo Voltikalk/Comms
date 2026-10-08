@@ -2,6 +2,7 @@
  * Shared in-memory state (rooms, message cache, presence, stories, E2EE keys)
  * and its synchronisation with Supabase.
  */
+import { ensureManaged, isManaged, roomForViewer } from './roles.js';
 import { supabase } from './supabase.js';
 import { displayNameOf, getUser } from './users.js';
 
@@ -21,7 +22,27 @@ const DEFAULT_ROOMS = [
   { id: 'mom-sister-dm', name: 'Сестра', type: 'direct', participants: ['mom', 'sister'] },
   { id: 'dad-sister-dm', name: 'Сестра', type: 'direct', participants: ['dad', 'sister'] },
 ];
-DEFAULT_ROOMS.forEach((r) => memoryRooms.set(r.id, r));
+DEFAULT_ROOMS.forEach((r) => memoryRooms.set(r.id, ensureManaged(r)));
+
+/** Role/settings fields of a group or channel, stored in `rooms.settings` (JSONB). */
+const ROOM_SETTINGS_KEYS = ['ownerId', 'admins', 'permissions', 'slowMode', 'username', 'signMessages', 'inviteLinks', 'banned', 'pinnedIds', 'createdAt'];
+
+const pendingRoomSaves = new Map();
+
+/** Debounced best-effort save of a managed room's settings (no-op until the room has a database id). */
+export function persistRoomSettings(room) {
+  if (!room?.dbId || !isManaged(room)) return;
+  clearTimeout(pendingRoomSaves.get(room.id));
+  const timer = setTimeout(() => {
+    pendingRoomSaves.delete(room.id);
+    const settings = Object.fromEntries(ROOM_SETTINGS_KEYS.filter((k) => room[k] !== undefined).map((k) => [k, room[k]]));
+    void Promise.resolve(supabase.from('rooms').update({ settings, username: room.username || null }).eq('id', room.dbId))
+      .then((res) => res?.error && console.warn('[Supabase Room Settings]', res.error.message))
+      .catch((err) => console.warn('[Supabase Room Settings]', err?.message || err));
+  }, 500);
+  timer.unref?.();
+  pendingRoomSaves.set(room.id, timer);
+}
 
 /** Room list for one user; direct chats are renamed after the other participant. */
 export function getUserRooms(userId) {
@@ -41,7 +62,7 @@ export function getUserRooms(userId) {
         avatarUrl: otherDoc?.avatarUrl || r.avatarUrl || '',
       });
     } else {
-      rooms.push(r);
+      rooms.push(isManaged(r) ? roomForViewer(ensureManaged(r), cleanUser) : r);
     }
   }
   return rooms;
@@ -79,12 +100,16 @@ export async function loadRoomsFromSupabase() {
   try {
     const { data: dbRooms, error } = await supabase
       .from('rooms')
-      .select('id, name, type, avatar_url, room_members(user_id, users(username))');
+      .select('*, room_members(user_id, left_at, users(username))');
 
     if (!error && dbRooms) {
       for (const r of dbRooms) {
         if (r.name === 'Избранное') continue;
-        const participants = (r.room_members || []).map((m) => m.users?.username || m.user_id).filter(Boolean);
+        if (r.is_active === false) continue;
+        const participants = (r.room_members || [])
+          .filter((m) => !m.left_at)
+          .map((m) => m.users?.username || m.user_id)
+          .filter(Boolean);
         if (participants.length === 0) continue;
         let roomId = r.id;
         if (r.name === 'Семья') roomId = 'family';
@@ -93,14 +118,18 @@ export async function loadRoomsFromSupabase() {
         else if (r.name === 'Папа' && r.type === 'direct') roomId = 'dad-dm';
         else if (r.name === 'Сестра' && r.type === 'direct') roomId = 'sister-dm';
 
-        memoryRooms.set(roomId, {
+        const settings = r.settings && typeof r.settings === 'object' ? r.settings : {};
+        const room = {
+          ...Object.fromEntries(ROOM_SETTINGS_KEYS.filter((k) => settings[k] !== undefined).map((k) => [k, settings[k]])),
           id: roomId,
           dbId: r.id,
           name: r.name,
           type: r.type,
           participants,
           avatarUrl: r.avatar_url || '',
-        });
+          ...(r.description ? { description: r.description } : {}),
+        };
+        memoryRooms.set(roomId, ensureManaged(room));
       }
       console.log(`[Supabase Rooms] Loaded rooms into cache (Total rooms: ${memoryRooms.size}).`);
     }
@@ -277,11 +306,54 @@ export function pruneExpiredStories(now = Date.now()) {
   }
 }
 
-export function getStoriesState() {
+/**
+ * Users who share at least one room with `userId`. The server has no separate
+ * address book, so a shared chat is what makes someone a contact.
+ */
+export function contactsOf(userId) {
+  const me = String(userId || '').toLowerCase();
+  const contacts = new Set();
+  for (const r of memoryRooms.values()) {
+    const parts = (r.participants || []).map((p) => String(p).toLowerCase());
+    if (!parts.includes(me)) continue;
+    for (const p of parts) if (p !== me) contacts.add(p);
+  }
+  return contacts;
+}
+
+/**
+ * Stories visible to `viewer`, filtered by each story's audience. Other
+ * people's view lists and reactions are reduced to the viewer's own entries.
+ */
+export function getStoriesState(viewer) {
   pruneExpiredStories();
+  const me = String(viewer || '').toLowerCase();
   const state = {};
   for (const [userId, list] of storiesStore.entries()) {
-    state[userId] = list;
+    if (userId.toLowerCase() === me) {
+      state[userId] = list;
+      continue;
+    }
+    let contacts;
+    const visible = list
+      .filter((s) => {
+        if (s.privacy === 'only_me') return false;
+        if (s.privacy === 'contacts' || s.privacy === 'close_friends') {
+          contacts ??= contactsOf(userId);
+          return contacts.has(me);
+        }
+        return true;
+      })
+      .map((s) => ({
+        ...s,
+        views: s.views.includes(viewer) ? [viewer] : [],
+        reactions: Object.fromEntries(
+          Object.entries(s.reactions || {})
+            .filter(([, users]) => users.includes(viewer))
+            .map(([emoji]) => [emoji, [viewer]])
+        ),
+      }));
+    if (visible.length > 0) state[userId] = visible;
   }
   return state;
 }

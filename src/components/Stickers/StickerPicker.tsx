@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Sticker } from '../../types/sticker.types';
 import {
   STICKER_PACKS,
@@ -7,16 +7,11 @@ import {
   getRecentStickers,
   getFavoriteStickers,
   toggleFavoriteSticker,
-  addRecentSticker
+  addRecentSticker,
 } from '../../constants/stickers';
-import {
-  IconSearch,
-  IconClock,
-  IconHeart,
-  IconHeartFilled,
-  IconX
-} from '@tabler/icons-react';
+import { IconClock, IconHeart, IconHeartFilled } from '@tabler/icons-react';
 import { TgsStickerPlayer } from './TgsStickerPlayer';
+import { PickerSearch, PickerSectionTitle, PickerStripButton } from './PickerParts';
 
 interface StickerPickerProps {
   onSelectSticker: (sticker: Sticker) => void;
@@ -24,301 +19,204 @@ interface StickerPickerProps {
   className?: string;
 }
 
-export const StickerPicker: React.FC<StickerPickerProps> = ({
-  onSelectSticker,
-  onClose: _onClose,
-  className = ''
-}) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activePackId, setActivePackId] = useState<string>('all');
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
-    return new Set(getFavoriteStickers().map((s) => s.id));
-  });
+interface StickerSection {
+  id: string;
+  title: string;
+  stickers: Sticker[];
+  strip: React.ReactNode;
+}
 
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const packRefs = useRef<Record<string, HTMLDivElement | null>>({});
+/**
+ * Sticker tab of the composer panel: search, a strip of packs (recent,
+ * favourites, then every installed pack by its first sticker) and one feed
+ * with sticky pack titles. The strip follows the scroll position.
+ */
+export const StickerPicker: React.FC<StickerPickerProps> = ({ onSelectSticker, className = '' }) => {
+  const [query, setQuery] = useState('');
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => new Set(getFavoriteStickers().map((s) => s.id)));
+  const [recentStickers] = useState(getRecentStickers);
+  const [activeId, setActiveId] = useState('recent');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const jumping = useRef(false);
+  const pendingJump = useRef<string | null>(null);
 
-  const recentStickers = useMemo(() => getRecentStickers(), []);
-  const favoriteStickers = useMemo(() => {
-    return ALL_STICKERS.filter((s) => favoriteIds.has(s.id));
-  }, [favoriteIds]);
+  const favoriteStickers = useMemo(() => ALL_STICKERS.filter((s) => favoriteIds.has(s.id)), [favoriteIds]);
+  const results = useMemo(() => (query.trim() ? searchStickers(query) : null), [query]);
 
-  const filteredStickers = useMemo(() => {
-    if (!searchQuery.trim()) return null;
-    return searchStickers(searchQuery);
-  }, [searchQuery]);
+  const sections = useMemo<StickerSection[]>(() => {
+    const out: StickerSection[] = [];
+    if (recentStickers.length > 0) out.push({ id: 'recent', title: 'Недавние', stickers: recentStickers, strip: <IconClock size={20} /> });
+    if (favoriteStickers.length > 0)
+      out.push({ id: 'favorites', title: 'Избранные', stickers: favoriteStickers, strip: <IconHeart size={20} /> });
+    for (const pack of STICKER_PACKS) {
+      const cover = pack.stickers[0];
+      out.push({
+        id: pack.id,
+        title: pack.title,
+        stickers: pack.stickers,
+        strip: cover ? (
+          <TgsStickerPlayer src={cover.url} alt={pack.title} className="h-7 w-7" playOnHover loop={false} />
+        ) : (
+          <span className="text-[20px] leading-none">{pack.icon}</span>
+        ),
+      });
+    }
+    return out;
+  }, [recentStickers, favoriteStickers]);
 
-  const handleToggleFavorite = (e: React.MouseEvent, sticker: Sticker) => {
+  const toggleFavorite = useCallback((e: React.MouseEvent, sticker: Sticker) => {
     e.stopPropagation();
     const isNowFav = toggleFavoriteSticker(sticker.id);
     setFavoriteIds((prev) => {
       const next = new Set(prev);
-      if (isNowFav) {
-        next.add(sticker.id);
-      } else {
-        next.delete(sticker.id);
-      }
+      if (isNowFav) next.add(sticker.id);
+      else next.delete(sticker.id);
       return next;
     });
+  }, []);
+
+  const select = useCallback(
+    (sticker: Sticker) => {
+      addRecentSticker(sticker);
+      onSelectSticker(sticker);
+    },
+    [onSelectSticker],
+  );
+
+  const syncActive = () => {
+    const el = scrollRef.current;
+    if (!el || jumping.current || results) return;
+    const top = el.scrollTop + 8;
+    let current = sections[0]?.id ?? 'recent';
+    for (const s of sections) {
+      const node = sectionRefs.current[s.id];
+      if (node && node.offsetTop <= top) current = s.id;
+    }
+    setActiveId(current);
   };
 
-  const handleSelect = (sticker: Sticker) => {
-    addRecentSticker(sticker);
-    onSelectSticker(sticker);
-  };
-
-  const scrollToPack = (packId: string) => {
-    setActivePackId(packId);
-    if (packId === 'recent') {
-      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  const jumpTo = (id: string) => {
+    setActiveId(id);
+    if (results) {
+      pendingJump.current = id;
+      setQuery('');
       return;
     }
-    const target = packRefs.current[packId];
-    if (target && scrollContainerRef.current) {
-      const offsetTop = target.offsetTop - scrollContainerRef.current.offsetTop - 10;
-      scrollContainerRef.current.scrollTo({ top: offsetTop, behavior: 'smooth' });
-    }
+    const el = scrollRef.current;
+    const node = sectionRefs.current[id];
+    if (!el || !node) return;
+    jumping.current = true;
+    el.scrollTo({ top: node.offsetTop, behavior: 'smooth' });
+    window.setTimeout(() => {
+      jumping.current = false;
+    }, 450);
   };
 
+  // A pack picked from the strip during a search is scrolled to once the feed is back.
+  useEffect(() => {
+    if (results) return;
+    const id = pendingJump.current;
+    pendingJump.current = null;
+    const el = scrollRef.current;
+    const node = id ? sectionRefs.current[id] : null;
+    if (el && node) el.scrollTop = node.offsetTop;
+  }, [results]);
+
+  const grid = (stickers: Sticker[], keyPrefix: string) => (
+    <div className="grid grid-cols-4 gap-0.5 px-1.5">
+      {stickers.map((sticker) => (
+        <StickerCell
+          key={`${keyPrefix}-${sticker.id}`}
+          sticker={sticker}
+          isFavorite={favoriteIds.has(sticker.id)}
+          onSelect={select}
+          onToggleFavorite={toggleFavorite}
+        />
+      ))}
+    </div>
+  );
+
   return (
-    <div className={`flex flex-col h-full select-none text-zinc-900 dark:text-white ${className}`}>
-      {/* 1. Search Bar */}
-      <div className="p-2 border-b border-zinc-200/60 dark:border-white/10 shrink-0">
-        <div className="flex items-center gap-1.5 bg-black/5 dark:bg-elevated px-2.5 py-1.5 rounded-xl">
-          <IconSearch size={15} className="text-zinc-400 shrink-0" />
-          <input
-            type="text"
-            placeholder="Поиск стикеров по названию или эмодзи..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent border-none text-xs text-zinc-900 dark:text-white focus:outline-none w-full placeholder-zinc-400"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
-            >
-              <IconX size={14} />
-            </button>
-          )}
+    <div className={`flex min-h-0 flex-1 select-none flex-col ${className}`}>
+      <div className="shrink-0 space-y-1.5 px-2 pt-2">
+        <PickerSearch value={query} onChange={setQuery} placeholder="Поиск стикеров" />
+        <div className="no-scrollbar flex items-center gap-0.5 overflow-x-auto" aria-label="Наборы стикеров">
+          {sections.map((s) => (
+            <PickerStripButton key={s.id} active={!results && activeId === s.id} title={s.title} onClick={() => jumpTo(s.id)}>
+              {s.strip}
+            </PickerStripButton>
+          ))}
         </div>
       </div>
 
-      {/* 2. Main Scrollable Sticker Feed */}
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto tg-scrollbar p-2 space-y-4 max-h-[320px] sm:max-h-[360px]"
-      >
-        {/* Search Results */}
-        {filteredStickers !== null ? (
-          <div>
-            <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2 px-1">
-              Результаты поиска ({filteredStickers.length})
+      <div ref={scrollRef} onScroll={syncActive} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 tg-scrollbar">
+        {results ? (
+          results.length > 0 ? (
+            <section>
+              <PickerSectionTitle>Результаты поиска</PickerSectionTitle>
+              {grid(results, 'search')}
+            </section>
+          ) : (
+            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-[13.5px] text-muted">
+              <span className="text-[40px] leading-none">🔍</span>
+              Стикеры не найдены
             </div>
-            {filteredStickers.length > 0 ? (
-              <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
-                {filteredStickers.map((sticker) => (
-                  <StickerCell
-                    key={sticker.id}
-                    sticker={sticker}
-                    isFavorite={favoriteIds.has(sticker.id)}
-                    onSelect={handleSelect}
-                    onToggleFavorite={handleToggleFavorite}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="py-8 text-center text-xs text-zinc-400 flex flex-col items-center gap-2">
-                <span className="text-2xl">🔍</span>
-                <span>Стикеры не найдены</span>
-              </div>
-            )}
-          </div>
+          )
         ) : (
-          <>
-            {/* Recent Stickers Section */}
-            {recentStickers.length > 0 && (
-              <div
-                ref={(el) => {
-                  packRefs.current['recent'] = el;
-                }}
-              >
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2 px-1">
-                  <IconClock size={14} className="text-accent" />
-                  <span>Недавние стикеры</span>
-                </div>
-                <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
-                  {recentStickers.map((sticker) => (
-                    <StickerCell
-                      key={`recent-${sticker.id}`}
-                      sticker={sticker}
-                      isFavorite={favoriteIds.has(sticker.id)}
-                      onSelect={handleSelect}
-                      onToggleFavorite={handleToggleFavorite}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Favorite Stickers Section */}
-            {favoriteStickers.length > 0 && (
-              <div
-                ref={(el) => {
-                  packRefs.current['favorites'] = el;
-                }}
-              >
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-pink-500 uppercase tracking-wider mb-2 px-1">
-                  <IconHeartFilled size={14} />
-                  <span>Избранные ({favoriteStickers.length})</span>
-                </div>
-                <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
-                  {favoriteStickers.map((sticker) => (
-                    <StickerCell
-                      key={`fav-${sticker.id}`}
-                      sticker={sticker}
-                      isFavorite={true}
-                      onSelect={handleSelect}
-                      onToggleFavorite={handleToggleFavorite}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Installed Sticker Packs */}
-            {STICKER_PACKS.map((pack) => (
-              <div
-                key={pack.id}
-                ref={(el) => {
-                  packRefs.current[pack.id] = el;
-                }}
-                className="pt-1"
-              >
-                <div className="flex items-center justify-between text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2 px-1 border-t border-zinc-200/40 dark:border-white/5 pt-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm">{pack.icon}</span>
-                    <span className="text-zinc-800 dark:text-zinc-200">{pack.title}</span>
-                    {pack.isAnimated && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-accent/20 text-accent text-[9px] font-bold">
-                        3D
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-zinc-400 font-mono">
-                    {pack.stickers.length} шт.
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
-                  {pack.stickers.map((sticker) => (
-                    <StickerCell
-                      key={sticker.id}
-                      sticker={sticker}
-                      isFavorite={favoriteIds.has(sticker.id)}
-                      onSelect={handleSelect}
-                      onToggleFavorite={handleToggleFavorite}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </>
+          sections.map((s) => (
+            <section
+              key={s.id}
+              ref={(node) => {
+                sectionRefs.current[s.id] = node;
+              }}
+              aria-label={s.title}
+            >
+              <PickerSectionTitle trailing={<span className="text-[12px] font-normal tabular-nums">{s.stickers.length}</span>}>
+                {s.title}
+              </PickerSectionTitle>
+              {grid(s.stickers, s.id)}
+            </section>
+          ))
         )}
-      </div>
-
-      {/* 3. Bottom Pack Tabs Bar (Horizontal Carousel 1:1 Telegram Web) */}
-      <div className="p-1.5 border-t border-zinc-200/60 dark:border-white/10 flex items-center gap-1 overflow-x-auto tg-scrollbar shrink-0 bg-black/5 dark:bg-black/20 rounded-b-3xl">
-        <button
-          type="button"
-          onClick={() => scrollToPack('recent')}
-          className={`p-1.5 rounded-xl cursor-pointer transition-colors shrink-0 ${
-            activePackId === 'recent'
-              ? 'bg-accent text-white shadow-xs'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/10'
-          }`}
-          title="Недавние"
-        >
-          <IconClock size={16} />
-        </button>
-
-        {favoriteStickers.length > 0 && (
-          <button
-            type="button"
-            onClick={() => scrollToPack('favorites')}
-            className={`p-1.5 rounded-xl cursor-pointer transition-colors shrink-0 ${
-              activePackId === 'favorites'
-                ? 'bg-pink-500 text-white shadow-xs'
-                : 'text-pink-400 hover:bg-black/5 dark:hover:bg-white/10'
-            }`}
-            title="Избранные"
-          >
-            <IconHeart size={16} />
-          </button>
-        )}
-
-        <div className="h-4 w-px bg-zinc-300 dark:bg-white/20 mx-0.5 shrink-0" />
-
-        {STICKER_PACKS.map((pack) => (
-          <button
-            key={`tab-${pack.id}`}
-            type="button"
-            onClick={() => scrollToPack(pack.id)}
-            className={`w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer transition-all shrink-0 text-base ${
-              activePackId === pack.id
-                ? 'bg-accent text-white shadow-xs scale-105 ring-2 ring-accent/30'
-                : 'hover:bg-black/5 dark:hover:bg-white/10 text-zinc-300'
-            }`}
-            title={pack.title}
-          >
-            <span>{pack.icon}</span>
-          </button>
-        ))}
       </div>
     </div>
   );
 };
 
-// Single Sticker Grid Cell Component (Memoized for high performance)
 const StickerCell = React.memo<{
   sticker: Sticker;
   isFavorite: boolean;
   onSelect: (sticker: Sticker) => void;
   onToggleFavorite: (e: React.MouseEvent, sticker: Sticker) => void;
-}>(({ sticker, isFavorite, onSelect, onToggleFavorite }) => {
-  return (
-    <div
-      onClick={() => onSelect(sticker)}
-      className="relative aspect-square rounded-2xl p-1.5 flex items-center justify-center cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 active:scale-90 transition-all duration-150 group"
-      title={`${sticker.title} (${sticker.emoji})`}
+}>(({ sticker, isFavorite, onSelect, onToggleFavorite }) => (
+  <div
+    role="button"
+    tabIndex={0}
+    onClick={() => onSelect(sticker)}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onSelect(sticker);
+      }
+    }}
+    className="group relative flex aspect-square items-center justify-center rounded-2xl p-1.5 transition-[background-color,transform] duration-150 hover:bg-ink/[0.06] active:scale-90 cursor-pointer"
+    title={`${sticker.title} ${sticker.emoji}`}
+    aria-label={`Стикер ${sticker.title}`}
+  >
+    <TgsStickerPlayer src={sticker.url} alt={sticker.title} className="h-full w-full" loop autoplay />
+    <button
+      type="button"
+      onClick={(e) => onToggleFavorite(e, sticker)}
+      className={`absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-surface/90 opacity-0 shadow-sm ring-1 ring-line transition-opacity group-hover:opacity-100 focus-visible:opacity-100 cursor-pointer ${
+        isFavorite ? 'text-danger' : 'text-muted hover:text-danger'
+      }`}
+      title={isFavorite ? 'Убрать из избранного' : 'В избранное'}
+      aria-label={isFavorite ? 'Убрать из избранного' : 'В избранное'}
     >
-      <TgsStickerPlayer
-        src={sticker.url}
-        alt={sticker.title}
-        className="w-full h-full"
-        loop={true}
-        autoplay={true}
-      />
-
-      {/* Floating Mini Emoji Badge */}
-      <span className="absolute bottom-1 right-1 text-[11px] opacity-70 group-hover:opacity-100 transition-opacity bg-black/40 rounded-full px-1 backdrop-blur-xs select-none">
-        {sticker.emoji}
-      </span>
-
-      {/* Favorite Star / Heart Icon on Hover */}
-      <button
-        type="button"
-        onClick={(e) => onToggleFavorite(e, sticker)}
-        className={`absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white backdrop-blur-xs transition-opacity cursor-pointer ${
-          isFavorite ? 'opacity-100 text-pink-400' : 'opacity-0 group-hover:opacity-90 hover:text-pink-400'
-        }`}
-        title={isFavorite ? 'Удалить из избранного' : 'В избранное'}
-      >
-        {isFavorite ? <IconHeartFilled size={11} /> : <IconHeart size={11} />}
-      </button>
-    </div>
-  );
-});
+      {isFavorite ? <IconHeartFilled size={13} /> : <IconHeart size={13} />}
+    </button>
+  </div>
+));
 
 StickerCell.displayName = 'StickerCell';

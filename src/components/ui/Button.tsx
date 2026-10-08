@@ -67,14 +67,14 @@ export const Button: React.FC<ButtonProps> = ({
       className={`
         relative overflow-hidden inline-flex items-center justify-center select-none cursor-pointer
         rounded-[14px] transition-all duration-300 touch-manipulation
-        focus:outline-none focus:ring-2 focus:ring-accent/40
+        focus:outline-none 
         ${fullWidth ? 'w-full' : ''}
         ${sizeStyles[size]}
         ${variantStyles[variant]}
         ${isLoading ? 'animate-shimmer' : ''}
         ${disabled || isLoading ? 'opacity-55 cursor-not-allowed transform-none' : ''}
         ${className}
-      `}
+`}
       {...props}
     >
       {/* Ripple Animation Elements */}

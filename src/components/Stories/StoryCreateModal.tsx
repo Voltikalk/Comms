@@ -1,904 +1,1099 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   IconX,
-  IconPhoto,
   IconTypography,
+  IconPhoto,
   IconCamera,
-  IconUpload,
+  IconBrush,
+  IconMoodSmile,
   IconAlignLeft,
   IconAlignCenter,
   IconAlignRight,
-  IconBrush,
-  IconSparkles,
-  IconClock,
-  IconLock,
+  IconArrowUp,
+  IconChevronUp,
+  IconCheck,
+  IconArrowBackUp,
+  IconTrash,
+  IconCameraRotate,
+  IconUpload,
+  IconAlertTriangle,
+  IconRefresh,
   IconPin,
-  IconEraser,
-  IconMoodSmile,
-  IconVideo,
-  IconCircleDot
+  IconLoader2,
 } from '@tabler/icons-react';
 import { useStories } from '../../context/stories-context';
-import { useAuth } from '../../context/contexts';
+import { useAuth, useRooms } from '../../context/contexts';
+import { uploadFile } from '../../services/upload.service';
 import {
-  STORY_GRADIENTS,
-  STORY_FONT_FAMILIES,
   STORY_DURATIONS,
+  STORY_FONT_FAMILIES,
+  STORY_GRADIENTS,
   STORY_PRIVACY_OPTIONS,
   type StoryFontStyle,
   type StoryPrivacy,
-  type StoryTextOverlay,
-  type StoryStickerOverlay
+  type StoryStickerOverlay,
 } from '../../types/story.types';
-import { SERVER_URL } from '../../constants';
+import { StoryMedia } from './storyCanvas';
+import { FONT_LABELS, PRIVACY_META, STORY_CAPTION_MAX, STORY_TEXT_MAX, storyGradient, storyTextProps } from './storyStyle';
 
 interface StoryCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type Mode = 'text' | 'media' | 'camera';
+type Panel = 'font' | 'color' | 'background' | 'brush' | 'sticker' | null;
+type Align = 'left' | 'center' | 'right';
+type TextBg = 'none' | 'fill' | 'glow';
+
+interface Stroke {
+  color: string;
+  size: number;
+  points: [number, number][];
+}
+
+interface MediaDraft {
+  preview: string;
+  type: 'image' | 'video';
+  status: 'uploading' | 'ready' | 'error';
+  progress: number;
+  url?: string;
+  error?: string;
+  blob: Blob;
+  name: string;
+}
+
 const GRADIENT_KEYS = Object.keys(STORY_GRADIENTS);
-const FONT_STYLES: { id: StoryFontStyle; label: string }[] = [
-  { id: 'classic', label: 'Классика' },
-  { id: 'neon', label: 'Неон' },
-  { id: 'bold', label: 'Жирный' },
-  { id: 'serif', label: 'Сериф' },
-  { id: 'mono', label: 'Моно' },
-  { id: 'script', label: 'Курсив' }
+const FONT_KEYS = Object.keys(FONT_LABELS) as StoryFontStyle[];
+const COLORS = ['#ffffff', '#111111', '#ff453a', '#ff9f0a', '#ffd60a', '#32d74b', '#64d2ff', '#0a84ff', '#bf5af2', '#ff375f'];
+const BRUSH_SIZES = [8, 16, 30];
+const STICKERS = [
+  '🔥', '❤️', '😂', '😍', '🥹', '😎', '🤯', '🥳',
+  '👍', '👏', '🙏', '💯', '✨', '⚡', '🎉', '🚀',
+  '🌸', '🌈', '☀️', '🌙', '⭐', '🍕', '☕', '🎧',
+  '📍', '💬', '👀', '💪', '🫶', '😴', '🤔', '😭',
 ];
+const CANVAS_W = 720;
+const CANVAS_H = 1280;
+const MAX_VIDEO_SECONDS = 60;
+const HOLD_TO_RECORD_MS = 280;
+const ALIGN_ORDER: Align[] = ['center', 'left', 'right'];
+const TEXT_BG_ORDER: TextBg[] = ['none', 'fill', 'glow'];
 
-const TEXT_COLORS = ['#ffffff', '#ffd166', '#06d6a0', '#118ab2', '#ef476f', '#c77dff', '#000000'];
-const BRUSH_COLORS = ['#ffffff', '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#af52de', '#000000'];
-const QUICK_EMOJIS = ['🔥', '❤️', '😍', '✨', '⚡', '🎉', '👏', '🕶️', '👑', '🚀', '💯', '🌸'];
+const pickRecorderMime = () =>
+  typeof MediaRecorder === 'undefined'
+    ? ''
+    : ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
 
-export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onClose }) => {
+const next = <T,>(list: readonly T[], value: T) => list[(list.indexOf(value) + 1) % list.length];
+
+export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onClose }) => (
+  <AnimatePresence>{isOpen && <StoryEditor key="story-editor" onClose={onClose} />}</AnimatePresence>
+);
+
+/** Full-screen story composer. Mounted fresh each time it opens, so no reset logic is needed. */
+const StoryEditor: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { sendStory } = useStories();
-  const me: string = useAuth().currentUser ?? '';
-  const myProfileName = me.charAt(0).toUpperCase() + me.slice(1);
+  const me = useAuth().currentUser ?? '';
+  const { currentUserName } = useRooms();
+  const authorName = currentUserName || me.charAt(0).toUpperCase() + me.slice(1);
 
-  const [tab, setTab] = useState<'text' | 'media' | 'camera'>('text');
+  const [mode, setMode] = useState<Mode>('text');
+  const [panel, setPanel] = useState<Panel>(null);
 
-  // Text Story States
+  // Text story
   const [text, setText] = useState('');
   const [background, setBackground] = useState(GRADIENT_KEYS[0]);
   const [fontStyle, setFontStyle] = useState<StoryFontStyle>('classic');
-  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [align, setAlign] = useState<Align>('center');
   const [textColor, setTextColor] = useState('#ffffff');
-  const [textBgStyle, setTextBgStyle] = useState<'none' | 'fill' | 'glow'>('none');
+  const [textBg, setTextBg] = useState<TextBg>('none');
+  const editableRef = useRef<HTMLDivElement | null>(null);
 
-  // Media Story States
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  // Media story
+  const [media, setMedia] = useState<MediaDraft | null>(null);
   const [caption, setCaption] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Settings: TTL, Privacy, Pin
-  const [durationHours, setDurationHours] = useState<number>(24);
-  const [privacy, setPrivacy] = useState<StoryPrivacy>('everyone');
-  const [isPinned, setIsPinned] = useState(false);
-
-  // Canvas Overlays & Doodle Tool
-  const [isPosting, setIsPosting] = useState(false);
-  const [isDoodleMode, setIsDoodleMode] = useState(false);
-  const [brushColor, setBrushColor] = useState('#ffffff');
-  const [brushWidth, setBrushWidth] = useState(4);
-  const [textOverlays, setTextOverlays] = useState<StoryTextOverlay[]>([]);
-  const [stickerOverlays, setStickerOverlays] = useState<StoryStickerOverlay[]>([]);
-  const [showEmojiStickerPicker, setShowEmojiStickerPicker] = useState(false);
-
-  // Live Camera Stream
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
-  const [videoRecordSeconds, setVideoRecordSeconds] = useState(0);
-  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
-  const recordTimerRef = useRef<any>(null);
-
-  // Drawing Canvas Ref
-  const doodleCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const isDrawingRef = useRef(false);
-
+  const [isDropTarget, setIsDropTarget] = useState(false);
+  const uploadSeqRef = useRef(0);
+  const previewsRef = useRef<string[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  // Stop camera helper
-  const stopCamera = useCallback(() => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-    }
-    setIsCameraActive(false);
-    setIsRecordingVideo(false);
-    clearInterval(recordTimerRef.current);
+  // Overlays
+  const [stickers, setStickers] = useState<StoryStickerOverlay[]>([]);
+  const [draggingSticker, setDraggingSticker] = useState<string | null>(null);
+  const [overTrash, setOverTrash] = useState(false);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [brushColor, setBrushColor] = useState('#ffffff');
+  const [brushSize, setBrushSize] = useState(BRUSH_SIZES[1]);
+  const doodleRef = useRef<HTMLCanvasElement | null>(null);
+  const liveStrokeRef = useRef<Stroke | null>(null);
+  const canvasBoxRef = useRef<HTMLDivElement | null>(null);
+
+  // Settings
+  const [privacy, setPrivacy] = useState<StoryPrivacy>('everyone');
+  const [durationHours, setDurationHours] = useState(24);
+  const [isPinned, setIsPinned] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  // Camera
+  const [facing, setFacing] = useState<'user' | 'environment'>('user');
+  const [cameraState, setCameraState] = useState<'starting' | 'live' | 'denied'>('starting');
+  const [cameraAttempt, setCameraAttempt] = useState(0);
+  const [recordSeconds, setRecordSeconds] = useState<number | null>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const holdTimerRef = useRef<number | undefined>(undefined);
+  const recordTimerRef = useRef<number | undefined>(undefined);
+
+  const isDirty = text.trim().length > 0 || media !== null || stickers.length > 0 || strokes.length > 0;
+
+  // ---------------------------------------------------------------------------
+  // Media upload: always upload, so the story works for everyone — not a local blob: URL
+  // ---------------------------------------------------------------------------
+  const startUpload = useCallback((blob: Blob, name: string, type: 'image' | 'video') => {
+    const preview = URL.createObjectURL(blob);
+    previewsRef.current.push(preview);
+    const seq = ++uploadSeqRef.current;
+    const isCurrent = () => seq === uploadSeqRef.current;
+    setMedia({ preview, type, status: 'uploading', progress: 0, blob, name });
+    setMode('media');
+    setPanel(null);
+    uploadFile({ name, type: blob.type, data: '', rawBlob: blob }, (progress) => {
+      if (isCurrent()) setMedia((m) => (m ? { ...m, progress } : m));
+    })
+      .then((url) => {
+        if (isCurrent()) setMedia((m) => (m ? { ...m, status: 'ready', url, progress: 100 } : m));
+      })
+      .catch((err: Error) => {
+        if (isCurrent()) setMedia((m) => (m ? { ...m, status: 'error', error: err.message } : m));
+      });
   }, []);
 
-  // Reset form helper
-  const resetForm = useCallback(() => {
-    setText('');
-    setMediaUrl(null);
-    setCaption('');
-    setTab('text');
-    setTextOverlays([]);
-    setStickerOverlays([]);
-    setIsDoodleMode(false);
-    setIsPinned(false);
-    setDurationHours(24);
-    setPrivacy('everyone');
-    stopCamera();
-  }, [stopCamera]);
+  const handleFile = useCallback(
+    (file: File | undefined | null) => {
+      if (!file) return;
+      const type = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : null;
+      if (type) startUpload(file, file.name, type);
+    },
+    [startUpload]
+  );
 
-  // Initialize camera stream
-  const startCamera = useCallback(async () => {
-    try {
-      stopCamera();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1080 }, height: { ideal: 1920 }, facingMode: 'user' },
-        audio: true
-      });
-      mediaStreamRef.current = stream;
-      if (cameraVideoRef.current) {
-        cameraVideoRef.current.srcObject = stream;
-      }
-      setIsCameraActive(true);
-    } catch (err) {
-      console.warn('Camera access denied or unavailable:', err);
-    }
-  }, [stopCamera]);
+  const retryUpload = () => media && startUpload(media.blob, media.name, media.type);
 
   useEffect(() => {
-    if (isOpen && tab === 'camera') {
-      startCamera();
-    } else {
-      stopCamera();
-    }
-    return () => stopCamera();
-  }, [isOpen, tab, startCamera, stopCamera]);
+    const previews = previewsRef.current;
+    return () => previews.forEach((u) => URL.revokeObjectURL(u));
+  }, []);
 
-  if (!isOpen) return null;
+  // Paste an image straight into the composer.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const file = Array.from(e.clipboardData?.files ?? []).find((f) => /^(image|video)\//.test(f.type));
+      if (!file) return;
+      e.preventDefault();
+      handleFile(file);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [handleFile]);
 
-  // Capture Photo from Camera
-  const snapPhoto = () => {
-    if (!cameraVideoRef.current) return;
-    const video = cameraVideoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 720;
-    canvas.height = video.videoHeight || 1280;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      setMediaUrl(dataUrl);
-      setMediaType('image');
-      setTab('media');
-      stopCamera();
-    }
+  // ---------------------------------------------------------------------------
+  // Camera
+  // ---------------------------------------------------------------------------
+  const openCamera = () => {
+    setPanel(null);
+    setCameraState('starting');
+    setMode('camera');
   };
 
-  // Start Video Recording from Camera
-  const startVideoRecord = () => {
-    if (!mediaStreamRef.current) return;
-    recordedChunksRef.current = [];
-    try {
-      const recorder = new MediaRecorder(mediaStreamRef.current, { mimeType: 'video/webm' });
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-        const vidUrl = URL.createObjectURL(blob);
-        setMediaUrl(vidUrl);
-        setMediaType('video');
-        setTab('media');
-        stopCamera();
-      };
-      recorder.start(200);
-      mediaRecorderRef.current = recorder;
-      setIsRecordingVideo(true);
-      setVideoRecordSeconds(0);
-
-      recordTimerRef.current = setInterval(() => {
-        setVideoRecordSeconds((s) => {
-          if (s >= 59) {
-            stopVideoRecord();
-            return 60;
-          }
-          return s + 1;
-        });
-      }, 1000);
-    } catch (e) {
-      console.warn('Video recorder error:', e);
-    }
-  };
-
-  const stopVideoRecord = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    setIsRecordingVideo(false);
-    clearInterval(recordTimerRef.current);
-  };
-
-  // Handle uploaded files
-  const handleFile = async (file: File) => {
-    const isImg = file.type.startsWith('image/');
-    const isVid = file.type.startsWith('video/');
-    if (!isImg && !isVid) return;
-
-    setMediaType(isVid ? 'video' : 'image');
-    setTab('media');
-    setIsUploading(true);
-
-    // Instant local blob preview
-    const localUrl = URL.createObjectURL(file);
-    setMediaUrl(localUrl);
-
-    try {
-      const form = new FormData();
-      form.append('file', file, file.name);
-      const res = await fetch(`${SERVER_URL}/api/upload`, { method: 'POST', body: form });
-      const json = await res.json();
-      if (json.url) {
-        setMediaUrl(json.url);
+  useEffect(() => {
+    if (mode !== 'camera') return;
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+    const video = { facingMode: facing, width: { ideal: 1080 }, height: { ideal: 1920 } };
+    navigator.mediaDevices
+      ?.getUserMedia({ video, audio: true })
+      .catch(() => navigator.mediaDevices.getUserMedia({ video }))
+      .then((s) => {
+        stream = s;
+        if (cancelled) return s.getTracks().forEach((t) => t.stop());
+        streamRef.current = s;
+        if (cameraVideoRef.current) cameraVideoRef.current.srcObject = s;
+        setCameraState('live');
+      })
+      .catch(() => !cancelled && setCameraState('denied'));
+    if (!navigator.mediaDevices) setCameraState('denied');
+    return () => {
+      cancelled = true;
+      window.clearTimeout(holdTimerRef.current);
+      window.clearInterval(recordTimerRef.current);
+      if (recorderRef.current?.state === 'recording') {
+        recorderRef.current.onstop = null;
+        recorderRef.current.stop();
       }
-    } catch {
-      // keep local preview
-    } finally {
-      setIsUploading(false);
-    }
-  };
+      recorderRef.current = null;
+      setRecordSeconds(null);
+      stream?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, [mode, facing, cameraAttempt]);
 
-  // Drawing Canvas Handlers
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const canvas = doodleCanvasRef.current;
-    if (!canvas) return;
+  const snapPhoto = () => {
+    const video = cameraVideoRef.current;
+    if (!video || cameraState !== 'live') return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1080;
+    canvas.height = video.videoHeight || 1920;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    if (facing === 'user') {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => blob && startUpload(blob, `story-${Date.now()}.jpg`, 'image'), 'image/jpeg', 0.9);
+  };
 
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+  const stopRecording = () => {
+    window.clearInterval(recordTimerRef.current);
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+  };
 
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.strokeStyle = brushColor;
-    ctx.lineWidth = brushWidth;
+  const startRecording = () => {
+    const stream = streamRef.current;
+    if (!stream || typeof MediaRecorder === 'undefined') return;
+    const mimeType = pickRecorderMime();
+    const chunks: Blob[] = [];
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    } catch {
+      return;
+    }
+    recorder.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
+    recorder.onstop = () => {
+      setRecordSeconds(null);
+      const type = recorder.mimeType || mimeType || 'video/webm';
+      const blob = new Blob(chunks, { type });
+      if (blob.size > 0) startUpload(blob, `story-${Date.now()}.${type.includes('mp4') ? 'mp4' : 'webm'}`, 'video');
+    };
+    recorder.start(250);
+    recorderRef.current = recorder;
+    setRecordSeconds(0);
+    const startedAt = Date.now();
+    recordTimerRef.current = window.setInterval(() => {
+      const s = Math.floor((Date.now() - startedAt) / 1000);
+      setRecordSeconds(s);
+      if (s >= MAX_VIDEO_SECONDS) stopRecording();
+    }, 200);
+  };
+
+  // Tap = photo, hold = video (released → stop).
+  const shutterDown = (e: React.PointerEvent) => {
+    if (cameraState !== 'live') return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = undefined;
+      startRecording();
+    }, HOLD_TO_RECORD_MS);
+  };
+  const shutterUp = () => {
+    if (holdTimerRef.current !== undefined) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = undefined;
+      snapPhoto();
+    } else {
+      stopRecording();
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Doodle layer (strokes kept as data so they can be undone)
+  // ---------------------------------------------------------------------------
+  const paintStroke = (ctx: CanvasRenderingContext2D, s: Stroke) => {
+    ctx.strokeStyle = s.color;
+    ctx.fillStyle = s.color;
+    ctx.lineWidth = s.size;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    isDrawingRef.current = true;
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawingRef.current) return;
-    const canvas = doodleCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-
-    ctx.lineTo(x, y);
+    const [first, ...rest] = s.points;
+    if (!first) return;
+    if (rest.length === 0) {
+      ctx.beginPath();
+      ctx.arc(first[0], first[1], s.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(first[0], first[1]);
+    rest.forEach(([x, y]) => ctx.lineTo(x, y));
     ctx.stroke();
   };
 
-  const stopDrawing = () => {
-    isDrawingRef.current = false;
+  useEffect(() => {
+    const ctx = doodleRef.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    strokes.forEach((s) => paintStroke(ctx, s));
+  }, [strokes, mode]);
+
+  const toCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>): [number, number] => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return [((e.clientX - rect.left) / rect.width) * CANVAS_W, ((e.clientY - rect.top) / rect.height) * CANVAS_H];
   };
 
-  const clearDoodle = () => {
-    const canvas = doodleCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const drawDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    liveStrokeRef.current = { color: brushColor, size: brushSize, points: [toCanvasPoint(e)] };
+  };
+  const drawMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const stroke = liveStrokeRef.current;
+    const ctx = e.currentTarget.getContext('2d');
+    if (!stroke || !ctx) return;
+    const prev = stroke.points[stroke.points.length - 1];
+    const point = toCanvasPoint(e);
+    stroke.points.push(point);
+    paintStroke(ctx, { ...stroke, points: [prev, point] });
+  };
+  const drawUp = () => {
+    const stroke = liveStrokeRef.current;
+    liveStrokeRef.current = null;
+    if (stroke) setStrokes((s) => [...s, stroke]);
   };
 
-  const addEmojiOverlay = (emoji: string) => {
-    const newSticker: StoryStickerOverlay = {
-      id: 'stk-' + Date.now(),
-      type: 'emoji',
-      content: emoji,
-      x: 35 + Math.random() * 30,
-      y: 35 + Math.random() * 30,
-      scale: 1.2
+  // ---------------------------------------------------------------------------
+  // Stickers: drag to move, wheel to resize, drop on the bin to remove
+  // ---------------------------------------------------------------------------
+  const addSticker = (emoji: string) => {
+    setStickers((list) => [
+      ...list,
+      { id: `stk-${Date.now()}-${list.length}`, type: 'emoji', content: emoji, x: 50 + (Math.random() - 0.5) * 20, y: 42 + (Math.random() - 0.5) * 20, scale: 1, rotation: 0 },
+    ]);
+    setPanel(null);
+  };
+
+  const stickerPointer = (id: string) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setDraggingSticker(id);
+      setStickers((list) => [...list.filter((s) => s.id !== id), ...list.filter((s) => s.id === id)]);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (draggingSticker !== id) return;
+      const rect = canvasBoxRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100));
+      const y = Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100));
+      setOverTrash(y > 86 && Math.abs(x - 50) < 14);
+      setStickers((list) => list.map((s) => (s.id === id ? { ...s, x, y } : s)));
+    },
+    onPointerUp: () => {
+      if (overTrash) setStickers((list) => list.filter((s) => s.id !== id));
+      setDraggingSticker(null);
+      setOverTrash(false);
+    },
+    onWheel: (e: React.WheelEvent<HTMLDivElement>) => {
+      const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
+      setStickers((list) => list.map((s) => (s.id === id ? { ...s, scale: Math.min(4, Math.max(0.4, (s.scale || 1) * factor)) } : s)));
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // Text editing (contentEditable shrink-wraps, so the "fill" style hugs the text)
+  // ---------------------------------------------------------------------------
+  const onTextInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    let value = el.innerText.replace(/\n$/, '');
+    if (value.length > STORY_TEXT_MAX) {
+      value = value.slice(0, STORY_TEXT_MAX);
+      el.innerText = value;
+      const sel = window.getSelection();
+      sel?.selectAllChildren(el);
+      sel?.collapseToEnd();
+    }
+    if (!value.trim()) el.textContent = '';
+    setText(value);
+  };
+
+  const focusText = () => {
+    const el = editableRef.current;
+    if (!el || document.activeElement === el) return;
+    el.focus();
+    const sel = window.getSelection();
+    sel?.selectAllChildren(el);
+    sel?.collapseToEnd();
+  };
+
+  useEffect(() => {
+    if (mode === 'text') requestAnimationFrame(focusText);
+  }, [mode]);
+
+  // ---------------------------------------------------------------------------
+  // Publish / close
+  // ---------------------------------------------------------------------------
+  const canPublish = mode === 'text' ? text.trim().length > 0 : mode === 'media' && media?.status === 'ready';
+
+  const publish = () => {
+    if (!canPublish) return;
+    const drawingData = strokes.length > 0 ? doodleRef.current?.toDataURL('image/png') : undefined;
+    const common = {
+      authorName,
+      durationHours,
+      privacy,
+      isPinned,
+      isCloseFriends: privacy === 'close_friends',
+      stickerOverlays: stickers.length > 0 ? stickers : undefined,
+      drawingData,
     };
-    setStickerOverlays((prev) => [...prev, newSticker]);
-    setShowEmojiStickerPicker(false);
-  };
-
-  const canPost = tab === 'text' ? text.trim().length > 0 : Boolean(mediaUrl);
-
-  const handlePost = () => {
-    if (!canPost || isPosting) return;
-    setIsPosting(true);
-
-    // Export drawing data if canvas used
-    let drawingData: string | undefined = undefined;
-    if (doodleCanvasRef.current) {
-      drawingData = doodleCanvasRef.current.toDataURL('image/png');
+    if (mode === 'text') {
+      sendStory({ ...common, type: 'text', data: text.trim(), background, fontStyle, textColor, textBgStyle: textBg });
+    } else if (media?.url) {
+      sendStory({ ...common, type: media.type, data: media.url, caption: caption.trim() || undefined });
     }
-
-    const isCloseFriends = privacy === 'close_friends';
-
-    if (tab === 'text') {
-      sendStory({
-        type: 'text',
-        data: text.trim(),
-        background,
-        fontStyle,
-        textColor,
-        textBgStyle,
-        authorName: myProfileName,
-        durationHours,
-        privacy,
-        isPinned,
-        isCloseFriends,
-        textOverlays: textOverlays.length > 0 ? textOverlays : undefined,
-        stickerOverlays: stickerOverlays.length > 0 ? stickerOverlays : undefined,
-        drawingData
-      });
-    } else if (mediaUrl) {
-      sendStory({
-        type: mediaType,
-        data: mediaUrl,
-        caption: caption.trim() || undefined,
-        authorName: myProfileName,
-        durationHours,
-        privacy,
-        isPinned,
-        isCloseFriends,
-        textOverlays: textOverlays.length > 0 ? textOverlays : undefined,
-        stickerOverlays: stickerOverlays.length > 0 ? stickerOverlays : undefined,
-        drawingData
-      });
-    }
-
-    setIsPosting(false);
-    resetForm();
     onClose();
   };
 
+  const requestClose = () => (isDirty ? setConfirmDiscard(true) : onClose());
+
+  const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  keyHandlerRef.current = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (confirmDiscard) setConfirmDiscard(false);
+      else if (showSettings) setShowSettings(false);
+      else if (panel) setPanel(null);
+      else requestClose();
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      publish();
+    }
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keyHandlerRef.current(e);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+  const togglePanel = (p: Exclude<Panel, null>) => setPanel((cur) => (cur === p ? null : p));
+  const AlignIcon = align === 'left' ? IconAlignLeft : align === 'right' ? IconAlignRight : IconAlignCenter;
+  const PrivacyIcon = PRIVACY_META[privacy].icon;
+  const textProps = storyTextProps(text, { fontStyle, textColor, textBgStyle: textBg, align });
+  const showTools = mode !== 'camera';
+
   return createPortal(
-    <div
-      className="fixed inset-0 z-[85] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 select-none animate-fade-in"
-      style={{
-        paddingTop: 'max(1.5rem, calc(env(safe-area-inset-top, 0px) + 1.25rem))',
-        paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))',
+    <motion.div
+      className="fixed inset-0 z-[85] flex flex-col items-center justify-center bg-[#0b0b0d] text-white select-none"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Новая история"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDropTarget(true);
       }}
-      onClick={onClose}
+      onDragLeave={(e) => e.currentTarget === e.target && setIsDropTarget(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDropTarget(false);
+        handleFile(e.dataTransfer.files?.[0]);
+      }}
     >
-      <div
-        className="w-full max-w-lg bg-white dark:bg-surface rounded-3xl shadow-2xl border border-zinc-200 dark:border-white/10 overflow-hidden animate-pop-in flex flex-col sm:max-h-[90vh]"
-        style={{
-          maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 3rem)',
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={(e) => {
+          handleFile(e.target.files?.[0]);
+          e.target.value = '';
         }}
-        onClick={(e) => e.stopPropagation()}
+      />
+
+      <motion.div
+        className="relative flex flex-col items-center gap-3 sm:gap-4"
+        initial={{ scale: 0.97, y: 12 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.98, y: 8 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
       >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-accent via-accent-soft to-[#e6604c] flex items-center justify-center text-white">
-              <IconSparkles size={16} />
+        {/* ---------------- Canvas ---------------- */}
+        <div
+          ref={canvasBoxRef}
+          className={`@container relative aspect-[9/16] h-[min(calc(100dvh-148px-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)),calc(100vw*16/9),820px)] overflow-hidden bg-zinc-900 sm:rounded-[26px] sm:ring-1 sm:ring-white/10 transition-shadow ${
+            isDropTarget ? 'ring-2! ring-accent!' : ''
+          }`}
+          style={mode === 'text' ? { background: storyGradient(background) } : undefined}
+        >
+          {/* Content */}
+          {mode === 'text' && (
+            <div className="absolute inset-0 flex items-center justify-center p-[8cqw]" onClick={focusText}>
+              <div
+                ref={editableRef}
+                contentEditable="plaintext-only"
+                role="textbox"
+                aria-multiline="true"
+                aria-label="Текст истории"
+                data-placeholder="Начните печатать"
+                spellCheck={false}
+                onInput={onTextInput}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={() => panel === 'brush' && setPanel(null)}
+                className={`${textProps.className} min-w-[2cqw] cursor-text outline-none select-text caret-white empty:before:text-white/55 empty:before:content-[attr(data-placeholder)]`}
+                style={textProps.style}
+              />
             </div>
-            <h2 className="text-base font-bold text-zinc-900 dark:text-white">Студия историй Telegram</h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
-          >
-            <IconX size={18} />
-          </button>
-        </div>
+          )}
 
-        {/* Top 3-Way Mode Switcher */}
-        <div className="px-5 pb-2 flex gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setTab('text')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-              tab === 'text'
-                ? 'bg-accent text-white shadow-xs'
-                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10'
-            }`}
-          >
-            <IconTypography size={15} />
-            Текст
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setTab('media')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-              tab === 'media'
-                ? 'bg-accent text-white shadow-xs'
-                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10'
-            }`}
-          >
-            <IconPhoto size={15} />
-            Медиа
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setTab('camera')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-              tab === 'camera'
-                ? 'bg-accent text-white shadow-xs'
-                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10'
-            }`}
-          >
-            <IconCamera size={15} />
-            Камера
-          </button>
-        </div>
-
-        {/* Scrollable Form Body */}
-        <div className="px-5 py-2 overflow-y-auto tg-scrollbar flex-1 flex flex-col gap-3">
-          {/* Main Story Interactive Preview Box (9:14 Aspect Ratio) */}
-          <div
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) handleFile(f);
-            }}
-            className={`relative w-full aspect-[9/13] max-h-[310px] mx-auto rounded-2xl overflow-hidden flex items-center justify-center shadow-inner transition-all border border-black/10 dark:border-white/10 ${
-              isDragging ? 'ring-4 ring-accent' : ''
-            }`}
-            style={tab === 'text' ? { background: STORY_GRADIENTS[background] } : { background: '#0a0f1d' }}
-          >
-            {tab === 'text' ? (
-              <p
-                style={{
-                  textAlign,
-                  fontFamily: STORY_FONT_FAMILIES[fontStyle],
-                  color: textColor
-                }}
-                className={`px-6 text-xl font-bold leading-snug drop-shadow-xl whitespace-pre-wrap break-words max-w-full ${
-                  textBgStyle === 'fill'
-                    ? 'p-3 bg-black/50 rounded-2xl backdrop-blur-xs'
-                    : textBgStyle === 'glow'
-                    ? 'drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]'
-                    : ''
-                }`}
-              >
-                {text || 'Напишите что-нибудь...'}
-              </p>
-            ) : tab === 'camera' ? (
-              <div className="relative w-full h-full flex items-center justify-center">
-                <video
-                  ref={cameraVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover -scale-x-100"
-                />
-                {/* Live Camera Actions Overlay */}
-                <div className="absolute bottom-3 inset-x-0 flex items-center justify-center gap-4 z-30">
-                  {/* Photo snap button */}
-                  <button
-                    type="button"
-                    onClick={snapPhoto}
-                    disabled={!isCameraActive || isRecordingVideo}
-                    className="w-12 h-12 rounded-full bg-white text-zinc-900 flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform cursor-pointer"
-                    title="Сделать фото"
-                  >
-                    <IconCamera size={22} />
-                  </button>
-
-                  {/* Video record button */}
-                  <button
-                    type="button"
-                    onClick={isRecordingVideo ? stopVideoRecord : startVideoRecord}
-                    disabled={!isCameraActive}
-                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-xl transition-all ${
-                      isRecordingVideo
-                        ? 'bg-rose-600 text-white animate-pulse'
-                        : 'bg-rose-500 hover:bg-rose-600 text-white hover:scale-105 active:scale-95 cursor-pointer'
-                    }`}
-                    title={isRecordingVideo ? 'Остановить запись' : 'Записать видео'}
-                  >
-                    {isRecordingVideo ? <IconCircleDot size={22} /> : <IconVideo size={22} />}
-                  </button>
-                </div>
-
-                {isRecordingVideo && (
-                  <div className="absolute top-3 px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-bold animate-pulse shadow-md">
-                    REC 0:{videoRecordSeconds < 10 ? `0${videoRecordSeconds}` : videoRecordSeconds} / 1:00
+          {mode === 'media' &&
+            (media ? (
+              <>
+                <StoryMedia type={media.type} src={media.preview} loop />
+                {media.status !== 'ready' && (
+                  <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/35 backdrop-blur-[2px]">
+                    {media.status === 'uploading' ? (
+                      <div className="flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-[13px] font-medium tabular-nums">
+                        <IconLoader2 size={16} className="animate-spin" />
+                        Загрузка {media.progress}%
+                      </div>
+                    ) : (
+                      <div className="mx-6 flex flex-col items-center gap-3 rounded-2xl bg-black/70 px-5 py-4 text-center">
+                        <IconAlertTriangle size={22} className="text-amber-400" />
+                        <p className="text-[13px] leading-snug text-white/85">
+                          Не удалось загрузить файл
+                          {media.error ? <span className="mt-0.5 block text-white/50">{media.error}</span> : null}
+                        </p>
+                        <button type="button" onClick={retryUpload} className="flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-semibold text-black cursor-pointer">
+                          <IconRefresh size={15} /> Повторить
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            ) : mediaUrl ? (
-              mediaType === 'video' ? (
-                <video src={mediaUrl} autoPlay loop muted playsInline className="w-full h-full object-contain" />
-              ) : (
-                <img src={mediaUrl} alt="Превью" className="w-full h-full object-cover" />
-              )
+              </>
             ) : (
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="flex flex-col items-center gap-2 text-white/80 hover:text-white cursor-pointer p-4 text-center group"
+                className="group absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center cursor-pointer"
               >
-                <div className="w-12 h-12 rounded-full bg-white/10 group-hover:bg-white/20 flex items-center justify-center transition-colors">
-                  <IconUpload size={22} />
-                </div>
-                <div>
-                  <span className="text-xs font-semibold block">
-                    {isUploading ? 'Загрузка медиа...' : 'Нажмите или перетащите фото/видео'}
-                  </span>
-                  <span className="text-[10px] text-white/60 block mt-0.5">JPG, PNG, WebP, MP4, MOV</span>
-                </div>
+                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 transition-colors group-hover:bg-white/15">
+                  <IconUpload size={26} stroke={1.75} />
+                </span>
+                <span>
+                  <span className="block text-[15px] font-semibold">Выберите фото или видео</span>
+                  <span className="mt-1 block text-[13px] text-white/55">или перетащите файл сюда · вставьте Ctrl+V</span>
+                </span>
+                <span className="rounded-full bg-white px-4 py-2 text-[13.5px] font-semibold text-black transition-transform group-active:scale-95">
+                  Открыть галерею
+                </span>
               </button>
-            )}
+            ))}
 
-            {/* Sticker Overlays Rendering */}
-            {stickerOverlays.map((stk) => (
+          {mode === 'camera' && (
+            <div className="absolute inset-0 bg-black">
+              <video
+                ref={cameraVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`h-full w-full object-cover ${facing === 'user' ? '-scale-x-100' : ''}`}
+              />
+              {cameraState === 'denied' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8 text-center">
+                  <IconCamera size={30} stroke={1.5} className="text-white/50" />
+                  <p className="text-[14px] leading-snug text-white/80">Нет доступа к камере. Разрешите его в настройках браузера.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCameraState('starting');
+                      setCameraAttempt((n) => n + 1);
+                    }}
+                    className="rounded-full bg-white px-4 py-2 text-[13.5px] font-semibold text-black cursor-pointer"
+                  >
+                    Попробовать снова
+                  </button>
+                </div>
+              )}
+              {recordSeconds !== null && (
+                <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/55 px-3 py-1 text-[13px] font-semibold tabular-nums">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  0:{String(recordSeconds).padStart(2, '0')} / 1:00
+                </div>
+              )}
+              {cameraState === 'live' && (
+                <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 bg-gradient-to-t from-black/50 to-transparent pb-6 pt-16">
+                  <div className="relative flex w-full items-center justify-center">
+                    <button
+                      type="button"
+                      aria-label="Сделать фото — удерживайте для видео"
+                      onPointerDown={shutterDown}
+                      onPointerUp={shutterUp}
+                      onPointerCancel={stopRecording}
+                      className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full cursor-pointer touch-none"
+                    >
+                      <svg viewBox="0 0 72 72" className="absolute inset-0 -rotate-90">
+                        <circle cx="36" cy="36" r="33" fill="none" stroke="white" strokeWidth="4" opacity={recordSeconds === null ? 1 : 0.35} />
+                        {recordSeconds !== null && (
+                          <circle
+                            cx="36"
+                            cy="36"
+                            r="33"
+                            fill="none"
+                            stroke="#ff453a"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                            strokeDasharray={2 * Math.PI * 33}
+                            strokeDashoffset={2 * Math.PI * 33 * (1 - recordSeconds / MAX_VIDEO_SECONDS)}
+                            className="transition-[stroke-dashoffset] duration-200 ease-linear"
+                          />
+                        )}
+                      </svg>
+                      <span
+                        className={`block transition-all duration-200 ${
+                          recordSeconds === null ? 'h-[58px] w-[58px] rounded-full bg-white active:scale-90' : 'h-7 w-7 rounded-lg bg-[#ff453a]'
+                        }`}
+                      />
+                    </button>
+                    {recordSeconds === null && (
+                      <button
+                        type="button"
+                        aria-label="Сменить камеру"
+                        onClick={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))}
+                        className="absolute right-[calc(50%-110px)] flex h-11 w-11 items-center justify-center rounded-full bg-white/15 backdrop-blur-md cursor-pointer active:scale-90 transition-transform"
+                      >
+                        <IconCameraRotate size={21} stroke={1.75} />
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[12px] text-white/70">{recordSeconds === null ? 'Нажмите — фото, удерживайте — видео' : 'Отпустите, чтобы закончить'}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Doodle + stickers (shared by text and media stories) */}
+          {showTools && (
+            <canvas
+              ref={doodleRef}
+              width={CANVAS_W}
+              height={CANVAS_H}
+              onPointerDown={drawDown}
+              onPointerMove={drawMove}
+              onPointerUp={drawUp}
+              onPointerCancel={drawUp}
+              className={`absolute inset-0 z-10 h-full w-full touch-none ${panel === 'brush' ? 'cursor-crosshair' : 'pointer-events-none'}`}
+            />
+          )}
+          {showTools &&
+            stickers.map((s) => (
               <div
-                key={stk.id}
-                style={{
-                  left: `${stk.x}%`,
-                  top: `${stk.y}%`,
-                  transform: 'translate(-50%, -50%)'
-                }}
-                className="absolute z-20 text-3xl select-none drop-shadow-lg"
+                key={s.id}
+                {...stickerPointer(s.id)}
+                className={`absolute z-20 cursor-grab touch-none leading-none drop-shadow-[0_1cqw_2cqw_rgba(0,0,0,0.25)] transition-[opacity,scale] ${
+                  draggingSticker === s.id ? 'cursor-grabbing' : ''
+                } ${draggingSticker === s.id && overTrash ? 'scale-50 opacity-60' : ''} ${panel === 'brush' ? 'pointer-events-none' : ''}`}
+                style={{ left: `${s.x}%`, top: `${s.y}%`, fontSize: `${12 * (s.scale || 1)}cqw`, transform: 'translate(-50%, -50%)' }}
+                title="Перетащите; колесо — размер"
               >
-                {stk.content}
+                {s.content}
               </div>
             ))}
 
-            {/* Interactive Drawing Doodle Canvas */}
-            <canvas
-              ref={doodleCanvasRef}
-              width={360}
-              height={520}
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
-              onMouseUp={stopDrawing}
-              onMouseLeave={stopDrawing}
-              onTouchStart={startDrawing}
-              onTouchMove={draw}
-              onTouchEnd={stopDrawing}
-              className={`absolute inset-0 w-full h-full z-20 ${
-                isDoodleMode ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'
-              }`}
-            />
-
-            {/* In-Preview Caption Preview */}
-            {tab === 'media' && caption.trim() && (
-              <div className="absolute bottom-2 left-2 right-2 p-2 rounded-xl bg-black/65 backdrop-blur-xs text-white text-xs leading-snug text-center truncate z-30">
-                {caption}
-              </div>
-            )}
-          </div>
-
-          <input
-            type="file"
-            ref={fileRef}
-            accept="image/*,video/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-            }}
-          />
-
-          {/* Canvas Tools Toolbar: Doodle, Emoji Stickers, Clear */}
-          <div className="flex items-center justify-between px-1 py-1 rounded-xl bg-zinc-100 dark:bg-white/5">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setIsDoodleMode((d) => !d)}
-                className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
-                  isDoodleMode
-                    ? 'bg-accent text-white shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10'
+          {/* Bin shown while a sticker is dragged */}
+          <AnimatePresence>
+            {draggingSticker && (
+              <motion.div
+                className={`pointer-events-none absolute bottom-[5%] left-1/2 z-30 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full backdrop-blur-md transition-colors ${
+                  overTrash ? 'bg-red-500' : 'bg-black/45'
                 }`}
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: overTrash ? 1.15 : 1 }}
+                exit={{ opacity: 0, scale: 0.6 }}
               >
-                <IconBrush size={14} />
-                Кисть
-              </button>
+                <IconTrash size={20} />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-              <button
-                type="button"
-                onClick={() => setShowEmojiStickerPicker((p) => !p)}
-                className="p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 cursor-pointer"
-              >
-                <IconMoodSmile size={14} />
-                Стикер
-              </button>
-            </div>
-
-            {isDoodleMode && (
-              <button
-                type="button"
-                onClick={clearDoodle}
-                className="p-1.5 rounded-lg text-xs text-rose-500 hover:bg-rose-500/10 flex items-center gap-1 cursor-pointer"
-              >
-                <IconEraser size={14} />
-                Очистить
-              </button>
+          {/* Top bar: close + tool rail */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between bg-gradient-to-b from-black/30 to-transparent p-3">
+            <ToolButton label="Закрыть" onClick={requestClose}>
+              <IconX size={22} />
+            </ToolButton>
+            {showTools && !draggingSticker && (
+              <div className="flex flex-col items-center gap-2">
+                {mode === 'text' && (
+                  <>
+                    <ToolButton label="Шрифт" active={panel === 'font'} onClick={() => togglePanel('font')}>
+                      <span className="text-[15px] font-bold" style={{ fontFamily: STORY_FONT_FAMILIES[fontStyle] }}>
+                        Aa
+                      </span>
+                    </ToolButton>
+                    <ToolButton label="Цвет текста" active={panel === 'color'} onClick={() => togglePanel('color')}>
+                      <span className="h-[18px] w-[18px] rounded-full ring-2 ring-white" style={{ background: textColor }} />
+                    </ToolButton>
+                    <ToolButton label="Фон" active={panel === 'background'} onClick={() => togglePanel('background')}>
+                      <span className="h-[18px] w-[18px] rounded-[6px] ring-2 ring-white" style={{ background: storyGradient(background) }} />
+                    </ToolButton>
+                    <ToolButton label="Выравнивание" onClick={() => setAlign((a) => next(ALIGN_ORDER, a))}>
+                      <AlignIcon size={20} />
+                    </ToolButton>
+                    <ToolButton label="Подложка текста" onClick={() => setTextBg((b) => next(TEXT_BG_ORDER, b))}>
+                      <span
+                        className={`flex h-[22px] w-[22px] items-center justify-center rounded-[6px] text-[13px] font-bold ${
+                          textBg === 'fill' ? 'bg-white text-black' : textBg === 'glow' ? 'ring-1 ring-white/70 [text-shadow:0_0_6px_#fff]' : 'ring-1 ring-white/70'
+                        }`}
+                      >
+                        A
+                      </span>
+                    </ToolButton>
+                  </>
+                )}
+                {mode === 'media' && media && (
+                  <ToolButton label="Заменить" onClick={() => fileRef.current?.click()}>
+                    <IconPhoto size={20} />
+                  </ToolButton>
+                )}
+                <ToolButton label="Рисовать" active={panel === 'brush'} onClick={() => togglePanel('brush')}>
+                  <IconBrush size={20} />
+                </ToolButton>
+                <ToolButton label="Стикер" active={panel === 'sticker'} onClick={() => togglePanel('sticker')}>
+                  <IconMoodSmile size={20} />
+                </ToolButton>
+              </div>
             )}
           </div>
 
-          {/* Doodle Palette when Doodle Mode active */}
-          {isDoodleMode && (
-            <div className="flex items-center gap-1.5 overflow-x-auto tg-scrollbar py-1">
-              {BRUSH_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setBrushColor(c)}
-                  style={{ backgroundColor: c }}
-                  className={`w-6 h-6 rounded-full shrink-0 border border-white/20 transition-transform ${
-                    brushColor === c ? 'scale-125 ring-2 ring-accent' : 'hover:scale-110'
-                  }`}
-                />
-              ))}
-              <input
-                type="range"
-                min="2"
-                max="16"
-                value={brushWidth}
-                onChange={(e) => setBrushWidth(Number(e.target.value))}
-                className="w-20 accent-accent ml-2"
-                title="Толщина кисти"
-              />
-            </div>
-          )}
-
-          {/* Quick Emoji Sticker Drawer */}
-          {showEmojiStickerPicker && (
-            <div className="p-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex flex-wrap gap-2 animate-pop-in">
-              {QUICK_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => addEmojiOverlay(emoji)}
-                  className="text-2xl p-1 hover:scale-125 active:scale-95 transition-transform cursor-pointer"
+          {/* Bottom of canvas: tool panel and caption */}
+          <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col gap-2 p-3">
+            <AnimatePresence mode="wait">
+              {panel && (
+                <motion.div
+                  key={panel}
+                  className="rounded-2xl bg-black/55 p-2 backdrop-blur-xl"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8, transition: { duration: 0.1 } }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 36 }}
                 >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
+                  {panel === 'font' && (
+                    <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+                      {FONT_KEYS.map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setFontStyle(f)}
+                          className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-semibold cursor-pointer transition-colors ${
+                            fontStyle === f ? 'bg-white text-black' : 'text-white/85 hover:bg-white/10'
+                          }`}
+                          style={{ fontFamily: STORY_FONT_FAMILIES[f] }}
+                        >
+                          {FONT_LABELS[f]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {panel === 'color' && <Swatches colors={COLORS} value={textColor} onChange={setTextColor} />}
+                  {panel === 'background' && (
+                    <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] p-0.5">
+                      {GRADIENT_KEYS.map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          aria-label={`Фон ${key}`}
+                          onClick={() => setBackground(key)}
+                          className={`h-8 w-8 shrink-0 rounded-[10px] cursor-pointer transition-transform hover:scale-105 ${
+                            background === key ? 'ring-2 ring-white ring-offset-2 ring-offset-black/60' : ''
+                          }`}
+                          style={{ background: STORY_GRADIENTS[key] }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {panel === 'brush' && (
+                    <div className="flex flex-col gap-2">
+                      <Swatches colors={COLORS} value={brushColor} onChange={setBrushColor} />
+                      <div className="flex items-center gap-1">
+                        {BRUSH_SIZES.map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            aria-label={`Толщина ${size}`}
+                            onClick={() => setBrushSize(size)}
+                            className={`flex h-8 w-8 items-center justify-center rounded-full cursor-pointer ${brushSize === size ? 'bg-white/20' : 'hover:bg-white/10'}`}
+                          >
+                            <span className="rounded-full" style={{ width: size / 2.2 + 2, height: size / 2.2 + 2, background: brushColor }} />
+                          </button>
+                        ))}
+                        <div className="flex-1" />
+                        <button
+                          type="button"
+                          disabled={strokes.length === 0}
+                          onClick={() => setStrokes((s) => s.slice(0, -1))}
+                          className="flex h-8 items-center gap-1 rounded-full px-2.5 text-[12.5px] font-medium cursor-pointer hover:bg-white/10 disabled:opacity-35 disabled:cursor-default"
+                        >
+                          <IconArrowBackUp size={16} /> Отменить
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPanel(null)}
+                          className="flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[12.5px] font-semibold text-black cursor-pointer"
+                        >
+                          Готово
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {panel === 'sticker' && (
+                    <div className="grid grid-cols-8 gap-0.5">
+                      {STICKERS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => addSticker(emoji)}
+                          className="flex aspect-square items-center justify-center rounded-lg text-[22px] cursor-pointer transition-transform hover:scale-110 hover:bg-white/10 active:scale-95"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          {/* Text Story Customizer Controls */}
-          {tab === 'text' && (
-            <div className="flex flex-col gap-2.5">
-              {/* Font Style Tabs */}
-              <div className="flex gap-1 overflow-x-auto tg-scrollbar py-0.5">
-                {FONT_STYLES.map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setFontStyle(f.id)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 cursor-pointer transition-colors ${
-                      fontStyle === f.id
-                        ? 'bg-accent text-white'
-                        : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Text Alignment & Background Fill Style */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-white/5 p-0.5 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setTextAlign('left')}
-                    className={`p-1 rounded ${textAlign === 'left' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
-                  >
-                    <IconAlignLeft size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTextAlign('center')}
-                    className={`p-1 rounded ${textAlign === 'center' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
-                  >
-                    <IconAlignCenter size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTextAlign('right')}
-                    className={`p-1 rounded ${textAlign === 'right' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
-                  >
-                    <IconAlignRight size={14} />
-                  </button>
-                </div>
-
-                {/* Text Background Mode: Normal, Fill, Glow */}
-                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-white/5 p-0.5 rounded-lg text-[11px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setTextBgStyle('none')}
-                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'none' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
-                  >
-                    A
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTextBgStyle('fill')}
-                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'fill' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
-                  >
-                    [A]
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTextBgStyle('glow')}
-                    className={`px-1.5 py-0.5 rounded ${textBgStyle === 'glow' ? 'bg-white dark:bg-white/20 text-accent' : 'text-zinc-400'}`}
-                  >
-                    ✨A
-                  </button>
-                </div>
-
-                {/* Text Color Swatches */}
-                <div className="flex items-center gap-1.5">
-                  {TEXT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setTextColor(c)}
-                      style={{ backgroundColor: c }}
-                      className={`w-5 h-5 rounded-full border border-black/10 transition-transform ${
-                        textColor === c ? 'scale-125 ring-2 ring-accent' : 'hover:scale-110'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Background Gradient Palette */}
-              <div className="flex gap-1.5 overflow-x-auto tg-scrollbar py-1">
-                {GRADIENT_KEYS.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setBackground(key)}
-                    className={`w-7 h-7 rounded-full shrink-0 cursor-pointer transition-transform hover:scale-110 ${
-                      background === key ? 'ring-2 ring-offset-2 ring-accent dark:ring-offset-surface' : ''
-                    }`}
-                    style={{ background: STORY_GRADIENTS[key] }}
-                    title={key}
-                  />
-                ))}
-              </div>
-
-              {/* Main Textarea */}
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Текст вашей истории..."
-                maxLength={512}
-                rows={2}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[14px] text-zinc-900 dark:text-white placeholder-zinc-400 resize-none transition-colors"
-              />
-            </div>
-          )}
-
-          {/* Media Story Caption Input */}
-          {tab === 'media' && (
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                  Подпись к истории
-                </label>
-                <span className="text-[10px] text-zinc-400">{caption.length}/200</span>
-              </div>
+            {mode === 'media' && media && !draggingSticker && panel !== 'brush' && (
               <input
                 type="text"
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
-                placeholder="Добавьте подпись, @упоминание или #тег..."
-                maxLength={200}
-                className="w-full px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors"
+                maxLength={STORY_CAPTION_MAX}
+                placeholder="Добавить подпись…"
+                className="w-full rounded-full bg-black/45 px-4 py-2.5 text-[14px] text-white placeholder:text-white/55 outline-none backdrop-blur-md focus:bg-black/60"
               />
-            </div>
-          )}
-
-          {/* Telegram Stories 2.0 Options: Duration, Privacy & Pin */}
-          <div className="pt-2 border-t border-zinc-100 dark:border-white/5 space-y-2.5">
-            {/* Duration Selector (6, 12, 24, 48 hours) */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                <IconClock size={15} className="text-accent" />
-                <span>Срок жизни</span>
-              </div>
-              <div className="flex gap-1">
-                {STORY_DURATIONS.map((d) => (
-                  <button
-                    key={d.hours}
-                    type="button"
-                    onClick={() => setDurationHours(d.hours)}
-                    className={`px-2 py-0.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
-                      durationHours === d.hours
-                        ? 'bg-accent text-white shadow-xs'
-                        : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
-                    }`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Privacy Selector (Everyone, Contacts, Close Friends) */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                <IconLock size={15} className="text-accent" />
-                <span>Кто видит</span>
-              </div>
-              <div className="flex gap-1">
-                {STORY_PRIVACY_OPTIONS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPrivacy(p.id)}
-                    className={`px-2 py-0.5 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
-                      privacy === p.id
-                        ? p.id === 'close_friends'
-                          ? 'bg-[#00c853] text-white shadow-xs'
-                          : 'bg-accent text-white shadow-xs'
-                        : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
-                    }`}
-                    title={p.desc}
-                  >
-                    <span>{p.icon}</span>
-                    <span>{p.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Pin to profile toggle */}
-            <label className="flex items-center justify-between cursor-pointer py-0.5">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                <IconPin size={15} className="text-amber-500" />
-                <span>Сохранить в профиле (Актуальное)</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={isPinned}
-                onChange={(e) => setIsPinned(e.target.checked)}
-                className="w-4 h-4 accent-accent rounded cursor-pointer"
-              />
-            </label>
+            )}
           </div>
         </div>
 
-        {/* Submit Footer */}
-        <div className="px-5 pb-4 pt-2 shrink-0 border-t border-zinc-100 dark:border-white/5">
-          <button
-            type="button"
-            onClick={handlePost}
-            disabled={!canPost || isUploading || isPosting}
-            className={`w-full py-3 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 transition-all shadow-md ${
-              canPost && !isUploading && !isPosting
-                ? 'tg-btn-primary text-white cursor-pointer active:scale-[0.98]'
-                : 'bg-zinc-200 dark:bg-white/10 text-zinc-400 cursor-not-allowed'
-            }`}
-          >
-            <IconSparkles size={18} />
-            {isUploading ? 'Загрузка медиа...' : isPosting ? 'Публикация...' : 'Опубликовать историю'}
-          </button>
+        {/* ---------------- Bottom bar ---------------- */}
+        <div className="flex w-full max-w-[460px] flex-col gap-3 px-3 sm:px-0">
+          <div className="relative mx-auto flex rounded-full bg-white/[0.07] p-1" role="tablist" aria-label="Тип истории">
+            {(
+              [
+                { id: 'text', label: 'Текст', icon: IconTypography },
+                { id: 'media', label: 'Галерея', icon: IconPhoto },
+                { id: 'camera', label: 'Камера', icon: IconCamera },
+              ] as const
+            ).map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={mode === id}
+                onClick={() => (id === 'camera' ? openCamera() : (setMode(id), setPanel(null)))}
+                className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold cursor-pointer transition-colors ${
+                  mode === id ? 'text-black' : 'text-white/65 hover:text-white'
+                }`}
+              >
+                {mode === id && (
+                  <motion.span layoutId="story-mode-pill" className="absolute inset-0 rounded-full bg-white" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
+                )}
+                <Icon size={16} stroke={2} className="relative" />
+                <span className="relative">{label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="relative flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setShowSettings((s) => !s)}
+              aria-expanded={showSettings}
+              className="flex min-w-0 items-center gap-2 rounded-full bg-white/[0.07] py-2 pl-3 pr-2.5 text-[13.5px] font-medium cursor-pointer transition-colors hover:bg-white/[0.12]"
+            >
+              <PrivacyIcon size={17} stroke={1.9} className={privacy === 'close_friends' ? 'text-[#32d74b]' : 'text-white/80'} />
+              <span className="truncate">
+                {PRIVACY_META[privacy].label} · {isPinned ? 'в профиле' : `${durationHours} ч`}
+              </span>
+              <IconChevronUp size={15} className={`shrink-0 text-white/50 transition-transform ${showSettings ? '' : 'rotate-180'}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={publish}
+              disabled={!canPublish}
+              className="flex shrink-0 items-center gap-2 rounded-full bg-accent py-2 pl-4 pr-2 text-[14px] font-semibold text-white shadow-[0_6px_20px_-6px_var(--accent)] cursor-pointer transition-all hover:bg-accent-strong active:scale-[0.97] disabled:cursor-default disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
+            >
+              {media?.status === 'uploading' && mode === 'media' ? `Загрузка ${media.progress}%` : 'Опубликовать'}
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20">
+                <IconArrowUp size={17} stroke={2.4} />
+              </span>
+            </button>
+
+            <AnimatePresence>
+              {showSettings && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
+                  <motion.div
+                    className="absolute bottom-[calc(100%+10px)] left-0 z-50 w-[min(340px,calc(100vw-24px))] origin-bottom-left rounded-2xl bg-[#1c1c1f] p-1.5 shadow-2xl ring-1 ring-white/10"
+                    initial={{ opacity: 0, scale: 0.96, y: 6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: 6, transition: { duration: 0.12 } }}
+                    transition={{ type: 'spring', stiffness: 520, damping: 36 }}
+                  >
+                    <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-white/45">Кто увидит</p>
+                    {STORY_PRIVACY_OPTIONS.map(({ id }) => {
+                      const meta = PRIVACY_META[id];
+                      const Icon = meta.icon;
+                      const active = privacy === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setPrivacy(id)}
+                          className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left cursor-pointer transition-colors ${active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.05]'}`}
+                        >
+                          <span
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                              id === 'close_friends' ? 'bg-[#32d74b]/15 text-[#32d74b]' : 'bg-white/[0.08] text-white/85'
+                            }`}
+                          >
+                            <Icon size={17} stroke={1.9} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[14px] font-medium leading-tight">{meta.label}</span>
+                            <span className="block truncate text-[12px] leading-tight text-white/45">{meta.hint}</span>
+                          </span>
+                          {active && <IconCheck size={18} stroke={2.4} className="shrink-0 text-accent" />}
+                        </button>
+                      );
+                    })}
+
+                    <div className="mx-2.5 my-1.5 h-px bg-white/10" />
+
+                    <div className={`px-2.5 py-1.5 transition-opacity ${isPinned ? 'opacity-40' : ''}`}>
+                      <p className="pb-1.5 text-[12px] font-medium text-white/45">Исчезнет через</p>
+                      <div className="grid grid-cols-4 gap-1 rounded-xl bg-white/[0.06] p-1">
+                        {STORY_DURATIONS.map((d) => (
+                          <button
+                            key={d.hours}
+                            type="button"
+                            disabled={isPinned}
+                            onClick={() => setDurationHours(d.hours)}
+                            className={`rounded-lg py-1.5 text-[13px] font-semibold tabular-nums cursor-pointer transition-colors disabled:cursor-default ${
+                              durationHours === d.hours ? 'bg-white text-black' : 'text-white/70 hover:text-white'
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isPinned}
+                      onClick={() => setIsPinned((p) => !p)}
+                      className="mt-1 flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left cursor-pointer hover:bg-white/[0.05]"
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-white/85">
+                        <IconPin size={17} stroke={1.9} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-medium leading-tight">Оставить в профиле</span>
+                        <span className="block text-[12px] leading-tight text-white/45">Не исчезнет через {durationHours} ч</span>
+                      </span>
+                      <span className={`relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors ${isPinned ? 'bg-accent' : 'bg-white/20'}`}>
+                        <span className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-[left] ${isPinned ? 'left-[19px]' : 'left-[3px]'}`} />
+                      </span>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+
+      {/* Discard confirmation */}
+      <AnimatePresence>
+        {confirmDiscard && (
+          <motion.div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setConfirmDiscard(false)}
+          >
+            <motion.div
+              className="w-full max-w-[300px] rounded-2xl bg-[#1c1c1f] p-5 text-center ring-1 ring-white/10"
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.97 }}
+              onClick={(e) => e.stopPropagation()}
+              role="alertdialog"
+              aria-label="Удалить черновик?"
+            >
+              <p className="text-[16px] font-semibold">Удалить черновик?</p>
+              <p className="mt-1 text-[13.5px] text-white/55">Текст, рисунки и стикеры не сохранятся.</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setConfirmDiscard(false)} className="rounded-xl bg-white/10 py-2.5 text-[14px] font-semibold cursor-pointer hover:bg-white/15">
+                  Продолжить
+                </button>
+                <button type="button" onClick={onClose} className="rounded-xl bg-danger py-2.5 text-[14px] font-semibold text-white cursor-pointer hover:brightness-110">
+                  Удалить
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>,
     document.body
   );
 };
+
+const ToolButton: React.FC<{ label: string; active?: boolean; onClick: () => void; children: React.ReactNode }> = ({ label, active, onClick, children }) => (
+  <button
+    type="button"
+    aria-label={label}
+    aria-pressed={active}
+    title={label}
+    onClick={onClick}
+    className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full backdrop-blur-md cursor-pointer transition-all active:scale-90 ${
+      active ? 'bg-white text-black' : 'bg-black/30 text-white hover:bg-black/45'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const Swatches: React.FC<{ colors: string[]; value: string; onChange: (c: string) => void }> = ({ colors, value, onChange }) => (
+  <div className="flex items-center justify-between gap-1 px-0.5">
+    {colors.map((c) => (
+      <button
+        key={c}
+        type="button"
+        aria-label={`Цвет ${c}`}
+        onClick={() => onChange(c)}
+        className={`h-7 w-7 shrink-0 rounded-full cursor-pointer transition-transform hover:scale-110 ring-2 ${value === c ? 'scale-110 ring-white' : 'ring-white/25'}`}
+        style={{ background: c }}
+      />
+    ))}
+  </div>
+);
 
 export default StoryCreateModal;

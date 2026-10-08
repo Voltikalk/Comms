@@ -49,7 +49,7 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
-  /* Back-compat aliases used by the theme modal */
+  /* Back-compat aliases (pre-Graphite components) */
   --tg-theme-accent: var(--accent);
   --tg-theme-accent-hover: var(--accent-strong);
   --tg-theme-accent-subtle: color-mix(in oklab, var(--accent) 12%, transparent);
@@ -85,6 +85,29 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 10px 30px -10px rgba(0, 0, 0, 0.7), 0 2px 6px -2px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 30px 80px -20px rgba(0, 0, 0, 0.85), 0 6px 16px -6px rgba(0, 0, 0, 0.6);
+}
+
+/* Accent picked in «Оформление» (src/lib/appearance.ts sets data-accent and
+   --user-accent on <html>). Every accent-derived token is re-mixed from it so
+   bubbles, ticks and buttons follow; the dark block must list the same props. */
+:root[data-accent] {
+  --accent: var(--user-accent);
+  --accent-strong: color-mix(in oklab, var(--user-accent) 84%, black);
+  --accent-soft: color-mix(in oklab, var(--user-accent) 90%, black);
+  --accent-muted: color-mix(in oklab, var(--user-accent) 14%, white);
+  --tick: color-mix(in oklab, var(--user-accent) 90%, black);
+  --bubble-self: color-mix(in oklab, var(--user-accent) 16%, white);
+  --bubble-self-ink: color-mix(in oklab, var(--user-accent) 18%, #0b0d12);
+}
+
+:root.dark[data-accent] {
+  --accent: color-mix(in oklab, var(--user-accent) 88%, white);
+  --accent-strong: color-mix(in oklab, var(--user-accent) 72%, white);
+  --accent-soft: color-mix(in oklab, var(--user-accent) 62%, white);
+  --accent-muted: color-mix(in oklab, var(--user-accent) 24%, #111113);
+  --tick: color-mix(in oklab, var(--user-accent) 50%, white);
+  --bubble-self: color-mix(in oklab, var(--user-accent) 30%, #111113);
+  --bubble-self-ink: #f2f3f7;
 }
 
 @theme inline {
@@ -127,9 +150,10 @@ html, body {
   background: color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
+/* No focus frames on inputs and buttons (Telegram-like). */
+:focus,
 :focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent);
-  outline-offset: 2px;
+  outline: none;
 }
 
 #root {
@@ -183,17 +207,22 @@ html, body {
 }
 
 /* Composer capsule */
+/* Floating frosted tab bar on phones (Telegram-like). */
+.tg-tabbar {
+  background: color-mix(in oklab, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md), 0 1px 0 color-mix(in oklab, white 6%, transparent) inset;
+  isolation: isolate;
+}
+
 .tg-input-capsule {
   background-color: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: 22px;
   box-shadow: var(--shadow-md);
   transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
-}
-
-.tg-input-capsule:focus-within {
-  border-color: color-mix(in oklab, var(--accent) 45%, var(--line-strong));
-  box-shadow: var(--shadow-md), 0 0 0 4px color-mix(in oklab, var(--accent) 12%, transparent);
 }
 
 .tg-context-pill {
@@ -448,6 +477,196 @@ html, body {
   animation: messageAppear 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Own message leaving the composer (Telegram): rises from below, grows from the right edge. */
+@keyframes messageSend {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.92);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-message-send {
+  transform-origin: 100% 100%;
+  animation: messageSend 0.34s var(--ease-spring, cubic-bezier(0.34, 1.4, 0.64, 1)) both;
+}
+
+/* Delivery tick switching (clock → ✓ → ✓✓). */
+@keyframes tgCheckPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  70% {
+    transform: scale(1.18);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Bottom sheet on phones, pop-in dialog from `sm` up. */
+@keyframes tgSheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.tg-sheet-in {
+  animation: tgSheetUp 0.32s var(--ease-out) both;
+}
+
+@media (min-width: 640px) {
+  .tg-sheet-in {
+    animation: popIn 0.22s var(--ease-out) both;
+  }
+}
+
+/* Settings slider: accent fill up to the thumb (`--range-fill`, set inline). */
+.ui-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ui-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent) var(--range-fill, 50%), var(--line-strong) var(--range-fill, 50%));
+}
+
+.ui-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.ui-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.ui-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.12s var(--ease-out);
+}
+
+.ui-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.ui-range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.ui-range:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+/*
+ * Phone navigation (Telegram iOS): the chat pushes in from the right over the
+ * list, which drifts left under a dim. The edge swipe-back drives the same
+ * panes with inline transforms (ChatScreen) and hands back to these classes.
+ */
+.tg-nav-pane {
+  transition: transform 0.36s var(--ease-out), visibility 0s;
+}
+
+.tg-nav-pane.tg-nav-away,
+.tg-nav-pane.tg-nav-under {
+  visibility: hidden;
+  transition: transform 0.36s var(--ease-out), visibility 0s linear 0.36s;
+}
+
+.tg-nav-pane.tg-nav-away {
+  transform: translateX(100%);
+}
+
+.tg-nav-pane.tg-nav-under {
+  transform: translateX(-28%);
+}
+
+.tg-nav-pane[data-nav-pane='list']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: rgb(0 0 0 / 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.36s var(--ease-out);
+}
+
+.tg-nav-pane.tg-nav-under::after {
+  opacity: var(--nav-dim, 1);
+}
+
+.tg-nav-pane[data-nav-pane='chat'] {
+  box-shadow: -8px 0 24px rgb(0 0 0 / 0.12);
+}
+
+.tg-nav-pane.tg-nav-dragging,
+.tg-nav-pane.tg-nav-dragging::after {
+  transition: none;
+  visibility: visible;
+}
+
+/* Composer action button: mic ↔ send swap. */
+@keyframes tgIconSwap {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-60deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+.tg-icon-swap {
+  animation: tgIconSwap 0.22s var(--ease-spring, cubic-bezier(0.34, 1.4, 0.64, 1)) both;
+}
+
+.tg-check-pop {
+  animation: tgCheckPop 0.26s var(--ease-spring, cubic-bezier(0.34, 1.4, 0.64, 1)) both;
+}
+
+/* Message body text — font & size come from the appearance settings. */
+.tg-msg-text {
+  font-family: var(--msg-font, inherit);
+  font-size: var(--msg-font-size, 15px);
+  line-height: 1.34;
+  letter-spacing: -0.003em;
+  overflow-wrap: anywhere;
+}
+
 .animate-reaction-pop {
   animation: reactionPop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
@@ -462,6 +681,57 @@ html, body {
 
 .animate-check-bounce {
   animation: checkBounce 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Message context menu: reaction strip, lifted bubble (phones) */
+@keyframes tgCtxIn {
+  0% { opacity: 0; transform: scale(0.86); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes tgReactionIn {
+  0% { opacity: 0; transform: scale(0.3); }
+  70% { opacity: 1; transform: scale(1.14); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.tg-ctx-in {
+  animation: tgCtxIn 0.22s var(--ease-spring) backwards;
+}
+
+.tg-reaction-chip {
+  display: flex;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  cursor: pointer;
+  animation: tgReactionIn 0.34s var(--ease-spring) backwards;
+  transition: transform 0.16s var(--ease-out), background-color 0.15s ease;
+}
+
+.tg-reaction-chip:hover { transform: scale(1.2); }
+.tg-reaction-chip:active { transform: scale(0.86); }
+
+.tg-reaction-chip.is-active {
+  background-color: var(--accent-muted);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 50%, transparent);
+}
+
+.tg-ctx-lift {
+  transition: transform 0.36s var(--ease-spring);
+  will-change: transform;
+}
+
+.tg-ctx-lift [class*="tg-bubble-"] {
+  box-shadow: var(--shadow-lg);
+}
+
+.tg-ctx-clip {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent);
 }
 
 /* Telegram Authentic Row Flash/Highlight on Search / Quote Jump */
@@ -524,6 +794,16 @@ html, body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
+}
+
+/* Horizontal strips (reactions, wallpaper categories): scroll without a bar. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

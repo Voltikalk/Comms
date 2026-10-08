@@ -51,7 +51,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         placeholder={placeholder}
         autoFocus={autoFocus}
         aria-label="Поле поиска сообщений"
-        className="w-full h-9 pl-9 pr-9 rounded-full bg-zinc-100 dark:bg-elevated border-none text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-accent transition-all"
+        className="w-full h-9 pl-9 pr-9 rounded-full bg-zinc-100 dark:bg-elevated border-none text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none transition-all"
       />
 
       {/* Right Spinner / Clear button */}

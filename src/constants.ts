@@ -158,3 +158,28 @@ export const ANIMATED_EMOJIS: Record<string, string> = {
 
 export const QUICK_REACTIONS = ['❤️‍🔥', '😭', '💩', '🗿', '🐳', '🥴', '🤮', '❤️'];
 
+
+/** Fallback avatar colours of the preset accounts (no photo). */
+export const ROOM_AVATAR_COLORS: Record<string, string> = {
+  vlad: 'bg-indigo-600',
+  anya: 'bg-pink-600',
+  mom: 'bg-amber-600',
+  dad: 'bg-sky-600',
+  sister: 'bg-emerald-600',
+};
+
+/** Profile colors (same ids as the server's PROFILE_COLORS): avatar fallback + profile cover. */
+export const PROFILE_COLORS: { id: string; label: string; from: string; to: string }[] = [
+  { id: 'red', label: 'Красный', from: '#ff845e', to: '#d45246' },
+  { id: 'orange', label: 'Оранжевый', from: '#febb5b', to: '#f68136' },
+  { id: 'violet', label: 'Фиолетовый', from: '#b694f9', to: '#6c61df' },
+  { id: 'green', label: 'Зелёный', from: '#9ad164', to: '#46ba43' },
+  { id: 'cyan', label: 'Бирюзовый', from: '#53edd6', to: '#28c9b7' },
+  { id: 'blue', label: 'Синий', from: '#5bcbe3', to: '#359ad4' },
+  { id: 'pink', label: 'Розовый', from: '#ff8aac', to: '#d95574' },
+];
+
+export const profileGradient = (id?: string) => {
+  const c = PROFILE_COLORS.find((p) => p.id === id);
+  return c ? `linear-gradient(135deg, ${c.from}, ${c.to})` : undefined;
+};

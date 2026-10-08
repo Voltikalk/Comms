@@ -184,7 +184,7 @@ export const AdminArchive: React.FC<AdminArchiveProps> = ({ onClose }) => {
                   max={3650}
                   value={daysToKeep}
                   onChange={(e) => setDaysToKeep(Number(e.target.value))}
-                  className="w-32 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                  className="w-32 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none"
                 />
                 <button
                   onClick={handleManualArchive}
@@ -217,7 +217,7 @@ export const AdminArchive: React.FC<AdminArchiveProps> = ({ onClose }) => {
                   type="number"
                   value={groupPolicyDays}
                   onChange={(e) => setGroupPolicyDays(Number(e.target.value))}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:border-cyan-400 focus:outline-none"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:outline-none"
                 />
               </div>
               <div>
@@ -226,7 +226,7 @@ export const AdminArchive: React.FC<AdminArchiveProps> = ({ onClose }) => {
                   type="number"
                   value={dmPolicyDays}
                   onChange={(e) => setDmPolicyDays(Number(e.target.value))}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:border-cyan-400 focus:outline-none"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:outline-none"
                 />
               </div>
               <div>
@@ -235,7 +235,7 @@ export const AdminArchive: React.FC<AdminArchiveProps> = ({ onClose }) => {
                   type="number"
                   value={attachmentPolicyDays}
                   onChange={(e) => setAttachmentPolicyDays(Number(e.target.value))}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:border-cyan-400 focus:outline-none"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:outline-none"
                 />
               </div>
             </div>
@@ -269,7 +269,7 @@ export const AdminArchive: React.FC<AdminArchiveProps> = ({ onClose }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Поиск сообщений в архиве..."
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs text-white placeholder-white/40 focus:border-cyan-400 focus:outline-none"
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none"
             />
             <button
               type="submit"

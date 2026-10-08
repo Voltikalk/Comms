@@ -169,9 +169,17 @@ export const StoriesProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [myUser, socket, markStoryViewedLocal]);
 
   const myStories = stories[myUser] || [];
+  // Unseen authors first, then by their latest story — the order the bar and viewer walk through.
   const othersStories = Object.entries(stories)
     .filter(([uid]) => uid !== myUser)
-    .map(([userId, list]) => ({ userId: userId as UserId, stories: list }));
+    .map(([userId, list]) => ({
+      userId: userId as UserId,
+      stories: list,
+      unseen: list.some((s) => !viewedSet.has(s.id)),
+      latest: Math.max(...list.map((s) => s.timestamp)),
+    }))
+    .sort((a, b) => Number(b.unseen) - Number(a.unseen) || b.latest - a.latest)
+    .map(({ userId, stories: list }) => ({ userId, stories: list }));
 
   return (
     <StoriesContext.Provider

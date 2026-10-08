@@ -38,13 +38,24 @@ export interface PinnedMessagesState {
   unpinAll: () => void;
 }
 
+/** Server-side pins of a group/channel: shared by every member, changed through `pin_message`. */
+export interface SharedPins {
+  ids: string[];
+  set: (messageId: string, pinned: boolean) => void;
+  clear: () => void;
+}
+
 /**
  * Telegram multi-pin state for the active chat (Direction 2 · multi-pins).
  * Persisted in localStorage (`tg_pinned_messages_v2`, upgrades the legacy
  * single-pin format). Pins whose messages are not loaded are hidden, not
  * dropped, so history pagination can't silently unpin anything.
  */
-export function usePinnedMessages(roomId: string | null | undefined, messageMap: ReadonlyMap<string, Message>): PinnedMessagesState {
+export function usePinnedMessages(
+  roomId: string | null | undefined,
+  messageMap: ReadonlyMap<string, Message>,
+  shared?: SharedPins | null,
+): PinnedMessagesState {
   const [map, setMap] = useState<PinnedMap>(readPins);
   // Cursor is scoped to the room it was set in → switching chats resets to the newest pin.
   const [cursorState, setCursorState] = useState<{ roomId: string; cursor: number }>({ roomId: '', cursor: -1 });
@@ -57,31 +68,32 @@ export function usePinnedMessages(roomId: string | null | undefined, messageMap:
     }
   }, [map]);
 
-  const pins = useMemo(
-    () =>
-      roomId
-        ? getPins(map, roomId)
-            .map((id) => messageMap.get(id))
-            .filter((m): m is Message => !!m)
-        : [],
-    [map, roomId, messageMap],
-  );
+  const sharedIds = shared?.ids;
+  const ids = useMemo(() => (sharedIds ? sharedIds : roomId ? getPins(map, roomId) : []), [sharedIds, map, roomId]);
+
+  const pins = useMemo(() => ids.map((id) => messageMap.get(id)).filter((m): m is Message => !!m), [ids, messageMap]);
 
   const rawCursor = cursorState.roomId === roomId ? cursorState.cursor : -1;
   const cursor = normalizeCursor(pins.length, rawCursor);
   const current = pins[cursor] ?? null;
 
-  const isPinned = useCallback((id: string) => (roomId ? getPins(map, roomId).includes(id) : false), [map, roomId]);
+  const isPinned = useCallback((id: string) => ids.includes(id), [ids]);
 
   const toggle = useCallback(
     (messageId: string) => {
       if (!roomId) return false;
+      if (shared) {
+        const pin = !shared.ids.includes(messageId);
+        shared.set(messageId, pin);
+        setCursorState({ roomId, cursor: -1 });
+        return pin;
+      }
       const res = togglePinPure(map, roomId, messageId);
       setMap(res.map);
       setCursorState({ roomId, cursor: -1 });
       return res.pinned;
     },
-    [map, roomId],
+    [map, roomId, shared],
   );
 
   const advance = useCallback(() => {
@@ -100,9 +112,10 @@ export function usePinnedMessages(roomId: string | null | undefined, messageMap:
 
   const unpinAll = useCallback(() => {
     if (!roomId) return;
-    setMap((prev) => unpinAllPure(prev, roomId));
+    if (shared) shared.clear();
+    else setMap((prev) => unpinAllPure(prev, roomId));
     setCursorState({ roomId, cursor: -1 });
-  }, [roomId]);
+  }, [roomId, shared]);
 
   return { pins, current, cursor, label: pinLabel(pins.length, cursor), isPinned, toggle, advance, select, unpinAll };
 }

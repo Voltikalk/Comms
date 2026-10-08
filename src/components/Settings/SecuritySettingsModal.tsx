@@ -14,7 +14,7 @@ type PasswordMode = 'idle' | 'set' | 'change' | 'disable';
 const errorText = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback);
 
 const inputClass =
-  'w-full px-3.5 py-2.5 rounded-xl text-[13.5px] bg-slate-100/80 dark:bg-[#0E1621]/90 border border-slate-200/80 dark:border-white/[0.08] focus:border-[#3390EC] focus:ring-4 focus:ring-[#3390EC]/15 outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400';
+  'w-full px-3.5 py-2.5 rounded-xl text-[13.5px] bg-slate-100/80 dark:bg-[#0E1621]/90 border border-slate-200/80 dark:border-white/[0.08] outline-hidden transition-all text-slate-900 dark:text-white placeholder:text-slate-400';
 
 interface SecuritySettingsModalProps {
   onClose: () => void;

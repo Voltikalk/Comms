@@ -22,6 +22,8 @@ import {
 import { displayNameOf, getUser, searchUsers } from '../services/users.js';
 import { registerCallHandlers } from './call.js';
 import { registerChatHandlers } from './chat.js';
+import { registerGroupHandlers, searchPublicRooms } from './groups.js';
+import { profilesStateFor, registerProfileHandlers } from './profiles.js';
 import { registerStoryHandlers } from './stories.js';
 
 /**
@@ -71,8 +73,9 @@ function registerRoomHandlers({ io, socket, user, on }) {
 
   on('search_users', async ({ query }, ack) => {
     if (!checkSocketRateLimit(socket.id, 'search_users', 20, 10000)) return ack?.({ users: [] });
-    const users = await searchUsers(String(query || '').slice(0, 64), user, isUserOnline);
-    if (ack) ack({ users });
+    const q = String(query || '').slice(0, 64);
+    const users = await searchUsers(q, user, isUserOnline);
+    if (ack) ack({ users, rooms: searchPublicRooms(q, user) });
     else socket.emit('search_users_result', { users });
   });
 
@@ -137,51 +140,6 @@ function registerRoomHandlers({ io, socket, user, on }) {
   on('create_direct_chat', (payload, ack) => openDirect(payload, ack, false));
   on('create_secret_chat', (payload, ack) => openDirect(payload, ack, true));
 
-  on('create_group_chat', async ({ name, participantIds, avatarUrl }, ack) => {
-    const title = typeof name === 'string' ? name.trim().slice(0, 128) : '';
-    if (!title) return ack?.({ error: 'Укажите название группы' });
-    if (!checkSocketRateLimit(socket.id, 'create_group_chat', 5, 60000)) return ack?.({ error: 'Слишком часто.' });
-    const ids = Array.isArray(participantIds) ? participantIds.filter((p) => typeof p === 'string').slice(0, 200) : [];
-    const cleanMembers = [...new Set([user, ...ids.map((p) => p.toLowerCase())])];
-    const roomId = `group-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const newGroup = {
-      id: roomId,
-      name: title,
-      type: 'group',
-      participants: cleanMembers,
-      avatarUrl: typeof avatarUrl === 'string' ? avatarUrl : '',
-    };
-    memoryRooms.set(roomId, newGroup);
-    for (const memberId of cleanMembers) {
-      joinUserSockets(io, memberId, roomId);
-      io.to(memberId).emit('room_created', newGroup);
-    }
-
-    void (async () => {
-      try {
-        const creatorUuid = await resolveUserUuid(user);
-        if (!creatorUuid) return;
-        const { data: dbRoom } = await supabase
-          .from('rooms')
-          .insert({ name: title, type: 'group', created_by: creatorUuid, avatar_url: newGroup.avatarUrl })
-          .select()
-          .single();
-        if (!dbRoom) return;
-        newGroup.dbId = dbRoom.id;
-        const memberInserts = [];
-        for (const m of cleanMembers) {
-          const mUuid = await resolveUserUuid(m);
-          if (mUuid) memberInserts.push({ room_id: dbRoom.id, user_id: mUuid, role: m === user ? 'admin' : 'member' });
-        }
-        if (memberInserts.length > 0) await supabase.from('room_members').insert(memberInserts);
-      } catch (err) {
-        console.warn('[Supabase Group Save Warning]', err.message);
-      }
-    })();
-
-    ack?.({ room: newGroup });
-  });
-
   on('typing', ({ roomId, isTyping }) => {
     if (!checkSocketRateLimit(socket.id, 'typing', 25, 5000)) return;
     if (!isRoomAllowedForUser(roomId, user)) return;
@@ -227,16 +185,19 @@ export function attachSockets(io) {
     const userRooms = getUserRooms(user);
     for (const r of userRooms) if (r.id !== SAVED_MESSAGES_ID) socket.join(r.id);
     socket.emit('rooms_list', userRooms);
+    socket.emit('profiles_state', profilesStateFor(user));
     io.emit('status_update', getOnlineStatus());
 
     const ctx = { io, socket, user, on: bindSafe(socket) };
     registerRoomHandlers(ctx);
     registerChatHandlers(ctx);
+    registerGroupHandlers(ctx);
     registerStoryHandlers(ctx);
+    registerProfileHandlers(ctx);
     registerCallHandlers(ctx);
 
     socket.emit('history', messageHistory.filter((msg) => canSeeMessage(msg, user)));
-    socket.emit('stories_state', getStoriesState());
+    socket.emit('stories_state', getStoriesState(user));
 
     socket.on('disconnect', () => {
       clearSocketRateLimit(socket.id);

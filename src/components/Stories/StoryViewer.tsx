@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   IconX,
   IconTrash,
@@ -7,22 +8,22 @@ import {
   IconPlus,
   IconVolume,
   IconVolumeOff,
-  IconSend,
   IconChevronLeft,
   IconChevronRight,
-  IconShare3,
   IconDownload,
-  IconDotsVertical,
-  IconSearch
+  IconHeart,
+  IconHeartFilled,
+  IconArrowUp,
+  IconPlayerPauseFilled,
+  IconPlayerPlayFilled,
+  IconLoader2,
 } from '@tabler/icons-react';
 import { useStories } from '../../context/stories-context';
-import { useAuth } from '../../context/contexts';
-import {
-  STORY_GRADIENTS,
-  STORY_FONT_FAMILIES,
-  type Story
-} from '../../types/story.types';
-import { USER_NAMES, DEFAULT_USER_PROFILES } from '../../constants';
+import { useAuth, useRooms } from '../../context/contexts';
+import type { UserId } from '../../types';
+import type { Story } from '../../types/story.types';
+import { StoryContent } from './storyCanvas';
+import { PRIVACY_META, formatStoryAge, storyGradient } from './storyStyle';
 
 interface StoryViewerProps {
   /** 'me' opens own stories, otherwise a specific userId */
@@ -32,791 +33,740 @@ interface StoryViewerProps {
   onSendDirectMessage?: (peerUserId: string, text: string) => void;
 }
 
-const DEFAULT_STORY_DURATION_MS = 5000;
-const TG_REACTIONS = ['❤️', '🔥', '👍', '👏', '😂', '😍', '🎉', '⚡', '💯', '🚀'];
+const PHOTO_DURATION_MS = 5500;
+const HOLD_MS = 180;
+const SWIPE_CLOSE_PX = 90;
+const REACTIONS = ['❤️', '🔥', '😂', '😍', '👏', '😮', '😢', '🎉'];
 
-const formatAge = (ts: number) => {
-  const diff = Math.max(0, Date.now() - ts);
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'только что';
-  if (mins < 60) return `${mins} мин назад`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} ч назад`;
-  return 'вчера';
-};
+const isTypingTarget = (t: EventTarget | null) =>
+  t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
 
-export const StoryViewer: React.FC<StoryViewerProps> = ({
-  targetUser,
-  onClose,
-  onOpenCreate,
-  onSendDirectMessage
-}) => {
-  const {
-    stories,
-    myStories,
-    othersStories,
-    deleteStory,
-    viewStory,
-    reactStory,
-    markStoryViewedLocal
-  } = useStories();
+export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, onOpenCreate, onSendDirectMessage }) => {
+  const { stories, myStories, othersStories, deleteStory, viewStory, reactStory, isStoryViewed, markStoryViewedLocal } = useStories();
+  const me = useAuth().currentUser ?? '';
+  const { getUserDisplayName, getUserAvatar } = useRooms();
 
-  const me: string = useAuth().currentUser ?? '';
-
-  // Build the list of active user IDs
-  const allUserIds = useMemo(() => [
-    ...(myStories.length > 0 ? ['me'] : []),
-    ...othersStories.map((o) => o.userId)
-  ], [myStories.length, othersStories]);
-
-  const [activeUserId, setActiveUserId] = useState<string>(targetUser || 'me');
-
-  useEffect(() => {
-    if (targetUser) {
-      setActiveUserId(targetUser);
-    }
-  }, [targetUser]);
-
-  const isOwn = activeUserId === 'me' || activeUserId === me;
-  const currentStoriesList: Story[] = isOwn ? myStories : (stories[activeUserId] || []);
-
-  const [index, setIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [isHolding, setIsHolding] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [replyText, setReplyText] = useState('');
-  const [showViewsDrawer, setShowViewsDrawer] = useState(false);
-  const [viewerSearch, setViewerSearch] = useState('');
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [doubleTapHeart, setDoubleTapHeart] = useState(false);
-  const [flyingReactions, setFlyingReactions] = useState<{ id: string; emoji: string; x: number; rot: number }[]>([]);
-
-  // Drag down to close
-  const [dragY, setDragY] = useState(0);
-  const isDraggingDownRef = useRef(false);
-  const touchStartYRef = useRef(0);
-  const lastTapTimeRef = useRef(0);
-
-  const rafRef = useRef<number>(0);
-  const elapsedTimeRef = useRef<number>(0);
-  const lastTimeRef = useRef<number>(0);
-  const pausedRef = useRef(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  // Sync pausedRef with state
-  useEffect(() => {
-    pausedRef.current = isHolding || showViewsDrawer || showMoreMenu;
-  }, [isHolding, showViewsDrawer, showMoreMenu]);
-
-  // Reset index on user switch
-  useEffect(() => {
-    setIndex(0);
-    setProgress(0);
-    elapsedTimeRef.current = 0;
-    setShowViewsDrawer(false);
-    setShowMoreMenu(false);
-    setReplyText('');
-  }, [activeUserId]);
-
-  const current = currentStoriesList[index];
-
-  const switchUser = useCallback((direction: 'next' | 'prev') => {
-    const currentIdx = allUserIds.indexOf(activeUserId);
-    if (direction === 'next') {
-      if (currentIdx !== -1 && currentIdx < allUserIds.length - 1) {
-        setActiveUserId(allUserIds[currentIdx + 1]);
-      } else {
-        onClose();
-      }
-    } else {
-      if (currentIdx > 0) {
-        setActiveUserId(allUserIds[currentIdx - 1]);
-      } else {
-        elapsedTimeRef.current = 0;
-        setProgress(0);
-        setIndex(0);
-      }
-    }
-  }, [activeUserId, allUserIds, onClose]);
-
-  const advance = useCallback(() => {
-    elapsedTimeRef.current = 0;
-    setProgress(0);
-    if (index < currentStoriesList.length - 1) {
-      setIndex((i) => i + 1);
-    } else {
-      switchUser('next');
-    }
-  }, [index, currentStoriesList.length, switchUser]);
-
-  const goBack = useCallback(() => {
-    elapsedTimeRef.current = 0;
-    setProgress(0);
-    if (index > 0) {
-      setIndex((i) => i - 1);
-    } else {
-      switchUser('prev');
-    }
-  }, [index, switchUser]);
-
-  // Mark story as viewed on server and locally
-  useEffect(() => {
-    if (!current) return;
-    markStoryViewedLocal(current.id);
-    if (!isOwn) {
-      viewStory(current.id, current.userId);
-    }
-  }, [current, isOwn, markStoryViewedLocal, viewStory]);
-
-  // Timer loop for story progress
-  useEffect(() => {
-    if (!current) return;
-    elapsedTimeRef.current = 0;
-    setProgress(0);
-    lastTimeRef.current = performance.now();
-
-    const duration = current.type === 'video' && videoRef.current && videoRef.current.duration
-      ? videoRef.current.duration * 1000
-      : DEFAULT_STORY_DURATION_MS;
-
-    const tick = (now: number) => {
-      const delta = now - lastTimeRef.current;
-      lastTimeRef.current = now;
-
-      if (!pausedRef.current) {
-        if (current.type === 'video' && videoRef.current && !isNaN(videoRef.current.duration) && videoRef.current.duration > 0) {
-          const pct = (videoRef.current.currentTime / videoRef.current.duration) * 100;
-          setProgress(Math.min(100, pct));
-          if (videoRef.current.ended || pct >= 99.5) {
-            advance();
-            return;
-          }
-        } else {
-          elapsedTimeRef.current += delta;
-          const pct = Math.min(100, (elapsedTimeRef.current / duration) * 100);
-          setProgress(pct);
-
-          if (elapsedTimeRef.current >= duration) {
-            advance();
-            return;
-          }
-        }
-      }
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [current, advance]);
-
-  const handleSendReaction = (emoji: string) => {
-    if (!current) return;
-    reactStory(current.id, current.userId, emoji);
-
-    // Floating reaction burst with physics
-    const reactionId = Math.random().toString(36).substring(2, 9);
-    const randomX = 30 + Math.random() * 40;
-    const randomRot = (Math.random() - 0.5) * 40;
-    setFlyingReactions((prev) => [...prev, { id: reactionId, emoji, x: randomX, rot: randomRot }]);
-    setTimeout(() => {
-      setFlyingReactions((prev) => prev.filter((r) => r.id !== reactionId));
-    }, 1600);
-
-    if (onSendDirectMessage && current.userId !== me) {
-      onSendDirectMessage(current.userId, `${emoji} Отреагировал(а) на вашу историю`);
-    }
+  const normalize = (uid: string | null) => (!uid || uid === me ? 'me' : uid);
+  const listFor = (uid: string): Story[] => (uid === 'me' ? myStories : stories[uid] ?? []);
+  const startIndexFor = (uid: string) => {
+    if (uid === 'me') return 0;
+    const i = listFor(uid).findIndex((s) => !isStoryViewed(s.id));
+    return i === -1 ? 0 : i;
   };
 
-  const handleDoubleTapLike = (e: React.MouseEvent | React.TouchEvent) => {
-    e.stopPropagation();
-    const now = Date.now();
-    if (now - lastTapTimeRef.current < 300) {
-      // Double tap detected!
-      setDoubleTapHeart(true);
-      handleSendReaction('❤️');
-      setTimeout(() => setDoubleTapHeart(false), 900);
-      lastTapTimeRef.current = 0;
-    } else {
-      lastTapTimeRef.current = now;
-    }
-  };
-
-  const handleSendReply = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim() || !current || current.userId === me) return;
-    if (onSendDirectMessage) {
-      onSendDirectMessage(current.userId, `Ответ на историю: ${replyText.trim()}`);
-    }
-    setReplyText('');
-    advance();
-  };
-
-  const handleDownload = () => {
-    if (!current || !current.data) return;
-    const link = document.createElement('a');
-    link.href = current.data;
-    link.download = `tg-story-${current.userId}-${Date.now()}`;
-    link.target = '_blank';
-    link.click();
-    setShowMoreMenu(false);
-  };
-
-  const handleCopyLink = () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      setShowMoreMenu(false);
-    }
-  };
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (showViewsDrawer) setShowViewsDrawer(false);
-        else if (showMoreMenu) setShowMoreMenu(false);
-        else onClose();
-      } else if (e.key === 'ArrowRight') {
-        advance();
-      } else if (e.key === 'ArrowLeft') {
-        goBack();
-      } else if (e.key === 'ArrowUp') {
-        switchUser('prev');
-      } else if (e.key === 'ArrowDown') {
-        switchUser('next');
-      } else if (e.key === ' ') {
-        e.preventDefault();
-        setIsHolding((h) => !h);
-      } else if (e.key === 'm' || e.key === 'M') {
-        setIsMuted((m) => !m);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [advance, goBack, switchUser, onClose, showViewsDrawer, showMoreMenu]);
-
-  if (!targetUser || !current) return null;
-
-  const authorName = isOwn
-    ? 'Моя история'
-    : (USER_NAMES[current.userId] || DEFAULT_USER_PROFILES[current.userId]?.firstName || current.authorName || current.userId);
-  const avatar = DEFAULT_USER_PROFILES[current.userId]?.avatarUrl;
-  const gradient = STORY_GRADIENTS[current.background || 'telegram'] || STORY_GRADIENTS.telegram;
-  const fontStyle = current.fontStyle || 'classic';
-  const fontFamily = STORY_FONT_FAMILIES[fontStyle] || STORY_FONT_FAMILIES.classic;
-
-  const filteredViewers = (current.views || []).filter((uid) => {
-    const uName = uid === me ? 'Вы' : (USER_NAMES[uid] || DEFAULT_USER_PROFILES[uid]?.firstName || uid);
-    return uName.toLowerCase().includes(viewerSearch.toLowerCase());
+  // The author order is snapshotted on open: viewing a story re-sorts the bar, which must not reshuffle the viewer.
+  const [order] = useState<string[]>(() => {
+    const ids = [...(myStories.length > 0 ? ['me'] : []), ...othersStories.map((o) => o.userId as string)];
+    const target = normalize(targetUser);
+    return ids.includes(target) ? ids : [target, ...ids];
   });
+  const [userIdx, setUserIdx] = useState(() => Math.max(0, order.indexOf(normalize(targetUser))));
+  const [storyIdx, setStoryIdx] = useState(() => startIndexFor(normalize(targetUser)));
+
+  const userId = order[userIdx];
+  const isOwn = userId === 'me';
+  const authorId = (isOwn ? me : userId) as UserId;
+  const list = listFor(userId);
+  const index = Math.min(storyIdx, list.length - 1);
+  const story: Story | undefined = list[index];
+
+  // Interaction state that pauses playback
+  const [holding, setHolding] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+  const [replyFocused, setReplyFocused] = useState(false);
+  const [viewersOpen, setViewersOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [tabHidden, setTabHidden] = useState(() => document.visibilityState === 'hidden');
+  const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
+  const [reply, setReply] = useState('');
+  const [burst, setBurst] = useState<{ emoji: string; key: number } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const loaded = story ? story.type === 'text' || loadedId === story.id : false;
+  const paused = holding || userPaused || replyFocused || viewersOpen || confirmDelete || tabHidden || !!reply.trim();
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const elapsedRef = useRef(0);
+  const replyRef = useRef<HTMLInputElement | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Navigation
+  // ---------------------------------------------------------------------------
+  const goToUser = useCallback(
+    (nextIdx: number) => {
+      if (nextIdx < 0 || nextIdx >= order.length) return onClose();
+      setUserIdx(nextIdx);
+      setStoryIdx(startIndexFor(order[nextIdx]));
+      setViewersOpen(false);
+      setConfirmDelete(false);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [order, onClose, stories, myStories]
+  );
+
+  const goNext = useCallback(() => {
+    if (index < list.length - 1) setStoryIdx(index + 1);
+    else goToUser(userIdx + 1);
+  }, [index, list.length, goToUser, userIdx]);
+
+  const goPrev = useCallback(() => {
+    if (index > 0) setStoryIdx(index - 1);
+    else if (userIdx > 0) {
+      const prev = order[userIdx - 1];
+      setUserIdx(userIdx - 1);
+      setStoryIdx(Math.max(0, listFor(prev).length - 1));
+    } else {
+      elapsedRef.current = 0;
+      if (videoRef.current) videoRef.current.currentTime = 0;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, userIdx, order, stories, myStories]);
+
+  // Author ran out of stories (expired / deleted) → move on.
+  useEffect(() => {
+    if (list.length === 0) goToUser(order.findIndex((uid, i) => i > userIdx && listFor(uid).length > 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list.length]);
+
+  // Mark as viewed
+  useEffect(() => {
+    if (!story) return;
+    // Own stories are only marked locally, so the ring in the bar dims once you've watched them.
+    if (isOwn) markStoryViewedLocal(story.id);
+    else viewStory(story.id, story.userId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [story?.id]);
+
+  // ---------------------------------------------------------------------------
+  // Playback clock — writes the progress bar directly instead of re-rendering every frame
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    elapsedRef.current = 0;
+    if (barRef.current) barRef.current.style.transform = 'scaleX(0)';
+  }, [story?.id]);
+
+  useEffect(() => {
+    if (!story || !loaded || paused) return;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const video = videoRef.current;
+      let progress: number;
+      if (story.type === 'video' && video) {
+        progress = video.duration > 0 ? video.currentTime / video.duration : 0;
+        if (video.ended) return goNext();
+      } else {
+        elapsedRef.current += now - last;
+        progress = elapsedRef.current / PHOTO_DURATION_MS;
+        if (progress >= 1) return goNext();
+      }
+      last = now;
+      if (barRef.current) barRef.current.style.transform = `scaleX(${Math.min(1, progress)})`;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [story, loaded, paused, goNext]);
+
+  // Never get stuck on a broken image
+  useEffect(() => {
+    if (!story || story.type === 'text' || loadedId === story.id) return;
+    const id = story.id;
+    const t = window.setTimeout(() => setLoadedId(id), 8000);
+    return () => window.clearTimeout(t);
+  }, [story, loadedId]);
+
+  // Video follows pause and mute state; fall back to muted if the browser blocks sound
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || story?.type !== 'video') return;
+    video.muted = muted;
+    if (paused) video.pause();
+    else video.play().catch(() => !muted && setMuted(true));
+  }, [paused, muted, story, loaded]);
+
+  useEffect(() => {
+    const onVisibility = () => setTabHidden(document.visibilityState === 'hidden');
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 1800);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  // ---------------------------------------------------------------------------
+  // Keyboard (ignored while typing a reply)
+  // ---------------------------------------------------------------------------
+  const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  keyRef.current = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (confirmDelete) setConfirmDelete(false);
+      else if (viewersOpen) setViewersOpen(false);
+      else if (isTypingTarget(e.target)) (e.target as HTMLElement).blur();
+      else onClose();
+      return;
+    }
+    if (isTypingTarget(e.target) || viewersOpen || confirmDelete) return;
+    if (e.key === 'ArrowRight') goNext();
+    else if (e.key === 'ArrowLeft') goPrev();
+    else if (e.key === ' ') {
+      e.preventDefault();
+      setUserPaused((p) => !p);
+    }
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keyRef.current(e);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Pointer: tap left/right to navigate, hold to pause, swipe down to close
+  // ---------------------------------------------------------------------------
+  const gesture = useRef<{ x: number; y: number; t: number; timer?: number; held: boolean } | null>(null);
+  const [dragY, setDragY] = useState(0);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button,input,a,[data-no-tap]')) return;
+    if (e.button !== 0) return;
+    if (replyFocused) {
+      replyRef.current?.blur();
+      return;
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const g = { x: e.clientX, y: e.clientY, t: Date.now(), held: false, timer: 0 };
+    g.timer = window.setTimeout(() => {
+      g.held = true;
+      setHolding(true);
+    }, HOLD_MS);
+    gesture.current = g;
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = gesture.current;
+    if (!g) return;
+    const dy = e.clientY - g.y;
+    if (dy > 10 && Math.abs(dy) > Math.abs(e.clientX - g.x)) {
+      window.clearTimeout(g.timer);
+      g.held = true;
+      setHolding(true);
+      setDragY(Math.max(0, dy));
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (!g) return;
+    window.clearTimeout(g.timer);
+    setHolding(false);
+    const dy = e.clientY - g.y;
+    setDragY(0);
+    if (dy > SWIPE_CLOSE_PX) return onClose();
+    if (g.held) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (e.clientX - rect.left < rect.width * 0.3) goPrev();
+    else goNext();
+  };
+
+  const onPointerCancel = () => {
+    if (gesture.current) window.clearTimeout(gesture.current.timer);
+    gesture.current = null;
+    setHolding(false);
+    setDragY(0);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+  const myReaction = story && Object.entries(story.reactions ?? {}).find(([, users]) => users.includes(me as UserId))?.[0];
+
+  const react = (emoji: string) => {
+    if (!story || isOwn) return;
+    reactStory(story.id, story.userId, emoji);
+    setBurst({ emoji, key: Date.now() });
+    replyRef.current?.blur();
+  };
+
+  const sendReply = () => {
+    const text = reply.trim();
+    if (!story || !text || !onSendDirectMessage) return;
+    onSendDirectMessage(story.userId, `Ответ на историю: ${text}`);
+    setReply('');
+    replyRef.current?.blur();
+    setToast('Ответ отправлен в личные сообщения');
+  };
+
+  const removeStory = () => {
+    if (!story) return;
+    deleteStory(story.id);
+    setConfirmDelete(false);
+  };
+
+  if (!story) return null;
+
+  const name = isOwn ? 'Моя история' : getUserDisplayName(authorId);
+  const avatar = getUserAvatar(authorId);
+  const privacy = story.privacy ?? 'everyone';
+  const PrivacyIcon = PRIVACY_META[privacy].icon;
+  const reactionByUser = new Map<string, string>();
+  Object.entries(story.reactions ?? {}).forEach(([emoji, users]) => users.forEach((u) => reactionByUser.set(u, emoji)));
+  const chromeHidden = holding && !viewersOpen;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[90] bg-black/95 backdrop-blur-md flex items-center justify-center select-none overflow-hidden animate-fade-in"
-      onClick={onClose}
+    <motion.div
+      className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden bg-[#09090b] text-white"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`История: ${name}`}
     >
-      {/* Desktop Prev Button */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); goBack(); }}
-        className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white items-center justify-center cursor-pointer transition-transform hover:scale-110 active:scale-95 z-50 backdrop-blur-sm"
-        title="Назад (ArrowLeft)"
-      >
-        <IconChevronLeft size={28} />
-      </button>
+      {/* Ambient backdrop taken from the story itself */}
+      <div className="pointer-events-none absolute inset-0 opacity-40 blur-3xl saturate-150" aria-hidden>
+        {story.type === 'image' ? (
+          <img src={story.data} alt="" className="h-full w-full scale-110 object-cover" />
+        ) : (
+          <div className="h-full w-full" style={{ background: story.type === 'text' ? storyGradient(story.background) : '#000' }} />
+        )}
+      </div>
+      <div className="pointer-events-none absolute inset-0 bg-black/45" aria-hidden />
 
-      {/* Desktop Next Button */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); advance(); }}
-        className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white items-center justify-center cursor-pointer transition-transform hover:scale-110 active:scale-95 z-50 backdrop-blur-sm"
-        title="Вперед (ArrowRight)"
-      >
-        <IconChevronRight size={28} />
-      </button>
-
-      {/* Close Button Top Right */}
+      {/* Desktop close */}
       <button
         type="button"
         onClick={onClose}
-        style={{
-          top: 'max(1rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))',
-        }}
-        className="absolute right-4 z-50 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-transform active:scale-90"
-        title="Закрыть (Esc)"
+        aria-label="Закрыть"
+        className="absolute right-4 top-4 z-10 hidden h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80 cursor-pointer transition-colors hover:bg-white/20 hover:text-white sm:flex"
       >
         <IconX size={22} />
       </button>
 
-      {/* Main Story Viewport Card with 3D feel */}
-      <div
-        onClick={(e) => { e.stopPropagation(); handleDoubleTapLike(e); }}
-        style={{
-          transform: `translateY(${dragY}px) scale(${Math.max(0.85, 1 - dragY / 1000)})`,
-          transition: isDraggingDownRef.current ? 'none' : 'transform 0.25s ease-out',
-          ...(current.type === 'text' ? { background: gradient } : { background: '#0a0f1d' })
-        }}
-        className="relative w-full max-w-[430px] h-full sm:h-[92vh] sm:max-h-[820px] sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between border border-white/10"
-      >
-        {/* Top Progress Segment Bars */}
-        <div
-          style={{
-            top: 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))',
-          }}
-          className={`absolute left-3 right-3 z-40 flex gap-1.5 transition-opacity duration-200 ${
-            isHolding ? 'opacity-0 pointer-events-none' : 'opacity-100'
-          }`}
+      <div className="relative flex items-center gap-5">
+        {/* Desktop prev */}
+        <button
+          type="button"
+          onClick={goPrev}
+          disabled={index === 0 && userIdx === 0}
+          aria-label="Предыдущая"
+          className="hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 cursor-pointer transition-all hover:bg-white/20 disabled:pointer-events-none disabled:opacity-0 sm:flex"
         >
-          {currentStoriesList.map((s, i) => (
-            <div
-              key={s.id || i}
-              className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden backdrop-blur-xs shadow-xs"
-            >
-              <div
-                className="h-full bg-white rounded-full transition-all ease-linear"
-                style={{
-                  width: i < index ? '100%' : i === index ? `${progress}%` : '0%'
-                }}
-              />
-            </div>
-          ))}
-        </div>
+          <IconChevronLeft size={24} />
+        </button>
 
-        {/* Top Header Card (Author, Time, Close Friends badge, Sound & More) */}
-        <div
-          className={`absolute top-[max(2rem,calc(env(safe-area-inset-top,0px)+1.5rem))] left-3 right-3 z-40 flex items-center gap-2.5 pt-1 transition-opacity duration-200 ${
-            isHolding ? 'opacity-0 pointer-events-none' : 'opacity-100'
-          }`}
-        >
-          <div className="relative w-10 h-10 rounded-full bg-white/20 backdrop-blur-md p-0.5 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
-            {avatar ? (
-              <img src={avatar} alt={authorName} className="w-full h-full rounded-full object-cover" />
-            ) : (
-              <span className="text-sm font-bold text-white">{authorName.charAt(0).toUpperCase()}</span>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[14.5px] font-bold text-white leading-tight drop-shadow-md truncate">
-                {authorName}
-              </span>
-              {current.isCloseFriends && (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#00c853] text-white text-[9px] font-bold shadow-xs">
-                  ★ Близкие
-                </span>
-              )}
-              {current.isPinned && (
-                <span className="text-[11px]" title="Сохранено в профиле">
-                  📌
-                </span>
-              )}
-            </div>
-            <span className="block text-[11px] text-white/80 leading-tight drop-shadow-xs">
-              {formatAge(current.timestamp)}
-              {currentStoriesList.length > 1 ? ` • ${index + 1} из ${currentStoriesList.length}` : ''}
-            </span>
-          </div>
-
-          {/* Action Icons Top Bar */}
-          <div className="flex items-center gap-1.5">
-            {current.type === 'video' && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMuted((prev) => !prev);
-                  if (videoRef.current) videoRef.current.muted = !isMuted;
-                }}
-                className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center cursor-pointer transition-colors backdrop-blur-sm"
-                title={isMuted ? 'Включить звук' : 'Выключить звук'}
-              >
-                {isMuted ? <IconVolumeOff size={16} /> : <IconVolume size={16} />}
-              </button>
-            )}
-
-            {isOwn && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowViewsDrawer((v) => !v);
-                }}
-                className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center cursor-pointer transition-colors backdrop-blur-sm relative"
-                title="Просмотры и зрители"
-              >
-                <IconEye size={16} />
-                {(current.views || []).length > 0 && (
-                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-accent text-white text-[9px] font-bold rounded-full">
-                    {current.views.length}
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* More Options Menu */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMoreMenu((m) => !m);
-                }}
-                className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center cursor-pointer transition-colors backdrop-blur-sm"
-                title="Опции"
-              >
-                <IconDotsVertical size={16} />
-              </button>
-
-              {showMoreMenu && (
-                <div
-                  className="absolute right-0 top-10 w-48 rounded-2xl bg-black/85 backdrop-blur-xl border border-white/15 py-1.5 shadow-2xl z-50 animate-pop-in text-white text-xs font-medium"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    type="button"
-                    onClick={handleDownload}
-                    className="w-full px-3.5 py-2 flex items-center gap-2.5 hover:bg-white/15 cursor-pointer text-left transition-colors"
-                  >
-                    <IconDownload size={15} />
-                    Сохранить медиа
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCopyLink}
-                    className="w-full px-3.5 py-2 flex items-center gap-2.5 hover:bg-white/15 cursor-pointer text-left transition-colors"
-                  >
-                    <IconShare3 size={15} />
-                    Копировать ссылку
-                  </button>
-                  {isOwn && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        deleteStory(current.id);
-                        if (currentStoriesList.length <= 1) onClose();
-                        setShowMoreMenu(false);
-                      }}
-                      className="w-full px-3.5 py-2 flex items-center gap-2.5 text-rose-400 hover:bg-rose-600/20 cursor-pointer text-left transition-colors"
-                    >
-                      <IconTrash size={15} />
-                      Удалить историю
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Viewers Sheet Drawer (Slide-up modal for author) */}
-        {isOwn && showViewsDrawer && (
-          <div
-            className="absolute inset-x-0 bottom-0 top-24 z-50 bg-surface/95 backdrop-blur-2xl rounded-t-3xl border-t border-white/15 p-4 flex flex-col animate-slide-up shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div
+            key={userId}
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+            style={{ y: dragY }}
+            className="@container relative aspect-[9/16] h-[min(100dvh,calc(100vw*16/9))] overflow-hidden bg-black select-none sm:h-[min(calc(100dvh-40px),880px)] sm:rounded-[22px] sm:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] data-[gesture=on]:touch-none"
+            // touch-action is intersected down the tree, so let the viewers list scroll while the sheet is open
+            data-gesture={viewersOpen ? 'off' : 'on'}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            onContextMenu={(e) => e.preventDefault()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <IconEye size={18} className="text-accent" />
-                <span className="text-sm font-bold text-white">
-                  Просмотры ({current.views?.length || 0})
-                </span>
+            <StoryContent key={story.id} story={story} videoRef={videoRef} muted={muted} onLoaded={() => setLoadedId(story.id)} />
+
+            {!loaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <IconLoader2 size={30} className="animate-spin text-white/70" />
               </div>
-              <button
-                type="button"
-                onClick={() => setShowViewsDrawer(false)}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <IconX size={14} />
-              </button>
-            </div>
+            )}
 
-            {/* Viewer Search Bar */}
-            <div className="relative my-3">
-              <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-              <input
-                type="text"
-                value={viewerSearch}
-                onChange={(e) => setViewerSearch(e.target.value)}
-                placeholder="Поиск среди зрителей..."
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-xs text-white placeholder-white/40 focus:outline-none focus:border-accent"
-              />
-            </div>
-
-            {/* Viewers List */}
-            <div className="flex-1 overflow-y-auto tg-scrollbar space-y-2 pr-1">
-              {filteredViewers.length === 0 ? (
-                <div className="py-8 text-center text-white/50 text-xs">
-                  {viewerSearch ? 'Ничего не найдено' : 'Пока никто не просмотрел историю'}
-                </div>
-              ) : (
-                filteredViewers.map((uid) => {
-                  const uName = uid === me ? 'Вы' : (USER_NAMES[uid] || DEFAULT_USER_PROFILES[uid]?.firstName || uid);
-                  const uAvatar = DEFAULT_USER_PROFILES[uid]?.avatarUrl;
-
-                  // Check if this viewer reacted
-                  const userReactions = Object.entries(current.reactions || {})
-                    .filter(([, users]) => users.includes(uid))
-                    .map(([emoji]) => emoji);
-
-                  return (
+            {/* Header */}
+            <div
+              className={`absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/55 via-black/20 to-transparent px-3 pb-10 pt-[max(10px,env(safe-area-inset-top))] transition-opacity duration-200 ${
+                chromeHidden ? 'opacity-0' : ''
+              }`}
+            >
+              <div className="flex gap-[3px]">
+                {list.map((s, i) => (
+                  <div key={s.id} className="h-[2.5px] flex-1 overflow-hidden rounded-full bg-white/30">
                     <div
-                      key={uid}
-                      className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white/5 transition-colors"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center overflow-hidden text-xs font-bold text-white shrink-0">
-                        {uAvatar ? (
-                          <img src={uAvatar} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          uName.charAt(0).toUpperCase()
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-semibold text-white truncate block">{uName}</span>
-                        <span className="text-[10px] text-white/50 block">Недавно</span>
-                      </div>
-                      {userReactions.length > 0 && (
-                        <div className="flex gap-1 text-sm">
-                          {userReactions.map((emoji, rxIdx) => (
-                            <span key={rxIdx}>{emoji}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Story Body Canvas / Media */}
-        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-          {current.type === 'image' ? (
-            <img
-              src={current.data}
-              alt="История"
-              className="w-full h-full object-contain select-none"
-              draggable={false}
-            />
-          ) : current.type === 'video' ? (
-            <video
-              ref={videoRef}
-              src={current.data}
-              autoPlay
-              playsInline
-              muted={isMuted}
-              className="w-full h-full object-contain select-none"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center p-8">
-              <p
-                style={{
-                  fontFamily,
-                  color: current.textColor || '#ffffff'
-                }}
-                className={`text-[23px] font-bold text-center leading-snug drop-shadow-xl whitespace-pre-wrap break-words max-w-full ${
-                  current.textBgStyle === 'fill'
-                    ? 'p-3 bg-black/50 rounded-2xl backdrop-blur-xs'
-                    : current.textBgStyle === 'glow'
-                    ? 'drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]'
-                    : ''
-                }`}
-              >
-                {current.data}
-              </p>
-            </div>
-          )}
-
-          {/* Render Text Overlays if present */}
-          {current.textOverlays?.map((overlay) => (
-            <div
-              key={overlay.id}
-              style={{
-                left: `${overlay.x}%`,
-                top: `${overlay.y}%`,
-                transform: 'translate(-50%, -50%)',
-                fontFamily: STORY_FONT_FAMILIES[overlay.fontStyle || 'classic'],
-                color: overlay.color || '#ffffff',
-                backgroundColor: overlay.backgroundColor || 'transparent'
-              }}
-              className="absolute z-20 px-2 py-1 rounded-xl text-lg font-bold drop-shadow-md select-none pointer-events-none"
-            >
-              {overlay.text}
-            </div>
-          ))}
-
-          {/* Render Sticker / Emoji Overlays if present */}
-          {current.stickerOverlays?.map((stk) => (
-            <div
-              key={stk.id}
-              style={{
-                left: `${stk.x}%`,
-                top: `${stk.y}%`,
-                transform: `translate(-50%, -50%) scale(${stk.scale || 1}) rotate(${stk.rotation || 0}deg)`
-              }}
-              className="absolute z-20 select-none pointer-events-none text-4xl drop-shadow-lg"
-            >
-              {stk.type === 'emoji' ? stk.content : <img src={stk.content} alt="" className="w-24 h-24 object-contain" />}
-            </div>
-          ))}
-
-          {/* Render Doodle Drawing Canvas if present */}
-          {current.drawingData && (
-            <img
-              src={current.drawingData}
-              alt=""
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-20"
-            />
-          )}
-
-          {/* Caption Overlay */}
-          {current.caption && (
-            <div className="absolute bottom-20 left-4 right-4 z-30 p-3 rounded-2xl bg-black/60 backdrop-blur-md border border-white/10 text-white text-[13.5px] leading-snug text-center animate-fade-in shadow-lg">
-              {current.caption}
-            </div>
-          )}
-
-          {/* Double Tap Heart Pop Burst */}
-          {doubleTapHeart && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
-              <div className="text-7xl animate-ping text-rose-500 drop-shadow-2xl">
-                ❤️
-              </div>
-            </div>
-          )}
-
-          {/* Flying Reaction Particles */}
-          {flyingReactions.map((r) => (
-            <div
-              key={r.id}
-              style={{
-                left: `${r.x}%`,
-                transform: `rotate(${r.rot}deg)`
-              }}
-              className="absolute bottom-20 text-4xl animate-fly-up pointer-events-none z-50 select-none drop-shadow-lg"
-            >
-              {r.emoji}
-            </div>
-          ))}
-        </div>
-
-        {/* Hold to Pause & Tap Navigation Zones */}
-        <button
-          type="button"
-          aria-label="Назад"
-          onClick={goBack}
-          className="absolute left-0 top-16 bottom-24 w-[35%] z-20 cursor-default"
-          onMouseDown={() => setIsHolding(true)}
-          onMouseUp={() => setIsHolding(false)}
-          onTouchStart={(e) => {
-            touchStartYRef.current = e.touches[0].clientY;
-            setIsHolding(true);
-          }}
-          onTouchMove={(e) => {
-            const diffY = e.touches[0].clientY - touchStartYRef.current;
-            if (diffY > 20) {
-              isDraggingDownRef.current = true;
-              setDragY(diffY);
-            }
-          }}
-          onTouchEnd={() => {
-            setIsHolding(false);
-            if (dragY > 100) {
-              onClose();
-            } else {
-              setDragY(0);
-              isDraggingDownRef.current = false;
-            }
-          }}
-        />
-
-        <button
-          type="button"
-          aria-label="Вперед"
-          onClick={advance}
-          className="absolute right-0 top-16 bottom-24 w-[65%] z-20 cursor-default"
-          onMouseDown={() => setIsHolding(true)}
-          onMouseUp={() => setIsHolding(false)}
-          onTouchStart={(e) => {
-            touchStartYRef.current = e.touches[0].clientY;
-            setIsHolding(true);
-          }}
-          onTouchMove={(e) => {
-            const diffY = e.touches[0].clientY - touchStartYRef.current;
-            if (diffY > 20) {
-              isDraggingDownRef.current = true;
-              setDragY(diffY);
-            }
-          }}
-          onTouchEnd={() => {
-            setIsHolding(false);
-            if (dragY > 100) {
-              onClose();
-            } else {
-              setDragY(0);
-              isDraggingDownRef.current = false;
-            }
-          }}
-        />
-
-        {/* Bottom Interaction Footer (Reaction pill & Direct Reply) */}
-        <div
-          className={`relative z-30 px-3 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] pt-2 bg-gradient-to-t from-black/85 via-black/50 to-transparent transition-opacity duration-200 ${
-            isHolding ? 'opacity-0 pointer-events-none' : 'opacity-100'
-          }`}
-        >
-          {isOwn ? (
-            <button
-              type="button"
-              onClick={onOpenCreate}
-              className="w-full py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-md"
-            >
-              <IconPlus size={16} stroke={2.5} />
-              Добавить ещё одну историю
-            </button>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {/* Telegram Quick Reaction Pill Bar */}
-              <div className="flex items-center justify-between px-2 py-1 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 overflow-x-auto tg-scrollbar">
-                {TG_REACTIONS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => handleSendReaction(emoji)}
-                    className="text-xl px-1.5 py-0.5 hover:scale-130 active:scale-95 transition-transform cursor-pointer"
-                    title={emoji}
-                  >
-                    {emoji}
-                  </button>
+                      ref={i === index ? barRef : undefined}
+                      className="h-full origin-left rounded-full bg-white"
+                      style={{ transform: `scaleX(${i < index ? 1 : 0})` }}
+                    />
+                  </div>
                 ))}
               </div>
 
-              {/* Direct Reply Form */}
-              <form onSubmit={handleSendReply} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Ответить на историю..."
-                  className="flex-1 px-4 py-2.5 rounded-full bg-white/15 backdrop-blur-xl border border-white/20 text-white placeholder-white/60 text-xs focus:outline-none focus:border-white transition-colors"
-                />
-                {replyText.trim() && (
-                  <button
-                    type="submit"
-                    className="w-9 h-9 rounded-full bg-accent hover:bg-accent-strong text-white flex items-center justify-center cursor-pointer transition-transform active:scale-90 shadow-md shrink-0"
-                  >
-                    <IconSend size={16} />
-                  </button>
-                )}
-              </form>
+              <div className="mt-2.5 flex items-center gap-2.5">
+                <Avatar src={avatar} name={isOwn ? getUserDisplayName(me as UserId) : name} size={36} />
+                <div className="min-w-0 flex-1 leading-tight">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-[14.5px] font-semibold">{name}</span>
+                    {(isOwn ? privacy !== 'everyone' : privacy === 'close_friends') && (
+                      <span
+                        title={PRIVACY_META[privacy].label}
+                        className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${
+                          privacy === 'close_friends' ? 'bg-[#32d74b] text-black' : 'bg-white/20'
+                        }`}
+                      >
+                        <PrivacyIcon size={11} stroke={2.4} />
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[12.5px] text-white/65">
+                    {formatStoryAge(story.timestamp)}
+                    {story.isPinned ? ' · в профиле' : ''}
+                  </span>
+                </div>
+
+                <div className="flex items-center" data-no-tap>
+                  {story.type === 'video' && (
+                    <HeaderButton label={muted ? 'Включить звук' : 'Выключить звук'} onClick={() => setMuted((m) => !m)}>
+                      {muted ? <IconVolumeOff size={20} /> : <IconVolume size={20} />}
+                    </HeaderButton>
+                  )}
+                  <HeaderButton label={userPaused ? 'Продолжить' : 'Пауза'} onClick={() => setUserPaused((p) => !p)}>
+                    {userPaused ? <IconPlayerPlayFilled size={18} /> : <IconPlayerPauseFilled size={18} />}
+                  </HeaderButton>
+                  {story.type !== 'text' && (
+                    <a
+                      href={story.data}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Скачать"
+                      title="Скачать"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/15"
+                    >
+                      <IconDownload size={20} />
+                    </a>
+                  )}
+                  <HeaderButton label="Закрыть" onClick={onClose} className="sm:hidden">
+                    <IconX size={22} />
+                  </HeaderButton>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Reaction burst */}
+            <AnimatePresence>
+              {burst && (
+                <motion.div
+                  key={burst.key}
+                  className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center text-[30cqw]"
+                  initial={{ opacity: 0, scale: 0.3 }}
+                  animate={{ opacity: [0, 1, 1, 0], scale: [0.3, 1.15, 1, 1.4], y: [0, 0, 0, -40] }}
+                  transition={{ duration: 1, times: [0, 0.25, 0.6, 1] }}
+                  onAnimationComplete={() => setBurst(null)}
+                >
+                  {burst.emoji}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {toast && (
+                <motion.div
+                  className="pointer-events-none absolute inset-x-0 top-[18%] z-30 flex justify-center"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <span className="rounded-full bg-black/70 px-3.5 py-1.5 text-[13px] font-medium backdrop-blur-md">{toast}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Footer */}
+            <div
+              className={`absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 transition-opacity duration-200 ${
+                chromeHidden ? 'opacity-0' : ''
+              }`}
+              data-no-tap
+            >
+              {isOwn ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setViewersOpen(true)}
+                    className="flex min-w-0 items-center gap-2 rounded-full bg-black/40 py-1.5 pl-1.5 pr-3.5 text-[13.5px] font-medium backdrop-blur-md cursor-pointer transition-colors hover:bg-black/55"
+                  >
+                    {story.views.length > 0 ? (
+                      <span className="flex -space-x-2">
+                        {story.views.slice(-3).map((v) => (
+                          <Avatar key={v} src={getUserAvatar(v)} name={getUserDisplayName(v)} size={24} ring />
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15">
+                        <IconEye size={15} />
+                      </span>
+                    )}
+                    <span className="truncate">
+                      {story.views.length === 0 ? 'Пока нет просмотров' : `${story.views.length} ${plural(story.views.length, 'просмотр', 'просмотра', 'просмотров')}`}
+                    </span>
+                  </button>
+                  <div className="flex-1" />
+                  <FooterButton label="Удалить" onClick={() => setConfirmDelete(true)}>
+                    <IconTrash size={20} />
+                  </FooterButton>
+                  <FooterButton
+                    label="Новая история"
+                    onClick={() => {
+                      onClose();
+                      onOpenCreate();
+                    }}
+                  >
+                    <IconPlus size={21} />
+                  </FooterButton>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <AnimatePresence>
+                    {replyFocused && (
+                      <motion.div
+                        className="flex justify-between rounded-full bg-black/55 px-1.5 py-1 backdrop-blur-xl"
+                        initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                        transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+                      >
+                        {REACTIONS.map((emoji, i) => (
+                          <motion.button
+                            key={emoji}
+                            type="button"
+                            // keep focus in the input so the strip doesn't collapse before the click lands
+                            onPointerDown={(e) => e.preventDefault()}
+                            onClick={() => react(emoji)}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0, transition: { delay: i * 0.02 } }}
+                            className={`flex h-9 w-9 items-center justify-center rounded-full text-[22px] cursor-pointer transition-transform hover:scale-125 active:scale-95 ${
+                              myReaction === emoji ? 'bg-white/20' : ''
+                            }`}
+                          >
+                            {emoji}
+                          </motion.button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <div className="flex items-center gap-2">
+                    <form
+                      className="flex min-w-0 flex-1 items-center rounded-full bg-black/35 ring-1 ring-white/25 backdrop-blur-md transition-colors focus-within:bg-black/55"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        sendReply();
+                      }}
+                    >
+                      <input
+                        ref={replyRef}
+                        value={reply}
+                        onChange={(e) => setReply(e.target.value)}
+                        onFocus={() => setReplyFocused(true)}
+                        onBlur={() => setReplyFocused(false)}
+                        maxLength={1000}
+                        disabled={!onSendDirectMessage}
+                        placeholder="Ответить…"
+                        className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-[14px] text-white placeholder:text-white/65 outline-none"
+                      />
+                      {reply.trim() && (
+                        <button
+                          type="submit"
+                          aria-label="Отправить"
+                          onPointerDown={(e) => e.preventDefault()}
+                          className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent cursor-pointer transition-transform active:scale-90"
+                        >
+                          <IconArrowUp size={18} stroke={2.4} />
+                        </button>
+                      )}
+                    </form>
+                    <FooterButton label={myReaction ? 'Реакция поставлена' : 'Нравится'} onClick={() => react(myReaction ?? '❤️')}>
+                      {myReaction && myReaction !== '❤️' ? (
+                        <span className="text-[20px] leading-none">{myReaction}</span>
+                      ) : myReaction ? (
+                        <IconHeartFilled size={22} className="text-[#ff375f]" />
+                      ) : (
+                        <IconHeart size={22} />
+                      )}
+                    </FooterButton>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Paused indicator */}
+            <AnimatePresence>
+              {userPaused && !holding && (
+                <motion.div
+                  className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                >
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/40 backdrop-blur-md">
+                    <IconPlayerPauseFilled size={28} />
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Viewers sheet (own stories) */}
+            <AnimatePresence>
+              {viewersOpen && (
+                <>
+                  <motion.div
+                    className="absolute inset-0 z-40 bg-black/50"
+                    data-no-tap
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setViewersOpen(false)}
+                  />
+                  <motion.div
+                    className="absolute inset-x-0 bottom-0 z-50 flex max-h-[62%] flex-col rounded-t-[20px] bg-[#1c1c1f] pb-[env(safe-area-inset-bottom)]"
+                    data-no-tap
+                    initial={{ y: '100%' }}
+                    animate={{ y: 0 }}
+                    exit={{ y: '100%' }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+                  >
+                    <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-white/20" />
+                    <div className="flex items-center justify-between px-4 pb-2 pt-3">
+                      <div>
+                        <p className="text-[15px] font-semibold">Просмотры</p>
+                        <p className="text-[12px] text-white/45">
+                          {PRIVACY_META[privacy].label} · {story.isPinned ? 'в профиле' : `${story.durationHours ?? 24} ч`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setViewersOpen(false)}
+                        aria-label="Закрыть"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 cursor-pointer hover:bg-white/15"
+                      >
+                        <IconX size={17} />
+                      </button>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+                      {story.views.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+                          <IconEye size={28} className="text-white/30" />
+                          <p className="text-[13.5px] text-white/55">Здесь появятся те, кто посмотрел историю</p>
+                        </div>
+                      ) : (
+                        [...story.views].reverse().map((v) => (
+                          <div key={v} className="flex items-center gap-3 rounded-xl px-2 py-2">
+                            <Avatar src={getUserAvatar(v)} name={getUserDisplayName(v)} size={38} />
+                            <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium">{getUserDisplayName(v)}</span>
+                            {reactionByUser.get(v) && <span className="text-[20px]">{reactionByUser.get(v)}</span>}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
+            {/* Delete confirmation */}
+            <AnimatePresence>
+              {confirmDelete && (
+                <motion.div
+                  className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-[8cqw]"
+                  data-no-tap
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  <motion.div
+                    role="alertdialog"
+                    aria-label="Удалить историю?"
+                    className="w-full max-w-[290px] rounded-2xl bg-[#1c1c1f] p-5 text-center ring-1 ring-white/10"
+                    initial={{ scale: 0.94 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0.97 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="text-[16px] font-semibold">Удалить историю?</p>
+                    <p className="mt-1 text-[13.5px] text-white/55">Её больше никто не увидит.</p>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-xl bg-white/10 py-2.5 text-[14px] font-semibold cursor-pointer hover:bg-white/15">
+                        Отмена
+                      </button>
+                      <button type="button" onClick={removeStory} className="rounded-xl bg-danger py-2.5 text-[14px] font-semibold text-white cursor-pointer hover:brightness-110">
+                        Удалить
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Desktop next */}
+        <button
+          type="button"
+          onClick={goNext}
+          aria-label="Следующая"
+          className="hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 cursor-pointer transition-colors hover:bg-white/20 sm:flex"
+        >
+          <IconChevronRight size={24} />
+        </button>
       </div>
-    </div>,
+    </motion.div>,
     document.body
   );
 };
+
+const plural = (n: number, one: string, few: string, many: string) => {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+};
+
+const Avatar: React.FC<{ src?: string; name: string; size: number; ring?: boolean }> = ({ src, name, size, ring }) => (
+  <span
+    className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15 font-semibold text-white ${ring ? 'ring-2 ring-black/60' : ''}`}
+    style={{ width: size, height: size, fontSize: size * 0.42 }}
+  >
+    {src ? <img src={src} alt="" className="h-full w-full object-cover" draggable={false} /> : (name.trim().charAt(0) || '?').toUpperCase()}
+  </span>
+);
+
+const HeaderButton: React.FC<{ label: string; onClick: () => void; className?: string; children: React.ReactNode }> = ({ label, onClick, className = '', children }) => (
+  <button
+    type="button"
+    aria-label={label}
+    title={label}
+    onClick={onClick}
+    className={`flex h-9 w-9 items-center justify-center rounded-full text-white/90 cursor-pointer transition-colors hover:bg-white/15 ${className}`}
+  >
+    {children}
+  </button>
+);
+
+const FooterButton: React.FC<{ label: string; onClick: () => void; children: React.ReactNode }> = ({ label, onClick, children }) => (
+  <button
+    type="button"
+    aria-label={label}
+    title={label}
+    onClick={onClick}
+    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/40 backdrop-blur-md cursor-pointer transition-all hover:bg-black/55 active:scale-90"
+  >
+    {children}
+  </button>
+);
 
 export default StoryViewer;

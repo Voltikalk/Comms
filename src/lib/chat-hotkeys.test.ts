@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { adjacentRoomId, resolveChatHotkey, toggleInSet } from './chat-hotkeys';
+import { adjacentMatchingRoomId, adjacentRoomId, resolveChatHotkey, toggleInSet } from './chat-hotkeys';
 
-const key = (k: string, mods: Partial<{ ctrlKey: boolean; metaKey: boolean; altKey: boolean }> = {}) => ({
+const key = (k: string, mods: Partial<{ ctrlKey: boolean; metaKey: boolean; altKey: boolean; shiftKey: boolean }> = {}) => ({
   key: k,
   ctrlKey: false,
   metaKey: false,
   altKey: false,
+  shiftKey: false,
   ...mods,
 });
 
@@ -22,17 +23,34 @@ describe('resolveChatHotkey', () => {
     expect(resolveChatHotkey(key('ArrowDown'))).toBeNull();
   });
 
-  it('maps Alt+1..5 to folders and ignores Alt+6', () => {
+  it('cycles chats with Ctrl+Tab / Ctrl+Shift+Tab', () => {
+    expect(resolveChatHotkey(key('Tab', { ctrlKey: true }))).toEqual({ type: 'adjacentChat', direction: 1 });
+    expect(resolveChatHotkey(key('Tab', { ctrlKey: true, shiftKey: true }))).toEqual({ type: 'adjacentChat', direction: -1 });
+    expect(resolveChatHotkey(key('Tab'))).toBeNull();
+  });
+
+  it('maps Alt+Shift+ArrowUp/Down to adjacent unread chats', () => {
+    expect(resolveChatHotkey(key('ArrowUp', { altKey: true, shiftKey: true }))).toEqual({ type: 'adjacentUnread', direction: -1 });
+    expect(resolveChatHotkey(key('ArrowDown', { altKey: true, shiftKey: true }))).toEqual({ type: 'adjacentUnread', direction: 1 });
+  });
+
+  it('maps Alt+1..6 to folders and ignores Alt+7', () => {
     expect(resolveChatHotkey(key('1', { altKey: true }))).toEqual({ type: 'folder', folder: 'all' });
     expect(resolveChatHotkey(key('3', { altKey: true }))).toEqual({ type: 'folder', folder: 'groups' });
-    expect(resolveChatHotkey(key('5', { altKey: true }))).toEqual({ type: 'folder', folder: 'saved' });
-    expect(resolveChatHotkey(key('6', { altKey: true }))).toBeNull();
+    expect(resolveChatHotkey(key('4', { altKey: true }))).toEqual({ type: 'folder', folder: 'channels' });
+    expect(resolveChatHotkey(key('6', { altKey: true }))).toEqual({ type: 'folder', folder: 'saved' });
+    expect(resolveChatHotkey(key('7', { altKey: true }))).toBeNull();
   });
 
   it('maps Ctrl+1..9 to zero-based chat indexes', () => {
     expect(resolveChatHotkey(key('1', { ctrlKey: true }))).toEqual({ type: 'chatIndex', index: 0 });
     expect(resolveChatHotkey(key('9', { metaKey: true }))).toEqual({ type: 'chatIndex', index: 8 });
-    expect(resolveChatHotkey(key('0', { ctrlKey: true }))).toBeNull();
+    expect(resolveChatHotkey(key('0'))).toBeNull();
+  });
+
+  it('opens Saved Messages with Ctrl+0', () => {
+    expect(resolveChatHotkey(key('0', { ctrlKey: true }))).toEqual({ type: 'savedMessages' });
+    expect(resolveChatHotkey(key('0', { metaKey: true }))).toEqual({ type: 'savedMessages' });
   });
 
   it('maps Ctrl+/ and Ctrl+, to shortcuts and settings', () => {
@@ -45,6 +63,28 @@ describe('resolveChatHotkey', () => {
     expect(resolveChatHotkey(key('Escape'))).toEqual({ type: 'escape' });
     expect(resolveChatHotkey(key('a'))).toBeNull();
     expect(resolveChatHotkey(key('Enter'))).toBeNull();
+  });
+});
+
+describe('adjacentMatchingRoomId', () => {
+  const ids = ['a', 'b', 'c', 'd'];
+  const unread = new Set(['a', 'c']);
+  const isUnread = (id: string) => unread.has(id);
+
+  it('skips rooms that do not match and wraps around', () => {
+    expect(adjacentMatchingRoomId(ids, 'a', 1, isUnread)).toBe('c');
+    expect(adjacentMatchingRoomId(ids, 'c', 1, isUnread)).toBe('a');
+    expect(adjacentMatchingRoomId(ids, 'b', -1, isUnread)).toBe('a');
+  });
+
+  it('starts from the edge when the active room is not listed', () => {
+    expect(adjacentMatchingRoomId(ids, null, 1, isUnread)).toBe('a');
+    expect(adjacentMatchingRoomId(ids, 'x', -1, isUnread)).toBe('c');
+  });
+
+  it('returns null when only the active room (or nothing) matches', () => {
+    expect(adjacentMatchingRoomId(ids, 'a', 1, (id) => id === 'a')).toBeNull();
+    expect(adjacentMatchingRoomId([], null, 1, isUnread)).toBeNull();
   });
 });
 

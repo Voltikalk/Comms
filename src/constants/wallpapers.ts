@@ -3,12 +3,13 @@ import type { ChatWallpaper, ThemeAccentColor, ChatThemeConfig } from '../types/
 // Preset Accent Color Schemes
 export const THEME_ACCENT_COLORS: ThemeAccentColor[] = [
   {
+    // Default: the design accent from index.css (no override is applied).
     id: 'blue',
-    title: 'Telegram Blue',
-    hex: '#3390ec',
-    hoverHex: '#2678ca',
-    subtleHex: 'rgba(51, 144, 236, 0.12)',
-    borderHex: 'rgba(51, 144, 236, 0.35)'
+    title: 'Синий (по умолчанию)',
+    hex: '#2f6bff',
+    hoverHex: '#1f57e6',
+    subtleHex: 'rgba(47, 107, 255, 0.12)',
+    borderHex: 'rgba(47, 107, 255, 0.35)'
   },
   {
     id: 'emerald',

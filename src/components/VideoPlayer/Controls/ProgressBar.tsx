@@ -107,7 +107,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ className = '' }) => {
       onMouseDown={handleStartDrag}
       onTouchStart={handleStartDrag}
       onKeyDown={handleKeyDown}
-      className={`comms-video-timeline-container group/timeline focus-visible:ring-2 focus-visible:ring-accent rounded-full outline-none select-none ${className}`}
+      className={`comms-video-timeline-container group/timeline rounded-full outline-none select-none ${className}`}
     >
       {/* Hover Time Tooltip */}
       {hoverTime !== null && hoverPosition !== null && duration > 0 && (

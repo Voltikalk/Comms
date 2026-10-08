@@ -1,16 +1,27 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ANIMATED_EMOJIS } from '../constants';
 import type { Sticker } from '../types/sticker.types';
 import { StickerPicker } from './Stickers/StickerPicker';
+import { PickerSearch, PickerSectionTitle, PickerStripButton } from './Stickers/PickerParts';
 import {
-  IconSearch,
+  EMOJI_CATEGORIES,
+  loadRecentEmojis,
+  rememberRecentEmoji,
+  searchEmojis,
+  type EmojiCategoryId,
+} from '../lib/emoji-catalog';
+import {
+  IconApple,
+  IconBackspace,
+  IconBallFootball,
+  IconBulb,
+  IconCar,
   IconClock,
+  IconFlag,
   IconHeart,
-  IconThumbUp,
-  IconConfetti,
   IconMoodSmile,
+  IconPaw,
   IconSticker,
-  IconX
 } from '@tabler/icons-react';
 
 export const HoverAnimatedEmoji: React.FC<{
@@ -50,224 +61,246 @@ export interface TelegramEmojiPickerModalProps {
   onSelectEmoji: (emoji: string) => void;
   onSelectSticker?: (sticker: Sticker) => void;
   onClose: () => void;
+  /** Emoji tab backspace (Telegram's ⌫ next to the tabs); hidden when absent. */
+  onBackspace?: () => void;
   title?: string;
   isReactionMode?: boolean;
   defaultTab?: 'emojis' | 'stickers';
 }
 
-const CATEGORY_MAP: Record<string, string[]> = {
-  hearts: ['❤️', '🔥', '💖', '🥰', '😍', '😘', '😻', '💓', '💗', '💕', '💞'],
-  thumbs: ['👍', '👎', '👏', '🤝', '🙌', '👊', '👌', '✌️', '💪'],
-  party: ['🎉', '🥳', '🍾', '🎊', '✨', '🕺', '💃', '🚀', '⭐', '🌟', '💥', '💯', '🤩'],
-  smiles: ['😊', '😂', '🤣', '😭', '😎', '😋', '🥺', '😏', '😁', '😄', '😃', '😉', '😜', '😝', '🤤', '🤠', '🤡', '😇', '🤫', '🤔', '🧐']
-};
+type PickerTab = 'emojis' | 'stickers';
 
+/**
+ * Composer emoji / sticker panel, laid out like Telegram: search, a category
+ * strip, one scrolling feed with sticky section titles, and the
+ * Эмодзи · Стикеры switch (with backspace) along the bottom edge.
+ */
 export const TelegramEmojiPickerModal: React.FC<TelegramEmojiPickerModalProps> = ({
   onSelectEmoji,
   onSelectSticker,
   onClose,
-  title: _title,
+  onBackspace,
   isReactionMode = false,
-  defaultTab = 'emojis'
+  defaultTab = 'emojis',
 }) => {
-  const [mainTab, setMainTab] = useState<'emojis' | 'stickers'>(
-    isReactionMode ? 'emojis' : defaultTab
-  );
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'recent' | 'all' | 'favorites'>('all');
-  const [activeCategory, setActiveCategory] = useState<'all' | 'hearts' | 'thumbs' | 'party' | 'smiles'>('all');
-
-  const allEmojis = Object.keys(ANIMATED_EMOJIS);
-
-  let currentList = allEmojis;
-  if (activeTab === 'recent') {
-    currentList = allEmojis.slice(0, 16);
-  } else if (activeTab === 'favorites') {
-    currentList = ['❤️', '🔥', '👍', '🎉', '😂', '🥰', '😍', '👏', '💯', '🚀', '✨', '😎'];
-  } else if (activeCategory !== 'all' && CATEGORY_MAP[activeCategory]) {
-    currentList = CATEGORY_MAP[activeCategory].filter(e => allEmojis.includes(e));
-  }
-
-  const filteredEmojis = currentList.filter((emoji) => {
-    if (!searchQuery.trim()) return true;
-    return emoji.includes(searchQuery.trim());
-  });
+  const [tab, setTab] = useState<PickerTab>(isReactionMode ? 'emojis' : defaultTab);
 
   return (
     <div
-      className="w-80 sm:w-92 bg-surface/98 dark:bg-surface/98 bg-white/98 backdrop-blur-xl rounded-3xl shadow-2xl border border-zinc-200 dark:border-white/10 p-3 flex flex-col gap-2 animate-pop-in select-none z-50 text-zinc-900 dark:text-white"
+      className="ui-sheet flex h-[min(420px,calc(100dvh-170px))] w-[min(360px,calc(100vw-16px))] select-none flex-col overflow-hidden rounded-[20px]"
+      role="dialog"
+      aria-label={tab === 'emojis' ? 'Эмодзи' : 'Стикеры'}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* 1. Header with Master Tabs (Emoji vs Stickers) */}
-      <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60 dark:border-white/10 px-1">
-        {!isReactionMode ? (
-          <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-2xl">
-            <button
-              type="button"
-              onClick={() => setMainTab('emojis')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-                mainTab === 'emojis'
-                  ? 'bg-accent text-white shadow-xs'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white'
-              }`}
-            >
-              <IconMoodSmile size={16} />
-              <span>Эмодзи</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMainTab('stickers')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-                mainTab === 'stickers'
-                  ? 'bg-accent text-white shadow-xs'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white'
-              }`}
-            >
-              <IconSticker size={16} />
-              <span>Стикеры</span>
-            </button>
-          </div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {tab === 'emojis' ? (
+          <EmojiPanel onSelectEmoji={onSelectEmoji} />
         ) : (
-          <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider">
-            Реакции
-          </span>
+          <StickerPicker onSelectSticker={(sticker) => onSelectSticker?.(sticker)} onClose={onClose} />
         )}
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
-          title="Закрыть"
-        >
-          <IconX size={16} />
-        </button>
       </div>
 
-      {/* 2. TAB CONTENT */}
-      {mainTab === 'stickers' ? (
-        <StickerPicker
-          onSelectSticker={(sticker) => {
-            if (onSelectSticker) {
-              onSelectSticker(sticker);
-            }
-          }}
-          onClose={onClose}
-        />
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {/* Subtabs for Emoji */}
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-1.5 text-zinc-400">
-              <button
-                type="button"
-                onClick={() => { setActiveTab('recent'); setActiveCategory('all'); }}
-                className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeTab === 'recent' ? 'text-accent bg-black/5 dark:bg-white/10' : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-                title="Недавние"
-              >
-                <IconClock size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => { setActiveTab('all'); setActiveCategory('all'); }}
-                className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeTab === 'all' && activeCategory === 'all' ? 'text-accent bg-black/5 dark:bg-white/10' : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-                title="Все эмодзи"
-              >
-                <IconMoodSmile size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => { setActiveTab('favorites'); setActiveCategory('all'); }}
-                className={`p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeTab === 'favorites' ? 'text-pink-500 bg-black/5 dark:bg-white/10' : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-                title="Избранные"
-              >
-                <IconHeart size={16} />
-              </button>
-            </div>
-
-            {/* Category Filters */}
-            <div className="flex items-center gap-1 text-zinc-400">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveCategory(activeCategory === 'hearts' ? 'all' : 'hearts');
-                  setActiveTab('all');
-                }}
-                className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeCategory === 'hearts' ? 'text-pink-500 bg-black/5 dark:bg-white/10' : ''
-                }`}
-                title="Сердца"
-              >
-                <IconHeart size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveCategory(activeCategory === 'thumbs' ? 'all' : 'thumbs');
-                  setActiveTab('all');
-                }}
-                className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeCategory === 'thumbs' ? 'text-accent bg-black/5 dark:bg-white/10' : ''
-                }`}
-                title="Жесты"
-              >
-                <IconThumbUp size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveCategory(activeCategory === 'party' ? 'all' : 'party');
-                  setActiveTab('all');
-                }}
-                className={`p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors ${
-                  activeCategory === 'party' ? 'text-amber-500 bg-black/5 dark:bg-white/10' : ''
-                }`}
-                title="Праздник"
-              >
-                <IconConfetti size={14} />
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="flex items-center gap-1.5 bg-black/5 dark:bg-elevated px-2.5 py-1.5 rounded-xl">
-            <IconSearch size={15} className="text-zinc-400 shrink-0" />
-            <input
-              type="text"
-              placeholder="Поиск эмодзи..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none text-xs text-zinc-900 dark:text-white focus:outline-none w-full placeholder-zinc-400"
-            />
-          </div>
-
-          {/* Vertical Grid of Emojis */}
-          <div className="grid grid-cols-7 sm:grid-cols-8 gap-1 max-h-64 overflow-y-auto tg-scrollbar p-1 pr-1.5">
-            {filteredEmojis.length > 0 ? (
-              filteredEmojis.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => onSelectEmoji(emoji)}
-                  className="w-8.5 h-8.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center active:scale-90 transition-transform cursor-pointer p-0.5"
-                  title={emoji}
-                >
-                  <HoverAnimatedEmoji emoji={emoji} size={28} />
-                </button>
-              ))
-            ) : (
-              <div className="col-span-8 py-8 text-center text-xs text-zinc-400">
-                Ничего не найдено
-              </div>
+      {!isReactionMode && (
+        <div className="flex h-11 shrink-0 items-center border-t border-line px-1.5">
+          <span className="w-9 shrink-0" aria-hidden />
+          <div className="flex flex-1 items-center justify-center gap-1" role="tablist" aria-label="Тип">
+            <BottomTab active={tab === 'emojis'} onClick={() => setTab('emojis')} icon={<IconMoodSmile size={18} />} label="Эмодзи" />
+            {onSelectSticker && (
+              <BottomTab active={tab === 'stickers'} onClick={() => setTab('stickers')} icon={<IconSticker size={18} />} label="Стикеры" />
             )}
           </div>
+          {tab === 'emojis' && onBackspace ? (
+            <button
+              type="button"
+              onClick={onBackspace}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-ink/[0.06] hover:text-ink active:scale-95 cursor-pointer"
+              title="Стереть"
+              aria-label="Стереть"
+            >
+              <IconBackspace size={20} />
+            </button>
+          ) : (
+            <span className="w-9 shrink-0" aria-hidden />
+          )}
         </div>
       )}
     </div>
   );
 };
+
+const BottomTab: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({
+  active,
+  onClick,
+  icon,
+  label,
+}) => (
+  <button
+    type="button"
+    role="tab"
+    aria-selected={active}
+    onClick={onClick}
+    className={`flex h-8 items-center gap-1.5 rounded-full px-3 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+      active ? 'bg-accent-muted text-accent' : 'text-muted hover:bg-ink/[0.06] hover:text-ink'
+    }`}
+  >
+    {icon}
+    {label}
+  </button>
+);
+
+// --- Emoji tab -----------------------------------------------------------------
+
+const CATEGORY_ICONS: Record<EmojiCategoryId | 'recent', React.ReactNode> = {
+  recent: <IconClock size={20} />,
+  people: <IconMoodSmile size={20} />,
+  nature: <IconPaw size={20} />,
+  food: <IconApple size={20} />,
+  activity: <IconBallFootball size={20} />,
+  travel: <IconCar size={20} />,
+  objects: <IconBulb size={20} />,
+  symbols: <IconHeart size={20} />,
+  flags: <IconFlag size={20} />,
+};
+
+// Windows has no colour flag glyphs (🇷🇺 renders as "RU"), so the section would be letters.
+const HIDE_FLAGS = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent);
+
+interface EmojiSection {
+  id: EmojiCategoryId | 'recent';
+  title: string;
+  emojis: string[];
+}
+
+const EmojiPanel: React.FC<{ onSelectEmoji: (emoji: string) => void }> = ({ onSelectEmoji }) => {
+  const [query, setQuery] = useState('');
+  // Recent row is read once per opening (like Telegram) so it doesn't reshuffle under the cursor.
+  const [recent] = useState(loadRecentEmojis);
+  const [activeId, setActiveId] = useState<EmojiSection['id']>('recent');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Partial<Record<EmojiSection['id'], HTMLElement | null>>>({});
+  const scrollingTo = useRef<EmojiSection['id'] | null>(null);
+  // Category picked while search results are shown: scroll once the feed is back.
+  const pendingJump = useRef<EmojiSection['id'] | null>(null);
+
+  const sections = useMemo<EmojiSection[]>(
+    () => [
+      { id: 'recent', title: 'Часто используемые', emojis: recent },
+      ...EMOJI_CATEGORIES.filter((c) => !(HIDE_FLAGS && c.id === 'flags')),
+    ],
+    [recent],
+  );
+  const results = useMemo(() => (query.trim() ? searchEmojis(query) : null), [query]);
+
+  const pick = useCallback(
+    (emoji: string) => {
+      rememberRecentEmoji(emoji);
+      onSelectEmoji(emoji);
+    },
+    [onSelectEmoji],
+  );
+
+  // Highlight the category whose section is at the top of the feed.
+  const syncActive = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || scrollingTo.current) return;
+    const top = el.scrollTop + 8;
+    let current: EmojiSection['id'] = sections[0].id;
+    for (const s of sections) {
+      const node = sectionRefs.current[s.id];
+      if (node && node.offsetTop <= top) current = s.id;
+    }
+    setActiveId(current);
+  }, [sections]);
+
+  const jumpTo = (id: EmojiSection['id']) => {
+    setActiveId(id);
+    if (results) {
+      pendingJump.current = id;
+      setQuery('');
+      return;
+    }
+    const el = scrollRef.current;
+    const node = sectionRefs.current[id];
+    if (!el || !node) return;
+    scrollingTo.current = id;
+    el.scrollTo({ top: node.offsetTop, behavior: 'smooth' });
+    window.setTimeout(() => {
+      scrollingTo.current = null;
+    }, 450);
+  };
+
+  useEffect(() => {
+    if (results) return;
+    const id = pendingJump.current;
+    pendingJump.current = null;
+    const el = scrollRef.current;
+    const node = id ? sectionRefs.current[id] : null;
+    if (el && node) el.scrollTop = node.offsetTop;
+    else syncActive();
+  }, [results, syncActive]);
+
+  return (
+    <>
+      <div className="shrink-0 space-y-1.5 px-2 pt-2">
+        <PickerSearch value={query} onChange={setQuery} placeholder="Поиск эмодзи" />
+        <div className="no-scrollbar flex items-center justify-between gap-0.5 overflow-x-auto" aria-label="Категории">
+          {sections.map((s) => (
+            <PickerStripButton key={s.id} active={!results && activeId === s.id} title={s.title} onClick={() => jumpTo(s.id)}>
+              {CATEGORY_ICONS[s.id]}
+            </PickerStripButton>
+          ))}
+        </div>
+      </div>
+
+      <div
+        ref={scrollRef}
+        onScroll={syncActive}
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 tg-scrollbar"
+      >
+        {results ? (
+          results.length > 0 ? (
+            <section>
+              <PickerSectionTitle>Результаты поиска</PickerSectionTitle>
+              <EmojiGrid emojis={results} onPick={pick} />
+            </section>
+          ) : (
+            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-[13.5px] text-muted">
+              <span className="text-[40px] leading-none">🔍</span>
+              Ничего не найдено
+            </div>
+          )
+        ) : (
+          sections.map((s) => (
+            <section
+              key={s.id}
+              ref={(node) => {
+                sectionRefs.current[s.id] = node;
+              }}
+              aria-label={s.title}
+            >
+              <PickerSectionTitle>{s.title}</PickerSectionTitle>
+              <EmojiGrid emojis={s.emojis} onPick={pick} />
+            </section>
+          ))
+        )}
+      </div>
+    </>
+  );
+};
+
+const EmojiGrid = React.memo<{ emojis: string[]; onPick: (emoji: string) => void }>(({ emojis, onPick }) => (
+  <div className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] px-1.5">
+    {emojis.map((emoji) => (
+      <button
+        key={emoji}
+        type="button"
+        onClick={() => onPick(emoji)}
+        className="flex aspect-square items-center justify-center rounded-xl text-[27px] leading-none transition-[background-color,transform] duration-100 hover:bg-ink/[0.06] active:scale-90 cursor-pointer"
+        title={emoji}
+      >
+        {emoji}
+      </button>
+    ))}
+  </div>
+));
+EmojiGrid.displayName = 'EmojiGrid';

@@ -30,8 +30,8 @@ export const AuthField: React.FC<AuthFieldProps> = ({ label, error, trailing, hi
           aria-describedby={error ? errorId : undefined}
           className={`peer w-full h-[54px] rounded-xl bg-transparent px-4 ${trailing ? 'pr-12' : ''} text-[15px] text-slate-900 dark:text-white border outline-hidden transition-[border-color,box-shadow] duration-150 disabled:opacity-60 ${
             error
-              ? 'border-rose-500 focus:shadow-[inset_0_0_0_1px_#f43f5e]'
-              : 'border-slate-300/90 dark:border-white/[0.14] hover:border-[#3390EC]/70 focus:border-[#3390EC] focus:shadow-[inset_0_0_0_1px_#3390EC]'
+              ? 'border-rose-500'
+              : 'border-slate-300/90 dark:border-white/[0.14] hover:border-[#3390EC]/70'
           }`}
           {...inputProps}
         />

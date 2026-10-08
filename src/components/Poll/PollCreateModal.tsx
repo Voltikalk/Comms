@@ -157,7 +157,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
               placeholder="Задайте вопрос"
               autoFocus
               maxLength={255}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[15px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent outline-none text-[15px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors"
             />
           </div>
 
@@ -201,7 +201,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
                     placeholder={`Вариант ${index + 1}`}
                     maxLength={100}
                     onKeyDown={(e) => handleKeyDown(index, e)}
-                    className="flex-1 min-w-0 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[14px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors"
+                    className="flex-1 min-w-0 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent outline-none text-[14px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors"
                   />
 
                   {options.length > MIN_OPTIONS && (
@@ -293,7 +293,7 @@ export const PollCreateModal: React.FC<PollCreateModalProps> = ({ isOpen, onClos
                 placeholder="Пользователи увидят это после ответа"
                 rows={2}
                 maxLength={200}
-                className="w-full px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent focus:border-accent outline-none text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors resize-none"
+                className="w-full px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 border border-transparent outline-none text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 transition-colors resize-none"
               />
               <span className="text-[10px] text-zinc-400 float-right mt-0.5">
                 {explanation.length}/200

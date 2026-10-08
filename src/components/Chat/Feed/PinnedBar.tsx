@@ -16,7 +16,7 @@ export interface PinnedBarProps {
 
 /** Segmented left indicator: one segment per pin (windowed to 4), active = current. */
 const PinSegments: React.FC<{ count: number; cursor: number }> = ({ count, cursor }) => {
-  if (count <= 1) return <span className="w-[3px] self-stretch rounded-full bg-[#3390ec]" />;
+  if (count <= 1) return <span className="w-[3px] self-stretch rounded-full bg-accent" />;
   const visible = Math.min(count, MAX_SEGMENTS);
   const start = Math.min(Math.max(0, cursor - (visible - 1)), count - visible);
   return (
@@ -24,7 +24,7 @@ const PinSegments: React.FC<{ count: number; cursor: number }> = ({ count, curso
       {Array.from({ length: visible }, (_, i) => (
         <span
           key={i}
-          className={`flex-1 rounded-full transition-colors ${start + i === cursor ? 'bg-[#3390ec]' : 'bg-[#3390ec]/30'}`}
+          className={`flex-1 rounded-full transition-colors ${start + i === cursor ? 'bg-accent' : 'bg-accent/30'}`}
         />
       ))}
     </span>
@@ -69,8 +69,8 @@ export const PinnedBar: React.FC<PinnedBarProps> = ({ pinned, onJumpToMessage, g
                   transition={SPRING}
                   className="min-w-0"
                 >
-                  <span className="text-[11.5px] font-bold text-[#3390ec] block">{pinned.label}</span>
-                  <span className="text-[12px] text-slate-700 dark:text-slate-300 truncate block">{getCleanMessageText(current)}</span>
+                  <span className="text-[11.5px] font-bold text-accent block">{pinned.label}</span>
+                  <span className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate block">{getCleanMessageText(current)}</span>
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -81,7 +81,7 @@ export const PinnedBar: React.FC<PinnedBarProps> = ({ pinned, onJumpToMessage, g
                   e.stopPropagation();
                   setPanelOpen(true);
                 }}
-                className="p-1.5 rounded-full text-slate-400 hover:text-[#3390ec] hover:bg-[#3390ec]/10 cursor-pointer shrink-0 transition-colors"
+                className="p-1.5 rounded-full text-zinc-400 hover:text-accent hover:bg-accent/10 cursor-pointer shrink-0 transition-colors"
                 title="Все закреплённые сообщения"
                 aria-label="Все закреплённые сообщения"
               >
@@ -94,7 +94,7 @@ export const PinnedBar: React.FC<PinnedBarProps> = ({ pinned, onJumpToMessage, g
                   e.stopPropagation();
                   pinned.toggle(current.id);
                 }}
-                className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 cursor-pointer shrink-0 transition-colors"
+                className="p-1.5 rounded-full text-zinc-400 hover:text-rose-500 cursor-pointer shrink-0 transition-colors"
                 title="Открепить"
                 aria-label="Открепить"
               >
@@ -122,18 +122,18 @@ export const PinnedBar: React.FC<PinnedBarProps> = ({ pinned, onJumpToMessage, g
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={SPRING}
-              className="tg-glass absolute top-0 right-0 bottom-0 z-40 w-full max-w-[340px] flex flex-col bg-white/92 dark:bg-[#17212b]/92 backdrop-blur-xl border-l border-slate-200/70 dark:border-white/10 shadow-2xl"
+              className="tg-glass absolute top-0 right-0 bottom-0 z-40 w-full max-w-[340px] flex flex-col bg-surface/92 backdrop-blur-xl border-l border-zinc-200/70 dark:border-white/10 shadow-2xl"
               aria-label="Закреплённые сообщения"
             >
-              <header className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-white/5">
-                <span className="flex-1 text-[14px] font-semibold text-slate-900 dark:text-white">
+              <header className="flex items-center gap-2 px-4 py-3 border-b border-zinc-100 dark:border-white/5">
+                <span className="flex-1 text-[14px] font-semibold text-zinc-900 dark:text-white">
                   Закреплённые сообщения · {pins.length}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPanelOpen(false)}
                   aria-label="Закрыть"
-                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
+                  className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
                 >
                   <IconX size={17} />
                 </button>
@@ -157,12 +157,12 @@ export const PinnedBar: React.FC<PinnedBarProps> = ({ pinned, onJumpToMessage, g
                         }
                       }}
                       className={`group flex items-start gap-2 px-3 py-2 rounded-xl cursor-pointer transition-colors ${
-                        current?.id === m.id ? 'bg-[#3390ec]/10' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
+                        current?.id === m.id ? 'bg-accent/10' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
                       }`}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="text-[12.5px] text-slate-800 dark:text-slate-100 line-clamp-2 break-words">{getCleanMessageText(m)}</div>
-                        <div className="text-[10.5px] text-slate-400 mt-0.5">{formatTime(m.timestamp)}</div>
+                        <div className="text-[12.5px] text-zinc-800 dark:text-zinc-100 line-clamp-2 break-words">{getCleanMessageText(m)}</div>
+                        <div className="text-[10.5px] text-zinc-400 mt-0.5">{formatTime(m.timestamp)}</div>
                       </div>
                       <button
                         type="button"
@@ -170,7 +170,7 @@ export const PinnedBar: React.FC<PinnedBarProps> = ({ pinned, onJumpToMessage, g
                           e.stopPropagation();
                           pinned.toggle(m.id);
                         }}
-                        className="p-1 rounded-full text-slate-400 opacity-60 group-hover:opacity-100 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition"
+                        className="p-1 rounded-full text-zinc-400 opacity-60 group-hover:opacity-100 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition"
                         title="Открепить"
                         aria-label="Открепить"
                       >
@@ -180,7 +180,7 @@ export const PinnedBar: React.FC<PinnedBarProps> = ({ pinned, onJumpToMessage, g
                   </motion.li>
                 ))}
               </ul>
-              <footer className="p-2 border-t border-slate-100 dark:border-white/5">
+              <footer className="p-2 border-t border-zinc-100 dark:border-white/5">
                 <button
                   type="button"
                   onClick={() => {

@@ -5,6 +5,8 @@ import type { PinnedMessagesState } from '../../../hooks/usePinnedMessages';
 import { buildFeedEntries } from '../../../lib/message-grouping';
 import { PinnedBar } from './PinnedBar';
 import { AlbumBubble } from './AlbumBubble';
+import { useRooms } from '../../../context/contexts';
+import { serviceText } from '../../../lib/service-messages';
 import {
   IconPaperclip,
   IconArrowDown
@@ -74,7 +76,10 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
   onOpenGalleryMedia,
   onContextMenu,
 }) => {
+  const { getUserDisplayName } = useRooms();
+  const isChannel = activeRoom?.type === 'channel';
   const entries = useMemo(
+    // Channel posts are authored by the channel itself — no per-sender labels.
     () => buildFeedEntries(slicedMessages, { isGroupChat: activeRoom?.type === 'group' }),
     [slicedMessages, activeRoom?.type],
   );
@@ -114,7 +119,7 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
           {entries.map((entry) => {
             const { message } = entry;
             const isSelf = message.sender === currentUser;
-            const senderName = isSelf ? 'Вы' : message.sender;
+            const senderName = isSelf ? 'Вы' : getUserDisplayName(message.sender) || message.sender;
 
             return (
               <React.Fragment key={entry.key}>
@@ -124,7 +129,21 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
                   </div>
                 )}
 
-                {entry.kind === 'album' ? (
+                {message.service ? (
+                  <div data-message-id={message.id} className="my-1.5 flex justify-center px-6 select-none">
+                    <span className="tg-date-pill max-w-full text-center leading-snug shadow-xs">
+                      {serviceText(message, getUserDisplayName, {
+                        me: currentUser,
+                        isChannel,
+                        pinnedPreview: (() => {
+                          const target = message.service.messageId ? messageMap.get(message.service.messageId) : undefined;
+                          const text = target ? getCleanMessageText(target).trim() : '';
+                          return text ? (text.length > 40 ? `${text.slice(0, 40)}…` : text) : undefined;
+                        })(),
+                      })}
+                    </span>
+                  </div>
+                ) : entry.kind === 'album' ? (
                   <AlbumBubble
                     items={entry.items}
                     isSelf={isSelf}

@@ -1,13 +1,26 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
-import { useSocket, type SendOptions } from '../context/contexts';
+import { useSocket, type OutgoingFile, type SendOptions } from '../context/contexts';
+import { MAX_PENDING_FILES, detectFileKind, planBatchSend } from '../lib/outgoing-batch';
+import { deleteBackward, insertAtSelection } from '../lib/emoji-catalog';
+import { createClientId } from '../lib/offline-queue';
 import { formatScheduledAt } from '../lib/schedule';
-import { usePinnedMessages } from '../hooks/usePinnedMessages';
+import { usePinnedMessages, type SharedPins } from '../hooks/usePinnedMessages';
+import { can, isAdminLike, isManagedRoom, parseJoinHash, roleOf, sendRestriction } from '../lib/roles';
+import { RestrictedComposer } from './Chat/Input/RestrictedComposer';
+import { IconLogout } from '@tabler/icons-react';
+import { RoomManageSheet, type ManagePage } from './Chat/Manage/RoomManageSheet';
+import { ConfirmDialog, type ConfirmRequest } from './ui/ConfirmDialog';
+import { JoinRoomModal } from './Chat/Manage/JoinRoomModal';
+import type { JoinTarget } from '../context/contexts';
+import { serviceText } from '../lib/service-messages';
 import { useChatHotkeys } from '../hooks/useChatHotkeys';
 import { useChatNavigation } from '../hooks/useChatNavigation';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useMessageSelection } from '../hooks/useMessageSelection';
-import { USER_NAMES } from '../constants';
+import { ROOM_AVATAR_COLORS, USER_NAMES } from '../constants';
 import type { Room, UserId, Message } from '../types';
-import { DEFAULT_THEME_CONFIG, getWallpaperById, getAccentColorById } from '../constants/wallpapers';
+import { DEFAULT_THEME_CONFIG, getWallpaperById } from '../constants/wallpapers';
+import { applyAppearance } from '../lib/appearance';
 import type { ChatThemeConfig } from '../types/theme.types';
 import { applyFilters, type FilterOptions } from '../lib/filter-utils';
 import {
@@ -25,9 +38,10 @@ import { findStickersByEmoji } from '../constants/stickers';
 import { createAudioLiveAnalyser, normalizeWaveform, type AudioLiveAnalyser } from '../lib/audio-waveform';
 import type { Sticker } from '../types/sticker.types';
 import { usePlatform } from '../context/platform-context';
-import { DesktopTitleBar } from './Desktop/DesktopTitleBar';
 import type { MobileTab } from './Mobile/MobileBottomNav';
+import type { NewChatMode } from './Chat/NewChatModal';
 import type { ChatFolderId, FolderCountInfo } from './Navigation/ChatFolderTabs';
+import type { ChatPreview } from './Chat/Sidebar/ChatListItem';
 import { Squares, Aurora, Particles, LetterGlitch, Hyperspeed, Waves, Dither } from './Backgrounds';
 import {
   ChatSidebar,
@@ -42,14 +56,6 @@ interface ChatScreenProps {
   darkMode: boolean;
   toggleDarkMode: () => void;
 }
-
-const ROOM_AVATAR_COLORS: Record<string, string> = {
-  vlad: 'bg-indigo-600',
-  anya: 'bg-pink-600',
-  mom: 'bg-amber-600',
-  dad: 'bg-sky-600',
-  sister: 'bg-emerald-600',
-};
 
 const getSelectedText = (count: number) => {
   const mod10 = count % 10;
@@ -86,6 +92,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     activeMessages,
     logout,
     sendMessage,
+    createDirectChat,
     forwardMessage,
     deleteMessage,
     hideMessagesForMe,
@@ -97,8 +104,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     sendTypingStatus,
     unreadCount,
     lastMessageOf,
-    notificationsEnabled,
-    setNotificationsEnabled,
+    markRoomAsRead,
+    roomAction,
 
     // Calling context
     callSession,
@@ -120,12 +127,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [roomFilterQuery, setRoomFilterQuery] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showUserInfo, setShowUserInfo] = useState(false);
+  /** «Управление группой/каналом» sheet. */
+  const [manage, setManage] = useState<{ roomId: string; page?: ManagePage; userId?: UserId } | null>(null);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
+  /** Invite link opened via `#/join/<code|@username>`. */
+  const [joinTarget, setJoinTarget] = useState<JoinTarget | null>(() =>
+    typeof window === 'undefined' ? null : parseJoinHash(window.location.hash),
+  );
+  useEffect(() => {
+    const consume = () => {
+      const target = parseJoinHash(window.location.hash);
+      if (!target) return;
+      setJoinTarget(target);
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    };
+    consume();
+    window.addEventListener('hashchange', consume);
+    return () => window.removeEventListener('hashchange', consume);
+  }, []);
+  const closeJoin = useCallback(() => setJoinTarget(null), []);
   const [showMenuDropdown, setShowMenuDropdown] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatMode, setNewChatMode] = useState<NewChatMode>('direct');
   const [themeConfig, setThemeConfig] = useState<ChatThemeConfig>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('tg_chat_theme_config');
@@ -137,6 +164,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
     return DEFAULT_THEME_CONFIG;
   });
+  // Unsaved draft from the appearance window — previewed live across the app, dropped on cancel.
+  const [themePreview, setThemePreview] = useState<ChatThemeConfig | null>(null);
+  const activeTheme = themePreview ?? themeConfig;
 
   // Helper for room display name
   const getRoomDisplayName = useCallback((room: Room) => {
@@ -148,14 +178,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     return room.name;
   }, [currentUser, getUserDisplayName]);
 
-  // Apply accent colors dynamically to CSS root variables
+  // Accent, text size, bubble corners and font → CSS variables on <html>.
+  useEffect(() => {
+    applyAppearance(activeTheme);
+  }, [activeTheme]);
+
   useEffect(() => {
     try {
-      const accent = getAccentColorById(themeConfig.accentColorId);
-      document.documentElement.style.setProperty('--tg-theme-accent', accent.hex);
-      document.documentElement.style.setProperty('--tg-theme-accent-hover', accent.hoverHex);
-      document.documentElement.style.setProperty('--tg-theme-accent-subtle', accent.subtleHex);
-      document.documentElement.style.setProperty('--tg-theme-accent-border', accent.borderHex);
       localStorage.setItem('tg_chat_theme_config', JSON.stringify(themeConfig));
     } catch (e) {
       console.warn('Failed to persist chat theme config:', e);
@@ -173,6 +202,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     let directUnread = 0;
     let groupsTotal = 0;
     let groupsUnread = 0;
+    let channelsTotal = 0;
+    let channelsUnread = 0;
     let unreadTotal = 0;
     let unreadUnread = 0;
     let savedTotal = 0;
@@ -194,6 +225,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       } else if (isGroup) {
         groupsTotal++;
         groupsUnread += u;
+      } else if (r.type === 'channel') {
+        channelsTotal++;
+        channelsUnread += u;
       }
 
       if (u > 0) {
@@ -206,19 +240,46 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       all: { total: rooms.length, unread: allUnread },
       direct: { total: directTotal, unread: directUnread },
       groups: { total: groupsTotal, unread: groupsUnread },
+      channels: { total: channelsTotal, unread: channelsUnread },
       unread: { total: unreadTotal, unread: unreadUnread },
       saved: { total: savedTotal, unread: savedUnread },
     };
   }, [rooms, unreadCount]);
 
-  // Filtered rooms list by folder tab AND search in sidebar
+  // ===== Pinned chats (local, like Telegram's per-device pin order) =====
+  const [pinnedRooms, setPinnedRooms] = useState<string[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('tg_pinned_rooms') || '[]');
+      return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleRoomPin = useCallback((roomId: string) => {
+    setPinnedRooms((prev) => {
+      const next = prev.includes(roomId) ? prev.filter((id) => id !== roomId) : [roomId, ...prev];
+      try {
+        localStorage.setItem('tg_pinned_rooms', JSON.stringify(next));
+      } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  // Filtered rooms list by folder tab AND search in sidebar; pinned chats first.
   const filteredRooms = useMemo(() => {
+    const pinRank = (id: string) => {
+      const i = pinnedRooms.indexOf(id);
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+    };
     return rooms.filter((r) => {
       // 1. Folder tab filter
       if (activeFolder === 'direct') {
         if (r.type !== 'direct' || isSavedMessagesRoom(r)) return false;
       } else if (activeFolder === 'groups') {
         if (r.type !== 'group') return false;
+      } else if (activeFolder === 'channels') {
+        if (r.type !== 'channel') return false;
       } else if (activeFolder === 'unread') {
         if (unreadCount(r.id) <= 0) return false;
       } else if (activeFolder === 'saved') {
@@ -229,60 +290,91 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       if (!roomFilterQuery.trim()) return true;
       const name = getRoomDisplayName(r);
       return name.toLowerCase().includes(roomFilterQuery.toLowerCase());
-    });
-  }, [rooms, activeFolder, roomFilterQuery, unreadCount, getRoomDisplayName]);
+    }).map((r, i) => ({ r, i }))
+      .sort((a, b) => pinRank(a.r.id) - pinRank(b.r.id) || a.i - b.i)
+      .map(({ r }) => r);
+  }, [rooms, activeFolder, roomFilterQuery, unreadCount, getRoomDisplayName, pinnedRooms]);
 
+  // Phone tab bar: each tab is its own screen inside the sidebar (Telegram iOS).
   const handleMobileTabSelect = (tab: MobileTab) => {
     setMobileTab(tab);
-    if (tab === 'chats') {
-      setActiveFolder('all');
-      setMobileView('list');
-    } else if (tab === 'stories') {
-      setIsStoryCreateOpen(true);
-    } else if (tab === 'search') {
-      setShowCommandPalette(true);
-    } else if (tab === 'rooms') {
-      setActiveFolder('groups');
-      setMobileView('list');
-    } else if (tab === 'settings') {
-      setShowThemeModal(true);
-    }
+    setMobileView('list');
   };
 
-  // Edge-swipe navigation for mobile (swipe from left edge to return to chat list)
-  const edgeTouchStartX = useRef<number | null>(null);
-  const edgeTouchStartY = useRef<number | null>(null);
+  // Interactive edge swipe-back (Telegram iOS): the chat follows the finger and
+  // the list slides out from under it. Panes are moved directly — no re-render
+  // per touchmove — and released either to the list or back to the chat.
+  const navSwipe = useRef<{ x: number; y: number; dx: number; locked: boolean; lastX: number; lastT: number; v: number } | null>(null);
+  const navPanes = () =>
+    [
+      document.querySelector<HTMLElement>('[data-nav-pane="chat"]'),
+      document.querySelector<HTMLElement>('[data-nav-pane="list"]'),
+    ] as const;
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    edgeTouchStartX.current = e.touches[0].clientX;
-    edgeTouchStartY.current = e.touches[0].clientY;
+    navSwipe.current = null;
+    if (!stackedNav || mobileView !== 'chat' || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (t.clientX > 32) return;
+    navSwipe.current = { x: t.clientX, y: t.clientY, dx: 0, locked: false, lastX: t.clientX, lastT: e.timeStamp, v: 0 };
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (edgeTouchStartX.current === null || edgeTouchStartY.current === null) return;
-    const diffX = e.changedTouches[0].clientX - edgeTouchStartX.current;
-    const diffY = e.changedTouches[0].clientY - edgeTouchStartY.current;
-
-    // Trigger edge swipe if started near left edge (< 48px) and swiped right (> 50px)
-    if (edgeTouchStartX.current < 48 && diffX > 50 && Math.abs(diffY) < 60) {
-      if (mobileView === 'chat') {
-        triggerHaptic('light');
-        setMobileView('list');
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const s = navSwipe.current;
+    if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (!s.locked) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (dx <= 0 || Math.abs(dy) > Math.abs(dx)) {
+        navSwipe.current = null;
+        return;
       }
+      s.locked = true;
+      navPanes().forEach((pane) => pane?.classList.add('tg-nav-dragging'));
     }
-    edgeTouchStartX.current = null;
-    edgeTouchStartY.current = null;
+    const dt = e.timeStamp - s.lastT;
+    if (dt > 0) s.v = (t.clientX - s.lastX) / dt;
+    s.lastX = t.clientX;
+    s.lastT = e.timeStamp;
+    s.dx = Math.max(0, dx);
+    const progress = Math.min(1, s.dx / window.innerWidth);
+    const [chat, list] = navPanes();
+    if (chat) chat.style.transform = `translateX(${s.dx}px)`;
+    if (list) {
+      list.style.transform = `translateX(${-28 * (1 - progress)}%)`;
+      list.style.setProperty('--nav-dim', String(1 - progress));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const s = navSwipe.current;
+    navSwipe.current = null;
+    if (!s?.locked) return;
+    // Hand the panes back to the CSS classes; the transition runs from where
+    // the finger left them to whichever state React renders next.
+    navPanes().forEach((pane) => {
+      if (!pane) return;
+      pane.classList.remove('tg-nav-dragging');
+      pane.style.transform = '';
+      pane.style.removeProperty('--nav-dim');
+    });
+    if (s.dx > window.innerWidth / 3 || s.v > 0.45) {
+      triggerHaptic('light');
+      setMobileView('list');
+    }
   };
 
   const getChatBackgroundStyle = (): React.CSSProperties => {
-    const wp = getWallpaperById(themeConfig.wallpaperId);
-    const blur = themeConfig.customWallpaper?.blur ?? (themeConfig.wallpaperId === 'custom' ? 0 : (wp.blur ?? 0));
+    const wp = getWallpaperById(activeTheme.wallpaperId);
+    const blur = activeTheme.customWallpaper?.blur ?? (activeTheme.wallpaperId === 'custom' ? 0 : (wp.blur ?? 0));
     const filterStyle = blur > 0 ? `blur(${blur}px)` : undefined;
     const transformStyle = blur > 0 ? 'scale(1.12)' : undefined;
 
-    if (themeConfig.wallpaperId === 'custom' && themeConfig.customWallpaper?.imageUrl) {
+    if (activeTheme.wallpaperId === 'custom' && activeTheme.customWallpaper?.imageUrl) {
       return {
-        backgroundImage: `url("${themeConfig.customWallpaper.imageUrl}")`,
+        backgroundImage: `url("${activeTheme.customWallpaper.imageUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -326,6 +418,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const isNearBottomRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+  // List and chat are stacked screens only on phone-width touch layouts;
+  // tablets and wide "mobile" view modes keep the split view.
+  const isNarrow = useMediaQuery('(max-width: 767.98px)');
+  const stackedNav = !isDesktopView && isNarrow;
+  // Phones: an open chat owns a history entry, so the system/browser Back
+  // button (and Android's back gesture) returns to the list instead of
+  // leaving the app. The entry keeps the URL; RoomsContext's #/chat/ entries
+  // underneath stay as they are.
+  useEffect(() => {
+    if (window.history.state?.commsChat) {
+      // Reloaded on top of a stale entry — it no longer means "chat open".
+      window.history.replaceState({ ...window.history.state, commsChat: undefined }, '');
+    }
+    const onPop = () => {
+      if (!window.history.state?.commsChat) setMobileView('list');
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  useEffect(() => {
+    if (!stackedNav) return;
+    const open = Boolean(window.history.state?.commsChat);
+    if (mobileView === 'chat' && !open) window.history.pushState({ ...window.history.state, commsChat: true }, '');
+    else if (mobileView === 'list' && open) window.history.back();
+  }, [mobileView, stackedNav]);
   const typingTimeoutRef = useRef<any>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
@@ -361,12 +478,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     toggleSelected: toggleSelectedMessage,
     clearSelection,
   } = useMessageSelection();
-  const { openAdjacentRoom, openRoomByIndex } = useChatNavigation({
+  const { openRoom, openAdjacentRoom, openAdjacentUnreadRoom, openRoomByIndex } = useChatNavigation({
     rooms,
     filteredRooms,
     activeRoomId,
     setActiveRoomId,
     setMobileView,
+    unreadCount,
   });
 
   // Global Keyboard Shortcuts (Desktop / Power User Navigation Suite) — see src/lib/chat-hotkeys.ts
@@ -378,6 +496,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     adjacentChat: ({ direction }) => {
       triggerHaptic('selection');
       openAdjacentRoom(direction);
+    },
+    adjacentUnread: ({ direction }) => {
+      if (!openAdjacentUnreadRoom(direction)) return false;
+      triggerHaptic('selection');
+    },
+    savedMessages: () => {
+      const saved = rooms.find(isSavedMessagesRoom);
+      if (!saved) return false;
+      triggerHaptic('selection');
+      openRoom(saved.id);
     },
     folder: ({ folder }) => {
       triggerHaptic('selection');
@@ -407,7 +535,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       else if (isSearching) {
         setIsSearching(false);
         setSearchQuery('');
-      } else if (mobileView === 'chat' && !isDesktopView) setMobileView('list');
+      } else if (mobileView === 'chat' && stackedNav) setMobileView('list');
       else return false;
     },
   });
@@ -486,23 +614,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   }, []);
 
   // File & Voice Attachment states
-  const [selectedFile, setSelectedFile] = useState<{ 
-    name: string; 
-    type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker'; 
-    data: string; 
-    size: number; 
-    rawBlob?: Blob | File;
-    width?: number;
-    height?: number;
-    orientation?: 'vertical' | 'horizontal' | 'square';
-    stickerData?: Sticker;
-    waveform?: number[];
-    duration?: number;
-  } | null>(null);
+  // Composer attachments (several at once; photos / videos go out as an album).
+  const [selectedFiles, setSelectedFiles] = useState<OutgoingFile[]>([]);
+  const selectedCountRef = useRef(0);
+  selectedCountRef.current = selectedFiles.length;
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const [liveVolumeLevels, setLiveVolumeLevels] = useState<number[]>([]);
-  const [inputActionMode, setInputActionMode] = useState<'voice' | 'video'>('voice');
+  const [inputActionMode, setInputActionModeState] = useState<'voice' | 'video'>(() =>
+    localStorage.getItem('comms_input_action_mode') === 'video' ? 'video' : 'voice',
+  );
+  const setInputActionMode = useCallback((mode: 'voice' | 'video') => {
+    setInputActionModeState(mode);
+    localStorage.setItem('comms_input_action_mode', mode);
+  }, []);
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
   const [isVoicePaused, setIsVoicePaused] = useState(false);
   const [voiceDragOffset, setVoiceDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -517,6 +642,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const voiceStopActionRef = useRef<'send' | 'preview' | 'cancel'>('send');
   const voicePointerStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const isVoiceHoldingRef = useRef(false);
+  // Mic / camera button: a short tap toggles the mode, holding starts recording.
+  const actionHoldTimerRef = useRef<number | null>(null);
+  const holdModeRef = useRef<'voice' | 'video' | null>(null);
   const voiceStartTimeRef = useRef<number>(0);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -650,10 +778,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   }, [messages]);
 
   // Multi-pin state (persisted per room, Telegram-style cursor through pins)
-  const pinned = usePinnedMessages(activeRoomId, messageMap);
+  // Groups/channels pin on the server for everyone; other chats keep local pins.
+  const sharedPinRoomId = isManagedRoom(activeRoom) ? activeRoom.id : null;
+  const sharedPinIds = isManagedRoom(activeRoom) ? activeRoom.pinnedIds : undefined;
+  const sharedPins = useMemo<SharedPins | null>(() => {
+    if (!sharedPinRoomId) return null;
+    const run = (payload: Record<string, unknown>) =>
+      void roomAction('pin_message', { roomId: sharedPinRoomId, ...payload }).then((res) => {
+        if (!res.ok) showToast(res.error || 'Не удалось изменить закреп');
+      });
+    return {
+      ids: sharedPinIds || [],
+      set: (messageId, pin) => run(pin ? { messageId } : { messageId, unpin: true }),
+      clear: () => run({ unpin: true }),
+    };
+  }, [sharedPinRoomId, sharedPinIds, roomAction, showToast]);
+  const pinned = usePinnedMessages(activeRoomId, messageMap, sharedPins);
+  const canPinHere = !isManagedRoom(activeRoom) || can(activeRoom, currentUser, 'pinMessages');
 
   const togglePinMessage = (msgId: string) => {
     if (!activeRoomId) return;
+    if (!canPinHere) {
+      showToast('Закреплять могут только администраторы');
+      return;
+    }
     showToast(pinned.toggle(msgId) ? 'Сообщение закреплено' : 'Сообщение откреплено');
   };
 
@@ -1007,6 +1155,46 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   // Get typing users in active room (excluding self)
   const activeRoomTypingMap = typingUsers[activeRoomId || ''] || {};
+  const activeOnlineCount =
+    activeRoom?.type === 'group' ? activeRoom.participants.filter((p) => p === currentUser || onlineStatus[p]).length : 0;
+  const canManageActive =
+    isManagedRoom(activeRoom) && (isAdminLike(activeRoom, currentUser) || can(activeRoom, currentUser, 'changeInfo'));
+  const manageRoom = manage ? rooms.find((r) => r.id === manage.roomId) ?? null : null;
+
+  const openManage = (page?: ManagePage, userId?: UserId) => {
+    if (activeRoom && isManagedRoom(activeRoom)) setManage({ roomId: activeRoom.id, page, userId });
+  };
+
+  /** Leave a group/channel; the owner may delete it for everyone instead. */
+  const requestLeaveRoom = (room: Room) => {
+    const channel = room.type === 'channel';
+    const owner = roleOf(room, currentUser) === 'owner';
+    setConfirmRequest({
+      title: channel ? 'Покинуть канал?' : 'Покинуть группу?',
+      description: owner
+        ? `Вы владелец: права перейдут к администратору${channel ? '' : ' или участнику'}. Можно вместо этого удалить ${channel ? 'канал' : 'группу'} для всех.`
+        : channel
+          ? 'Вы перестанете получать публикации. Вернуться можно по ссылке.'
+          : 'Вы больше не будете получать сообщения из этой группы.',
+      confirmLabel: 'Покинуть',
+      danger: true,
+      icon: <IconLogout size={19} />,
+      checkbox: owner ? { label: channel ? 'Удалить канал для всех' : 'Удалить группу для всех' } : undefined,
+      onConfirm: async (deleteForAll) => {
+        const res = await roomAction(deleteForAll ? 'delete_room' : 'leave_room', { roomId: room.id });
+        if (!res.ok) {
+          showToast(res.error || 'Не удалось выйти');
+          return;
+        }
+        if (activeRoomId === room.id) {
+          setShowUserInfo(false);
+          setMobileView('list');
+        }
+        showToast(deleteForAll ? (channel ? 'Канал удалён' : 'Группа удалена') : channel ? 'Вы покинули канал' : 'Вы покинули группу');
+      },
+    });
+  };
+
   const activeRoomTypingUsers = Object.keys(activeRoomTypingMap)
     .filter((u) => u !== currentUser)
     .map((u) => USER_NAMES[u as UserId] || u);
@@ -1292,7 +1480,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
 
   const handleSend = (e?: React.FormEvent, options?: SendOptions) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() && !selectedFile) return;
+    if (!inputText.trim() && selectedFiles.length === 0) return;
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -1313,23 +1501,66 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       return;
     }
 
-    sendMessage(inputText, replyingToMessage?.id, selectedFile || undefined, undefined, undefined, undefined, options);
+    if (selectedFiles.length === 0) {
+      sendMessage(inputText, replyingToMessage?.id, undefined, undefined, undefined, undefined, options);
+    } else {
+      // One message per file, sent in order so the album keeps its layout; reply goes on the first.
+      const plan = planBatchSend(selectedFiles, inputText, createClientId);
+      const roomId = activeRoomId || undefined;
+      const replyToId = replyingToMessage?.id;
+      void (async () => {
+        for (const [i, item] of plan.entries()) {
+          await sendMessage(item.text, i === 0 ? replyToId : undefined, item.file, roomId, undefined, undefined, {
+            ...options,
+            albumId: item.albumId,
+          });
+        }
+      })();
+    }
     if (options?.scheduledAt) showToast(`Сообщение будет отправлено ${formatScheduledAt(options.scheduledAt)}`);
     else if (options?.silent) showToast('Отправлено без звука');
     persistDraft(activeRoomId || null, '');
     setInputText('');
     setMentionState(null);
     setReplyingToMessage(null);
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setShowEmojiPicker(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
   };
 
+  // Picker edits happen at the caret (or over the selection), like Telegram.
+  // Phones keep the keyboard hidden while the panel is open, so focus only on desktop.
+  const pendingCaretRef = useRef<number | null>(null);
+  const applyComposerEdit = (edit: { text: string; caret: number }) => {
+    pendingCaretRef.current = edit.caret;
+    handleInputChange(edit.text);
+  };
+
+  // Runs right after the controlled textarea receives the new value, before
+  // the browser would otherwise leave the caret at the end.
+  useLayoutEffect(() => {
+    const caret = pendingCaretRef.current;
+    const textarea = textareaRef.current;
+    if (caret === null || !textarea) return;
+    pendingCaretRef.current = null;
+    if (isDesktopView) textarea.focus();
+    textarea.setSelectionRange(caret, caret);
+  }, [inputText, isDesktopView]);
+
   const insertEmoji = (emoji: string) => {
-    handleInputChange(inputText + emoji);
-    textareaRef.current?.focus();
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? inputText.length;
+    const end = textarea?.selectionEnd ?? start;
+    applyComposerEdit(insertAtSelection(inputText, start, end, emoji));
+  };
+
+  const deleteEmojiBackward = () => {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? inputText.length;
+    const end = textarea?.selectionEnd ?? start;
+    applyComposerEdit(deleteBackward(inputText, start, end));
   };
 
   const handleSendSticker = (sticker: Sticker) => {
@@ -1405,65 +1636,65 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     setShowGlobalSearchModal(true);
   }, []);
 
+  // Group permissions / channel posting rights for the composer.
+  const textRestriction = sendRestriction(activeRoom, currentUser, 'text');
+  const mediaRestriction = sendRestriction(activeRoom, currentUser, 'media');
+  const pollRestriction = sendRestriction(activeRoom, currentUser, 'poll');
+  const mediaRestrictionRef = useRef<string | null>(null);
+  mediaRestrictionRef.current = mediaRestriction;
+
   // File selection & Drag&Drop attachment processing
-  const acceptIncomingFile = useCallback((file: File) => {
-    if (!file) return;
-
-    let type: 'image' | 'audio' | 'video' | 'video_note' | 'file' | 'sticker' = 'file';
-    const name = file.name.toLowerCase();
-    if (name.endsWith('.tgs') || file.type === 'application/x-tgsticker' || (file.type === 'application/gzip' && name.includes('sticker'))) {
-      type = 'sticker';
-    } else if (file.type.startsWith('image/') || name.match(/\.(jpg|jpeg|png|gif|webp|heic)$/)) {
-      type = 'image';
-    } else if (file.type.startsWith('audio/') || name.match(/\.(mp3|wav|ogg|m4a|aac)$/)) {
-      type = 'audio';
-    } else if (file.type.startsWith('video/') || name.match(/\.(mp4|webm|mov|m4v|mkv|avi)$/)) {
-      type = 'video';
+  const acceptIncomingFiles = useCallback((incoming: FileList | readonly File[]) => {
+    const files = Array.from(incoming);
+    if (files.length === 0) return;
+    if (mediaRestrictionRef.current) {
+      showToast(mediaRestrictionRef.current);
+      return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
+    const room = Math.max(0, MAX_PENDING_FILES - selectedCountRef.current);
+    if (files.length > room) showToast(`Можно прикрепить не больше ${MAX_PENDING_FILES} файлов за раз`);
+    const items: OutgoingFile[] = files.slice(0, room).map((file) => ({
+      name: file.name,
+      type: detectFileKind(file),
+      data: URL.createObjectURL(file),
+      size: file.size,
+      rawBlob: file,
+    }));
+    if (items.length === 0) return;
+    selectedCountRef.current += items.length;
+    setSelectedFiles((prev) => [...prev, ...items]);
 
-    if (type === 'video') {
-      const tempVideo = document.createElement('video');
-      tempVideo.preload = 'metadata';
-      tempVideo.src = previewUrl;
-      tempVideo.onloadedmetadata = () => {
-        const ratio = tempVideo.videoWidth / (tempVideo.videoHeight || 1);
-        setSelectedFile({
-          name: file.name,
-          type,
-          data: previewUrl,
-          size: file.size,
-          rawBlob: file,
-          width: tempVideo.videoWidth,
-          height: tempVideo.videoHeight,
-          orientation: ratio < 0.85 ? 'vertical' : ratio > 1.15 ? 'horizontal' : 'square'
-        });
+    // Videos: dimensions for the album / bubble layout, patched in once known.
+    for (const item of items) {
+      if (item.type !== 'video') continue;
+      const probe = document.createElement('video');
+      probe.preload = 'metadata';
+      probe.src = item.data;
+      probe.onloadedmetadata = () => {
+        const width = probe.videoWidth;
+        const height = probe.videoHeight;
+        const ratio = width / (height || 1);
+        const orientation = ratio < 0.85 ? 'vertical' : ratio > 1.15 ? 'horizontal' : 'square';
+        setSelectedFiles((prev) => prev.map((f) => (f.data === item.data ? { ...f, width, height, orientation } : f)));
       };
-      tempVideo.onerror = () => {
-        setSelectedFile({
-          name: file.name,
-          type,
-          data: previewUrl,
-          size: file.size,
-          rawBlob: file
-        });
-      };
-    } else {
-      setSelectedFile({
-        name: file.name,
-        type,
-        data: previewUrl,
-        size: file.size,
-        rawBlob: file
-      });
     }
+  }, [showToast]);
+
+  const removeSelectedFile = useCallback((data: string) => {
+    URL.revokeObjectURL(data);
+    setSelectedFiles((prev) => prev.filter((f) => f.data !== data));
+  }, []);
+
+  const clearSelectedFiles = useCallback(() => {
+    setSelectedFiles((prev) => {
+      prev.forEach((f) => URL.revokeObjectURL(f.data));
+      return [];
+    });
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    acceptIncomingFile(file);
+    if (e.target.files?.length) acceptIncomingFiles(e.target.files);
     e.target.value = '';
   };
 
@@ -1495,8 +1726,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     e.preventDefault();
     dragDepthRef.current = 0;
     setIsDraggingFile(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) acceptIncomingFile(file);
+    if (e.dataTransfer.files?.length) acceptIncomingFiles(e.dataTransfer.files);
   };
 
   // Audio Note recording with Web Audio Waveform Capture & Slide-to-Cancel / Lock / Preview
@@ -1677,7 +1907,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   };
 
   const handleVoicePointerDown = (e: React.PointerEvent) => {
-    if (inputActionMode !== 'voice') return;
     if (e.button !== 0) return;
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -1685,14 +1914,37 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       // ignore
     }
     voicePointerStartPosRef.current = { x: e.clientX, y: e.clientY };
-    isVoiceHoldingRef.current = true;
-    startRecording();
+    holdModeRef.current = null;
+    if (actionHoldTimerRef.current) window.clearTimeout(actionHoldTimerRef.current);
+    actionHoldTimerRef.current = window.setTimeout(() => {
+      actionHoldTimerRef.current = null;
+      holdModeRef.current = inputActionMode;
+      isVoiceHoldingRef.current = true;
+      triggerHaptic('light');
+      if (inputActionMode === 'voice') startRecording();
+      else void videoNote.start();
+    }, 220);
   };
 
   const handleVoicePointerMove = (e: React.PointerEvent) => {
-    if (!isVoiceHoldingRef.current || !voicePointerStartPosRef.current || isVoiceLocked) return;
+    if (!isVoiceHoldingRef.current || !voicePointerStartPosRef.current) return;
     const dx = e.clientX - voicePointerStartPosRef.current.x;
     const dy = e.clientY - voicePointerStartPosRef.current.y;
+
+    if (holdModeRef.current === 'video') {
+      if (dx < -80) {
+        triggerHaptic('warning');
+        isVoiceHoldingRef.current = false;
+        videoNote.stop(false);
+      } else if (dy < -55) {
+        // Hands-free: keep recording, the overlay's buttons finish it.
+        triggerHaptic('success');
+        isVoiceHoldingRef.current = false;
+      }
+      return;
+    }
+
+    if (isVoiceLocked) return;
     setVoiceDragOffset({ x: dx, y: dy });
 
     if (dx < -80) {
@@ -1711,12 +1963,27 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   };
 
   const handleVoicePointerUp = (e: React.PointerEvent) => {
+    if (actionHoldTimerRef.current) {
+      // Released before the hold threshold → it was a tap: switch voice <-> video.
+      window.clearTimeout(actionHoldTimerRef.current);
+      actionHoldTimerRef.current = null;
+      if (e.type === 'pointerup') {
+        triggerHaptic('light');
+        setInputActionMode(inputActionMode === 'voice' ? 'video' : 'voice');
+      }
+      return;
+    }
     if (!isVoiceHoldingRef.current) return;
     isVoiceHoldingRef.current = false;
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
       // ignore
+    }
+
+    if (holdModeRef.current === 'video') {
+      videoNote.stop(true);
+      return;
     }
 
     if (!isVoiceLocked && isRecording) {
@@ -1782,58 +2049,90 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const getLastMessageTime = (msg: Message | null) => {
     if (!msg) return '';
     const date = new Date(msg.timestamp);
-    const today = new Date();
-    if (date.toDateString() === today.toDateString()) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    if (date.toDateString() === now.toDateString()) {
+      return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    // Within the last week Telegram shows the weekday, older — a short date.
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (msg.timestamp > startOfToday - 6 * 86400000) {
+      const day = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+      return day.charAt(0).toUpperCase() + day.slice(1);
+    }
+    return date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      ...(date.getFullYear() === now.getFullYear() ? {} : { year: '2-digit' }),
+    });
   };
 
-  const getLastMessagePreview = useCallback((roomId: string) => {
+  const getLastMessagePreview = useCallback((roomId: string): ChatPreview | null => {
     const draft = draftsMap[roomId];
     const lastMsg = lastMessageOf(roomId);
+    const room = rooms.find((r) => r.id === roomId);
+    const isGroupRoom = room?.type === 'group';
 
-    if (draft && (!lastMsg || draft.trim())) {
+    if (draft?.trim()) {
       return {
-        text: `Черновик: ${draft}`,
+        text: draft.replace(/\s+/g, ' ').trim(),
         time: lastMsg ? getLastMessageTime(lastMsg) : '',
-        sender: currentUser || '',
         isMine: true,
-        isPhoto: false,
-        isVideo: false,
-        isVoice: false,
-        isFile: false,
-        isSticker: false,
-        isPoll: false
+        isDraft: true,
+        status: null,
+        senderLabel: null,
+        mediaIcon: null,
       };
     }
 
     if (!lastMsg) return null;
 
-    const isMine = lastMsg.sender === currentUser;
-    const time = getLastMessageTime(lastMsg);
-    const text = getCleanMessageText(lastMsg);
+    if (lastMsg.service) {
+      const nameOf = (id: UserId) => getUserDisplayName(id) || USER_NAMES[id] || id;
+      return {
+        text: serviceText(lastMsg, nameOf, { me: currentUser, isChannel: room?.type === 'channel' }),
+        time: getLastMessageTime(lastMsg),
+        isMine: false,
+        isDraft: false,
+        status: null,
+        senderLabel: null,
+        mediaIcon: null,
+      };
+    }
 
-    const isPhoto = Boolean(lastMsg.file && (lastMsg.file.type === 'image' || lastMsg.file.type?.startsWith('image/')));
-    const isVideo = Boolean(lastMsg.file && (lastMsg.file.type === 'video' || lastMsg.file.type === 'video_note' || lastMsg.file.type?.startsWith('video/')));
-    const isVoice = Boolean(lastMsg.file && (lastMsg.file.type === 'audio' || lastMsg.file.type?.startsWith('audio/')));
-    const isFile = Boolean(lastMsg.file && !isPhoto && !isVideo && !isVoice);
-    const isSticker = Boolean(lastMsg.sticker || (lastMsg.file && lastMsg.file.type === 'sticker'));
-    const isPoll = Boolean(lastMsg.poll);
+    const isMine = lastMsg.sender === currentUser;
+    const f = lastMsg.file;
+    const mediaIcon: ChatPreview['mediaIcon'] = lastMsg.poll
+      ? 'poll'
+      : lastMsg.sticker || f?.type === 'sticker'
+        ? null
+        : f?.type === 'image'
+          ? 'photo'
+          : f?.type === 'video' || f?.type === 'video_note'
+            ? 'video'
+            : f?.type === 'audio'
+              ? 'voice'
+              : f
+                ? 'file'
+                : null;
+
+    const status: ChatPreview['status'] = !isMine || room?.type === 'channel' || isSavedMessagesRoom(room ?? ({ id: roomId } as Room))
+      ? null
+      : lastMsg.pending || lastMsg.queued
+        ? 'pending'
+        : lastMsg.readBy && lastMsg.readBy.length > 0
+          ? 'read'
+          : 'sent';
 
     return {
-      text,
-      time,
-      sender: lastMsg.sender,
+      text: getCleanMessageText(lastMsg),
+      time: getLastMessageTime(lastMsg),
       isMine,
-      isPhoto,
-      isVideo,
-      isVoice,
-      isFile,
-      isSticker,
-      isPoll
+      isDraft: false,
+      status,
+      senderLabel: isGroupRoom ? (isMine ? 'Вы' : getUserDisplayName(lastMsg.sender) || USER_NAMES[lastMsg.sender] || lastMsg.sender) : null,
+      mediaIcon,
     };
-  }, [lastMessageOf, currentUser, draftsMap, getCleanMessageText]);
+  }, [lastMessageOf, currentUser, draftsMap, getCleanMessageText, rooms, getUserDisplayName]);
 
   const formatSeparatorDate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -1911,7 +2210,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   }, [jumpToMessage, setActiveRoomId]);
 
   const renderDynamicWallpaper = () => {
-    const activeWp = getWallpaperById(themeConfig.wallpaperId);
+    const activeWp = getWallpaperById(activeTheme.wallpaperId);
     let wallpaperContent: React.ReactNode = null;
     if (activeWp.animatedType === 'squares') {
       wallpaperContent = (
@@ -1964,10 +2263,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       );
     }
 
-    const dimming = themeConfig.customWallpaper?.dimming ?? (
-      themeConfig.wallpaperId === 'custom'
+    const dimming = activeTheme.customWallpaper?.dimming ?? (
+      activeTheme.wallpaperId === 'custom'
         ? 20
-        : (getWallpaperById(themeConfig.wallpaperId).dimming ?? 0)
+        : (getWallpaperById(activeTheme.wallpaperId).dimming ?? 0)
     );
 
     return (
@@ -1990,24 +2289,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         paddingTop: isDesktopView ? undefined : 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
       }}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
-      {/* Desktop Native Titlebar (Shown in Desktop mode) */}
-      {isDesktopView && (
-        <DesktopTitleBar
-          onOpenSearch={() => setShowGlobalSearchModal(true)}
-          onOpenThemeSettings={() => setShowThemeModal(true)}
-          activeRoomName={activeRoom ? getRoomDisplayName(activeRoom) : undefined}
-          activeRoomIsOnline={isPeerOnline}
-          onOpenCommandPalette={() => setShowCommandPalette(true)}
-        />
-      )}
-
       {/* Main Split-View Workspace */}
       <div className="flex flex-1 w-full min-h-0 overflow-hidden relative">
         {/* 1. Left Sidebar: Telegram Chat List & Contacts */}
         <ChatSidebar
           isDesktopView={isDesktopView}
+          stackedNav={stackedNav}
           mobileView={mobileView}
           mobileTab={mobileTab}
           onSelectMobileTab={handleMobileTabSelect}
@@ -2032,6 +2323,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           getRoomColor={getRoomColor}
           isRoomOnline={isRoomOnline}
           unreadCount={unreadCount}
+          isRoomMuted={(roomId) => Boolean(mutedRooms[roomId])}
+          isRoomPinned={(roomId) => pinnedRooms.includes(roomId)}
+          onToggleRoomMute={toggleRoomMute}
+          onToggleRoomPin={toggleRoomPin}
+          onMarkRoomRead={markRoomAsRead}
+          onLeaveRoom={(roomId) => {
+            const room = rooms.find((r) => r.id === roomId);
+            if (isManagedRoom(room)) requestLeaveRoom(room);
+          }}
           getLastMessagePreview={getLastMessagePreview}
           roomTypingUsers={getRoomTypingUsers}
           roomFilterQuery={roomFilterQuery}
@@ -2043,8 +2343,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           onOpenInstallModal={() => setShowInstallModal(true)}
           onOpenShortcutsModal={() => setShowShortcutsModal(true)}
           onOpenArchiveModal={() => setShowArchiveModal(true)}
-          onOpenNewChatModal={() => setShowNewChatModal(true)}
-          onClearHistory={handleClearCurrentChatHistory}
+          onOpenNewChatModal={(mode) => {
+            setNewChatMode(mode ?? 'direct');
+            setShowNewChatModal(true);
+          }}
+          darkMode={darkMode}
+          onToggleDarkMode={toggleDarkMode}
           onLogout={logout}
           onOpenStoryCreate={() => setIsStoryCreateOpen(true)}
           onOpenStoryViewer={(userId) => setActiveStoryViewerUser(userId)}
@@ -2079,10 +2383,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           onDragOver={handleChatDragOver}
           onDragLeave={handleChatDragLeave}
           onDrop={handleChatDrop}
-          className={`flex-1 min-w-0 w-full max-w-full flex flex-col h-full tg-chat-canvas transition-transform duration-150 relative overflow-hidden ${
-            mobileView === 'chat' || isDesktopView
-              ? 'translate-x-0 flex'
-              : '-translate-x-full md:translate-x-0 absolute md:relative z-10 w-full h-full hidden md:flex'
+          data-nav-pane="chat"
+          inert={stackedNav && mobileView !== 'chat'}
+          className={`min-w-0 w-full max-w-full flex flex-col h-full tg-chat-canvas overflow-hidden ${
+            stackedNav
+              ? `tg-nav-pane absolute inset-0 z-30 ${mobileView === 'chat' ? '' : 'tg-nav-away'}`
+              : 'flex-1 relative'
           }`}
         >
           {/* Dynamic Wallpaper Background Layer */}
@@ -2094,6 +2400,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             activeRoomDisplayName={activeRoom ? getRoomDisplayName(activeRoom) : ''}
             isPeerOnline={isPeerOnline}
             activeRoomTypingUsers={activeRoomTypingUsers}
+            onlineCount={activeOnlineCount}
+            onOpenManage={canManageActive ? () => openManage() : undefined}
+            onLeaveRoom={isManagedRoom(activeRoom) ? () => requestLeaveRoom(activeRoom) : undefined}
             getRoomAvatar={getRoomAvatar}
             getRoomColor={getRoomColor}
             onBackToRooms={() => setMobileView('list')}
@@ -2190,9 +2499,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           />
 
           {/* Bottom Input Bar */}
+          {textRestriction && !editingMessage ? (
+            <RestrictedComposer
+              channel={activeRoom?.type === 'channel'}
+              reason={textRestriction}
+              muted={Boolean(activeRoomId && mutedRooms[activeRoomId])}
+              onToggleMute={() => activeRoomId && toggleRoomMute(activeRoomId)}
+            />
+          ) : (
           <ChatInputBar
-            selectedFile={selectedFile}
-            onClearSelectedFile={() => setSelectedFile(null)}
+            mediaRestriction={mediaRestriction}
+            pollRestriction={pollRestriction}
+            selectedFiles={selectedFiles}
+            onRemoveSelectedFile={removeSelectedFile}
+            onClearSelectedFiles={clearSelectedFiles}
+            onAddFiles={acceptIncomingFiles}
             editingMessage={editingMessage}
             onCancelEditing={() => {
               setEditingMessage(null);
@@ -2212,6 +2533,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             showEmojiPicker={showEmojiPicker}
             setShowEmojiPicker={setShowEmojiPicker}
             onInsertEmoji={insertEmoji}
+            onEmojiBackspace={deleteEmojiBackward}
             recordedVoicePreview={recordedVoicePreview}
             onCancelRecordedVoicePreview={cancelRecordedVoicePreview}
             onSendRecordedVoicePreview={sendRecordedVoicePreview}
@@ -2233,7 +2555,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             formattingToolbar={formattingToolbar}
             applyFormatting={applyFormatting}
             onCloseFormattingToolbar={() => setFormattingToolbar(null)}
-            onStartVideoRecording={videoNote.start}
             onOpenPollModal={() => setShowPollModal(true)}
             inputActionMode={inputActionMode}
             setInputActionMode={setInputActionMode}
@@ -2241,8 +2562,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             onVoicePointerMove={handleVoicePointerMove}
             onVoicePointerUp={handleVoicePointerUp}
             onSend={handleSend}
-            showToast={showToast}
           />
+          )}
         </main>
 
         {/* 3. Right Sidebar: User Info Panel */}
@@ -2260,10 +2581,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             onOpenProfileModal={() => setShowProfileModal(true)}
             isMuted={activeRoomId ? Boolean(mutedRooms[activeRoomId]) : false}
             onToggleMute={() => activeRoomId && toggleRoomMute(activeRoomId)}
-            notificationsEnabled={notificationsEnabled}
-            setNotificationsEnabled={setNotificationsEnabled}
-            sharedMediaMessages={activeMessages.filter(m => m.file && (m.file.type === 'image' || m.file.type === 'video' || m.file.type?.startsWith('image/') || m.file.type?.startsWith('video/')))}
+            messages={activeMessages}
             onOpenGalleryMedia={(msgId) => setActiveGalleryMediaId(msgId)}
+            onJumpToMessage={jumpToMessage}
+            onStartAudioCall={() => startCall('audio')}
+            onStartVideoCall={() => startCall('video')}
+            onStartSearch={() => setIsSearching(true)}
+            onToast={showToast}
+            onOpenManage={openManage}
+            onLeaveRoom={isManagedRoom(activeRoom) ? () => requestLeaveRoom(activeRoom) : undefined}
           />
         )}
       </div>
@@ -2309,12 +2635,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         setShowThemeModal={setShowThemeModal}
         themeConfig={themeConfig}
         setThemeConfig={setThemeConfig}
+        setThemePreview={setThemePreview}
         activeStoryViewerUser={activeStoryViewerUser}
         setActiveStoryViewerUser={setActiveStoryViewerUser}
         isStoryCreateOpen={isStoryCreateOpen}
         setIsStoryCreateOpen={setIsStoryCreateOpen}
-        onSendStoryDirectMessage={(peerUserId, text) => {
-          const dmRoom = rooms.find(r => r.type === 'direct' && r.participants.includes(peerUserId as UserId));
+        onSendStoryDirectMessage={async (peerUserId, text) => {
+          // Stories can be public, so there may be no chat with the author yet — open one.
+          const dmRoom =
+            rooms.find(r => r.type === 'direct' && r.participants.includes(peerUserId as UserId)) ??
+            (await createDirectChat(peerUserId));
           if (dmRoom) {
             sendMessage(text, undefined, undefined, dmRoom.id);
           }
@@ -2358,6 +2688,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         showQrModal={showQrModal}
         setShowQrModal={setShowQrModal}
         showNewChatModal={showNewChatModal}
+        newChatMode={newChatMode}
         setShowNewChatModal={setShowNewChatModal}
       />
 
@@ -2368,6 +2699,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         isDesktop={isDesktopView}
         onCancel={cancelDelete}
         onConfirm={confirmDelete}
+      />
+
+      {manageRoom && (
+        <RoomManageSheet
+          key={manageRoom.id}
+          room={manageRoom}
+          initialPage={manage?.page}
+          initialUserId={manage?.userId}
+          onClose={() => setManage(null)}
+          onToast={showToast}
+        />
+      )}
+      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
+      <JoinRoomModal
+        target={joinTarget}
+        onClose={closeJoin}
+        onOpened={(roomId) => {
+          setActiveRoomId(roomId);
+          setMobileView('chat');
+        }}
       />
     </div>
   );

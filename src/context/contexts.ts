@@ -19,6 +19,7 @@ import type {
   Message,
   Poll,
   Room,
+  RoomPreview,
   SecretChatTtl,
   UserId,
   UserProfile,
@@ -78,14 +79,52 @@ export interface RoomsContextValue {
   userProfiles: Record<UserId, UserProfile>;
   currentUserProfile: UserProfile | null;
   currentUserName: string | null;
-  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<{ ok: boolean; error?: string }>;
   getUserDisplayName: (userId: UserId) => string;
   getUserAvatar: (userId: UserId) => string | undefined;
   searchUsers: (query: string) => Promise<UserSearchResult[]>;
   createDirectChat: (targetUserId: string) => Promise<Room | null>;
   createGroupChat: (name: string, participantIds: string[], avatarUrl?: string) => Promise<Room | null>;
   createSecretChat: (targetUserId: string) => Promise<Room | null>;
+  createChannel: (input: CreateChannelInput) => Promise<RoomActionResult>;
+  /** Generic group/channel management request (`update_room`, `add_members`, `set_admin`…). */
+  roomAction: <T extends object = object>(event: RoomEvent, payload: Record<string, unknown>) => Promise<RoomActionResult & Partial<T>>;
+  /** Preview of an invite code or a public @username. */
+  getInvitePreview: (target: JoinTarget) => Promise<{ ok: boolean; error?: string; room?: RoomPreview }>;
+  /** Joins by invite code / @username and opens the chat. */
+  joinRoom: (target: JoinTarget) => Promise<RoomActionResult>;
+  /** Public groups and channels matching the query. */
+  searchPublicRooms: (query: string) => Promise<RoomPreview[]>;
 }
+
+export interface CreateChannelInput {
+  name: string;
+  description?: string;
+  avatarUrl?: string;
+  username?: string;
+  participantIds?: string[];
+}
+
+export type JoinTarget = { code: string } | { username: string };
+
+export interface RoomActionResult {
+  ok: boolean;
+  error?: string;
+  room?: Room;
+}
+
+export type RoomEvent =
+  | 'update_room'
+  | 'add_members'
+  | 'remove_member'
+  | 'unban_member'
+  | 'set_admin'
+  | 'transfer_ownership'
+  | 'leave_room'
+  | 'delete_room'
+  | 'create_invite_link'
+  | 'revoke_invite_link'
+  | 'pin_message';
 
 // ===== Messages =====
 
@@ -132,7 +171,7 @@ export interface MessagesContextValue {
     forwardedFrom?: ForwardSource,
     poll?: Poll,
     options?: SendOptions,
-  ) => void;
+  ) => void | Promise<void>;
   forwardMessage: (targetRoomId: string, message: Message) => void;
   editMessage: (messageId: string, newText: string) => void;
   deleteMessage: (messageId: string) => void;

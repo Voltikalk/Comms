@@ -5,31 +5,35 @@ import type { MobileTab } from '../../Mobile/MobileBottomNav';
 import { StoriesBar } from '../../Stories/StoriesBar';
 import { ChatFolderTabs } from '../../Navigation/ChatFolderTabs';
 import { MobileBottomNav } from '../../Mobile/MobileBottomNav';
+import { MobileContactsScreen } from '../../Mobile/MobileContactsScreen';
+import { MobileSettingsScreen } from '../../Mobile/MobileSettingsScreen';
+import type { NewChatMode } from '../NewChatModal';
 import { SecuritySettingsModal } from '../../Settings/SecuritySettingsModal';
+import { SidebarAccountMenu } from './SidebarAccountMenu';
+import { ChatListItem, type ChatPreview } from './ChatListItem';
+import { ChatContextMenu, type ChatContextMenuItem } from './ChatContextMenu';
+import { PublicRoomResults } from './PublicRoomResults';
+import { usePlatform } from '../../../context/platform-context';
+import { useAuth, useRooms } from '../../../context/contexts';
 import {
-  IconMenu2,
-  IconSearch,
-  IconUser,
-  IconDeviceMobile,
-  IconPalette,
-  IconShieldLock,
-  IconDownload,
-  IconKeyboard,
-  IconTrash,
+  IconBell,
+  IconBellOff,
   IconLogout,
-  IconBookmark,
-  IconEdit,
-  IconChecks,
-  IconUsers,
-  IconPhoto,
-  IconMicrophone,
-  IconFileText,
-  IconVideo,
-  IconChartBar
+  IconMenu2,
+  IconMessageCircleCheck,
+  IconPencil,
+  IconPin,
+  IconPinnedOff,
+  IconSearch,
+  IconX,
 } from '@tabler/icons-react';
+
+const isSavedRoom = (id: string) => id === 'saved-messages' || id === 'saved';
 
 export interface ChatSidebarProps {
   isDesktopView: boolean;
+  /** Phone layout: list and chat are stacked screens with push/pop navigation. */
+  stackedNav: boolean;
   mobileView: 'list' | 'chat';
   mobileTab: MobileTab;
   onSelectMobileTab: (tab: MobileTab) => void;
@@ -51,18 +55,14 @@ export interface ChatSidebarProps {
   getRoomColor: (room: Room) => string;
   isRoomOnline: (room: Room) => boolean;
   unreadCount: (roomId: string) => number;
-  getLastMessagePreview: (roomId: string) => {
-    text: string;
-    time: string;
-    sender: string;
-    isMine: boolean;
-    isPhoto: boolean;
-    isVideo: boolean;
-    isVoice: boolean;
-    isFile: boolean;
-    isSticker: boolean;
-    isPoll: boolean;
-  } | null;
+  isRoomMuted: (roomId: string) => boolean;
+  isRoomPinned: (roomId: string) => boolean;
+  onToggleRoomMute: (roomId: string) => void;
+  onToggleRoomPin: (roomId: string) => void;
+  onMarkRoomRead: (roomId: string) => void;
+  /** Groups & channels: «Покинуть» from the chat list. */
+  onLeaveRoom?: (roomId: string) => void;
+  getLastMessagePreview: (roomId: string) => ChatPreview | null;
   roomTypingUsers: (roomId: string) => string[];
   roomFilterQuery: string;
   setRoomFilterQuery: (q: string) => void;
@@ -73,8 +73,9 @@ export interface ChatSidebarProps {
   onOpenInstallModal: () => void;
   onOpenShortcutsModal: () => void;
   onOpenArchiveModal: () => void;
-  onOpenNewChatModal?: () => void;
-  onClearHistory: () => void;
+  onOpenNewChatModal?: (mode?: NewChatMode) => void;
+  darkMode: boolean;
+  onToggleDarkMode: () => void;
   onLogout: () => void;
   onOpenStoryCreate: () => void;
   onOpenStoryViewer: (userId: string | null) => void;
@@ -84,6 +85,7 @@ export interface ChatSidebarProps {
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isDesktopView,
+  stackedNav,
   mobileView,
   mobileTab,
   onSelectMobileTab,
@@ -105,6 +107,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   getRoomColor,
   isRoomOnline,
   unreadCount,
+  isRoomMuted,
+  isRoomPinned,
+  onToggleRoomMute,
+  onToggleRoomPin,
+  onMarkRoomRead,
+  onLeaveRoom,
   getLastMessagePreview,
   roomTypingUsers,
   roomFilterQuery,
@@ -117,7 +125,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onOpenShortcutsModal,
   onOpenArchiveModal,
   onOpenNewChatModal,
-  onClearHistory,
+  darkMode,
+  onToggleDarkMode,
   onLogout,
   onOpenStoryCreate,
   onOpenStoryViewer,
@@ -125,461 +134,320 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   totalUnreadCount,
 }) => {
   const [showSecurityModal, setShowSecurityModal] = React.useState(false);
+  const [menu, setMenu] = React.useState<{ roomId: string; x: number; y: number } | null>(null);
+  const menuButtonRef = React.useRef<HTMLButtonElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  const closeMenu = React.useCallback(() => setShowMenuDropdown(false), [setShowMenuDropdown]);
+  // Tab bar (floating on phones, docked at the bottom on desktop): Контакты / Чаты / Настройки are separate screens.
+  // The icon-only compact sidebar has no room for them, so it always shows the chat list.
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const showChatList = isCompactSidebar || mobileTab === 'chats';
+  const tabBarName =
+    [currentUserProfile?.firstName, currentUserProfile?.lastName].filter(Boolean).join(' ') || currentUserName || '';
+  const handleMobileTab = (tab: MobileTab) => {
+    closeMenu();
+    // Like Telegram: tapping the active "Чаты" tab scrolls the list back to the top.
+    if (tab === 'chats' && mobileTab === 'chats') listRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    onSelectMobileTab(tab);
+  };
+  const closeContextMenu = React.useCallback(() => setMenu(null), []);
+  const { isStandalone } = usePlatform();
+  const { currentUser } = useAuth();
+  const { userProfiles } = useRooms();
+  const savedRoom = React.useMemo(
+    () => rooms.find((r) => isSavedRoom(r.id)),
+    [rooms]
+  );
+
+  const contextItems = (roomId: string): ChatContextMenuItem[] => {
+    const pinned = isRoomPinned(roomId);
+    const muted = isRoomMuted(roomId);
+    const items: ChatContextMenuItem[] = [
+      {
+        label: pinned ? 'Открепить' : 'Закрепить',
+        icon: pinned ? <IconPinnedOff size={19} /> : <IconPin size={19} />,
+        onSelect: () => onToggleRoomPin(roomId),
+      },
+    ];
+    if (!isSavedRoom(roomId)) {
+      items.push({
+        label: muted ? 'Включить уведомления' : 'Отключить уведомления',
+        icon: muted ? <IconBell size={19} /> : <IconBellOff size={19} />,
+        onSelect: () => onToggleRoomMute(roomId),
+      });
+    }
+    if (unreadCount(roomId) > 0) {
+      items.push({
+        label: 'Пометить как прочитанное',
+        icon: <IconMessageCircleCheck size={19} />,
+        onSelect: () => onMarkRoomRead(roomId),
+      });
+    }
+    const room = rooms.find((r) => r.id === roomId);
+    if (onLeaveRoom && (room?.type === 'group' || room?.type === 'channel')) {
+      items.push({
+        label: room.type === 'channel' ? 'Покинуть канал' : 'Покинуть группу',
+        icon: <IconLogout size={19} />,
+        onSelect: () => onLeaveRoom(roomId),
+        danger: true,
+      });
+    }
+    return items;
+  };
+
+  const emptyText = roomFilterQuery.trim()
+    ? 'Ничего не найдено'
+    : activeFolder === 'unread'
+      ? 'Все сообщения прочитаны'
+      : activeFolder === 'groups'
+        ? 'Здесь появятся ваши группы'
+        : activeFolder === 'channels'
+          ? 'Здесь появятся каналы, на которые вы подписаны'
+          : activeFolder === 'direct'
+          ? 'Здесь появятся личные чаты'
+          : 'У вас пока нет чатов';
+
   return (
     <>
       {showSecurityModal && <SecuritySettingsModal onClose={() => setShowSecurityModal(false)} />}
+      {menu && <ChatContextMenu x={menu.x} y={menu.y} items={contextItems(menu.roomId)} onClose={closeContextMenu} />}
       <aside
         style={{
           '--sidebar-width': `${sidebarWidth}px`,
         } as React.CSSProperties}
+        data-nav-pane="list"
+        inert={stackedNav && mobileView !== 'list'}
         className={`w-full md:w-[var(--sidebar-width)] tg-sidebar flex flex-col shrink-0 h-full ${
           showMenuDropdown ? 'z-50' : 'z-20'
         } ${
-          isResizingSidebar ? 'select-none transition-none' : 'transition-transform duration-150'
-        } ${
-          mobileView === 'list' || isDesktopView
-            ? 'translate-x-0 flex'
-            : '-translate-x-full md:translate-x-0 absolute md:relative z-20 left-0 top-0 hidden md:flex'
+          stackedNav
+            ? `tg-nav-pane absolute inset-0 ${mobileView === 'list' ? '' : 'tg-nav-under'}`
+            : `relative ${isResizingSidebar ? 'select-none' : ''}`
         }`}
       >
-        {/* Top Bar: Hamburger + Search Input */}
-        <div className={`px-3 pt-2.5 pb-2 flex items-center gap-2.5 relative ${isCompactSidebar ? 'justify-center p-2' : ''}`}>
-          <button
-            type="button"
-            onClick={() => setShowMenuDropdown(!showMenuDropdown)}
-            className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors shrink-0"
-            title="Меню"
-          >
-            <IconMenu2 size={20} />
-          </button>
+        {showChatList ? (
+          <>
+          {/* Top bar: menu + search */}
+          <div className={`relative flex items-center gap-2 px-2.5 pb-2 pt-2 ${isCompactSidebar ? 'justify-center' : ''}`}>
+            <button
+              ref={menuButtonRef}
+              type="button"
+              onClick={() => setShowMenuDropdown(!showMenuDropdown)}
+              aria-haspopup="menu"
+              aria-expanded={showMenuDropdown}
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer ${
+                showMenuDropdown ? 'bg-elevated text-ink' : 'text-muted hover:bg-elevated hover:text-ink'
+              }`}
+              title="Меню"
+              aria-label="Меню"
+            >
+              <IconMenu2 size={22} />
+            </button>
 
-          {/* Menu Dropdown */}
-          {showMenuDropdown && (
-            <>
-              <div 
-                className="fixed inset-0 z-40"
-                onClick={() => setShowMenuDropdown(false)}
-              />
-              <div className={`absolute top-12 ${isCompactSidebar ? 'left-2' : 'left-3'} z-50 w-64 tg-header rounded-2xl shadow-2xl border border-zinc-200 dark:border-white/10 py-2 animate-pop-in select-none`}>
-                {/* User Profile Card Header */}
-                <div 
-                  onClick={() => {
-                    onOpenProfileModal();
-                    setShowMenuDropdown(false);
+            <SidebarAccountMenu
+              open={showMenuDropdown}
+              onClose={closeMenu}
+              anchorRef={menuButtonRef}
+              compact={isCompactSidebar}
+              currentUserName={currentUserName}
+              profile={currentUserProfile}
+              darkMode={darkMode}
+              onToggleDarkMode={onToggleDarkMode}
+              showInstall={!isStandalone}
+              showShortcuts={isDesktopView}
+              onOpenSaved={savedRoom ? () => onSelectRoom(savedRoom.id) : undefined}
+              onOpenProfile={onOpenProfileModal}
+              onOpenSearch={onOpenGlobalSearch}
+              onOpenTheme={onOpenThemeModal}
+              onOpenPrivacy={() => setShowSecurityModal(true)}
+              onOpenQr={onOpenQrModal}
+              onOpenInstall={onOpenInstallModal}
+              onOpenShortcuts={onOpenShortcutsModal}
+              onOpenArchive={onOpenArchiveModal}
+              onLogout={onLogout}
+            />
+
+            {!isCompactSidebar && (
+              <label className="group relative flex h-10 min-w-0 flex-1 items-center rounded-full bg-elevated ring-1 ring-transparent transition-[box-shadow,background-color] focus-within:bg-surface">
+                <IconSearch size={18} className="pointer-events-none absolute left-3.5 text-muted transition-colors group-focus-within:text-accent" />
+                <span className="sr-only">Поиск чатов</span>
+                <input
+                  ref={searchRef}
+                  type="search"
+                  value={roomFilterQuery}
+                  onChange={(e) => setRoomFilterQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && roomFilterQuery) {
+                      e.stopPropagation();
+                      setRoomFilterQuery('');
+                    } else if (e.key === 'Enter' && rooms[0]) {
+                      onSelectRoom(rooms[0].id);
+                    }
                   }}
-                  className="px-3.5 py-2.5 mx-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3 border-b border-zinc-100 dark:border-white/5 pb-3"
-                >
-                  <div className="relative shrink-0">
-                    {currentUserProfile?.avatarUrl ? (
-                      <img 
-                        src={currentUserProfile.avatarUrl} 
-                        alt="Avatar" 
-                        className="w-10 h-10 rounded-full object-cover shadow-xs ring-2 ring-accent/20" 
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center text-sm font-bold shadow-xs">
-                        {currentUserName?.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    {currentUserProfile?.statusEmoji && (
-                      <span className="absolute -bottom-1 -right-1 text-xs">
-                        {currentUserProfile.statusEmoji}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-zinc-900 dark:text-white truncate block">
-                        {currentUserName}
-                      </span>
-                      <IconEdit size={14} className="text-accent shrink-0" />
-                    </div>
-                    <span className="text-[10.5px] text-zinc-400 truncate block">
-                      {currentUserProfile?.username ? `@${currentUserProfile.username}` : (currentUserProfile?.bio || 'Нажмите для настройки')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Menu Actions */}
-                <div className="pt-1.5 space-y-0.5 px-1">
-                  {/* Search Action */}
+                  placeholder="Поиск"
+                  className="h-full w-full min-w-0 rounded-full bg-transparent pl-10 pr-10 text-[15px] text-ink outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+                />
+                {roomFilterQuery && (
                   <button
                     type="button"
                     onClick={() => {
-                      onOpenGlobalSearch();
-                      setShowMenuDropdown(false);
+                      setRoomFilterQuery('');
+                      searchRef.current?.focus();
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-full text-muted transition-colors hover:bg-ink/10 hover:text-ink cursor-pointer"
+                    aria-label="Очистить поиск"
                   >
-                    <span className="flex items-center gap-2.5">
-                      <IconSearch size={18} className="text-accent" />
-                      <span>Поиск по сообщениям</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">FTS</span>
+                    <IconX size={16} />
                   </button>
+                )}
+              </label>
+            )}
+          </div>
 
-                  {onOpenNewChatModal && (
+          {/* Stories (hidden while searching and in compact mode) */}
+          {!isCompactSidebar && !roomFilterQuery && (
+            <StoriesBar
+              onOpenCreate={onOpenStoryCreate}
+              onOpenViewer={onOpenStoryViewer}
+            />
+          )}
+
+          {/* Folder tabs */}
+          {!isCompactSidebar && (
+            <ChatFolderTabs
+              activeFolder={activeFolder}
+              onSelectFolder={onSelectFolder}
+              folderCounts={folderCounts}
+            />
+          )}
+
+          {/* Chat list */}
+          <div
+            ref={listRef}
+            role="list"
+            aria-label="Чаты"
+            className={`flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1 pb-28 md:pb-2 tg-scrollbar ${isCompactSidebar ? 'space-y-1' : ''}`}
+          >
+            {rooms.map((room) => {
+              const saved = isSavedRoom(room.id);
+              const peerId = room.type === 'direct' && !saved ? room.participants.find((p) => p !== currentUser) : undefined;
+              return (
+                <div role="listitem" key={room.id}>
+                  <ChatListItem
+                    name={getRoomDisplayName(room)}
+                    avatarUrl={saved ? undefined : getRoomAvatar(room)}
+                    avatarColor={getRoomColor(room)}
+                    kind={saved ? 'saved' : room.type}
+                    statusEmoji={peerId ? userProfiles[peerId]?.statusEmoji : undefined}
+                    isSecret={!!room.secret}
+                    online={!saved && isRoomOnline(room)}
+                    active={isDesktopView && room.id === activeRoomId}
+                    compact={isCompactSidebar}
+                    muted={isRoomMuted(room.id)}
+                    pinned={isRoomPinned(room.id)}
+                    unread={unreadCount(room.id)}
+                    preview={getLastMessagePreview(room.id)}
+                    typers={roomTypingUsers(room.id)}
+                    onClick={() => onSelectRoom(room.id)}
+                    onContextMenu={(x, y) => setMenu({ roomId: room.id, x, y })}
+                  />
+                </div>
+              );
+            })}
+
+            {roomFilterQuery.trim() && <PublicRoomResults query={roomFilterQuery} compact={isCompactSidebar} />}
+
+            {!isCompactSidebar && rooms.every((r) => isSavedRoom(r.id)) && (
+              <div className="flex flex-col items-center px-6 py-10 text-center">
+                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-accent-muted text-accent">
+                  {roomFilterQuery.trim() ? <IconSearch size={28} /> : <IconPencil size={28} />}
+                </div>
+                <p className="m-0 text-[15px] font-semibold text-ink">{emptyText}</p>
+                {roomFilterQuery.trim() ? (
+                  <button
+                    type="button"
+                    onClick={onOpenGlobalSearch}
+                    className="mt-3 rounded-full px-4 py-2 text-[14px] font-medium text-accent transition-colors hover:bg-accent-muted cursor-pointer"
+                  >
+                    Искать везде
+                  </button>
+                ) : (
+                  onOpenNewChatModal && activeFolder !== 'unread' && (
                     <button
                       type="button"
-                      onClick={() => {
-                        onOpenNewChatModal();
-                        setShowMenuDropdown(false);
-                      }}
-                      className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                      onClick={() => onOpenNewChatModal()}
+                      className="mt-3 rounded-full bg-accent px-4 py-2 text-[14px] font-semibold text-white transition-colors hover:bg-accent-strong cursor-pointer"
                     >
-                      <span className="flex items-center gap-2.5">
-                        <IconEdit size={18} className="text-accent" />
-                        <span>Новое сообщение</span>
-                      </span>
-                      <span className="text-[10px] text-zinc-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">New</span>
+                      Начать общение
                     </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenProfileModal();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconUser size={18} className="text-accent" />
-                      <span>Мой профиль</span>
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenQrModal();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconDeviceMobile size={18} className="text-accent" />
-                      <span>Открыть на телефоне</span>
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenThemeModal();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconPalette size={18} className="text-accent" />
-                      <span>Оформление и обои</span>
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSecurityModal(true);
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconShieldLock size={18} className="text-[#3390ec]" />
-                      <span>Конфиденциальность</span>
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenArchiveModal();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconBookmark size={18} className="text-accent" />
-                      <span>Архив сообщений (Admin)</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">DB</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenInstallModal();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconDownload size={18} className="text-accent" />
-                      <span>Установить приложение</span>
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenShortcutsModal();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <IconKeyboard size={18} className="text-accent" />
-                      <span>Горячие клавиши</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">?</span>
-                  </button>
-
-                  <div className="my-1 border-t border-zinc-100 dark:border-white/5" />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClearHistory();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-rose-500 hover:bg-rose-500/10 rounded-xl flex items-center gap-2.5 cursor-pointer transition-colors"
-                  >
-                    <IconTrash size={18} />
-                    <span>Очистить историю</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onLogout();
-                      setShowMenuDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center gap-2.5 cursor-pointer transition-colors"
-                  >
-                    <IconLogout size={18} />
-                    <span>Выйти</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Search Input for filtering rooms */}
-          {!isCompactSidebar && (
-            <div className="flex-1 relative flex items-center">
-              <IconSearch size={15} className="absolute left-3 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
-              <input
-                type="text"
-                value={roomFilterQuery}
-                onChange={(e) => setRoomFilterQuery(e.target.value)}
-                placeholder="Поиск..."
-                className="w-full pl-8.5 pr-9 py-1.5 bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.04] dark:border-white/[0.06] text-zinc-900 dark:text-white rounded-full text-xs placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
-              />
-              {roomFilterQuery ? (
-                <button
-                  type="button"
-                  onClick={() => setRoomFilterQuery('')}
-                  className="absolute right-2.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer p-0.5"
-                  title="Очистить"
-                >
-                  <span className="text-[11px] font-bold">✕</span>
-                </button>
-              ) : (
-                <span className="absolute right-2.5 text-[9.5px] font-mono text-zinc-400 dark:text-zinc-500 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded pointer-events-none">
-                  ⌘K
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Stories Bar (Hidden in compact 72px mode) */}
-        {!isCompactSidebar && (
-          <StoriesBar
-            onOpenCreate={onOpenStoryCreate}
-            onOpenViewer={onOpenStoryViewer}
-          />
-        )}
-
-        {/* Chat Folder Tabs (All, Direct, Groups, Unread, Saved) */}
-        {!isCompactSidebar && (
-          <ChatFolderTabs
-            activeFolder={activeFolder}
-            onSelectFolder={onSelectFolder}
-            folderCounts={folderCounts}
-          />
-        )}
-
-        {/* Chat List Stream */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-0.5 p-1.5 pb-24 md:pb-1.5 tg-scrollbar">
-          {rooms.map((room) => {
-            const isActive = room.id === activeRoomId;
-            const count = unreadCount(room.id);
-            const isOnline = isRoomOnline(room);
-            const displayName = getRoomDisplayName(room);
-            const customAvatar = getRoomAvatar(room);
-            const preview = getLastMessagePreview(room.id);
-            const typers = roomTypingUsers(room.id);
-
-            return (
-              <button
-                key={room.id}
-                type="button"
-                onClick={() => onSelectRoom(room.id)}
-                title={isCompactSidebar ? displayName : undefined}
-                className={`w-full p-2.5 rounded-2xl flex items-center gap-3 transition-all duration-150 cursor-pointer select-none text-left relative group ${
-                  isActive
-                    ? 'tg-room-active'
-                    : 'hover:bg-black/5 dark:hover:bg-white/5 text-zinc-700 dark:text-zinc-300'
-                } ${isCompactSidebar ? 'justify-center p-2' : ''}`}
-              >
-                {/* Active Indicator Strip */}
-                {isActive && !isCompactSidebar && (
-                  <span className="absolute left-1 top-2.5 bottom-2.5 w-1 rounded-full bg-white dark:bg-white/90 shadow-xs" />
+                  )
                 )}
-
-                {/* Avatar */}
-                <div className="relative shrink-0">
-                  {customAvatar ? (
-                    <img 
-                      src={customAvatar} 
-                      alt={displayName} 
-                      className="w-12 h-12 rounded-full object-cover shadow-xs ring-1 ring-black/[0.04] dark:ring-white/[0.06]" 
-                    />
-                  ) : (
-                    <div className={`w-12 h-12 rounded-full ${getRoomColor(room)} text-white flex items-center justify-center font-bold text-lg shadow-xs`}>
-                      {room.type === 'direct' ? displayName.charAt(0).toUpperCase() : <IconUsers size={22} />}
-                    </div>
-                  )}
-
-                  {/* Online Badge */}
-                  {room.type === 'direct' && isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-surface shadow-xs" />
-                  )}
-
-                  {/* Badge on avatar in compact mode */}
-                  {isCompactSidebar && count > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold tg-tabular bg-accent text-white shadow-xs">
-                      {count}
-                    </span>
-                  )}
-                </div>
-
-                {/* Info Text (Hidden in compact 72px mode) */}
-                {!isCompactSidebar && (
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-sm font-semibold truncate block ${isActive ? 'text-white font-bold' : 'text-zinc-900 dark:text-white'}`}>
-                        {displayName}
-                      </span>
-                      {preview && (
-                        <span className={`text-[11px] font-mono tg-tabular shrink-0 ml-1.5 ${isActive ? 'text-white/80' : 'text-zinc-400'}`}>
-                          {preview.time}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between gap-1">
-                      {typers.length > 0 ? (
-                        <span className={`text-xs truncate italic flex items-center gap-1 font-medium ${isActive ? 'text-white' : 'text-accent'}`}>
-                          <span className="flex gap-0.5 items-center">
-                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '300ms' }} />
-                          </span>
-                          <span>{typers.join(', ')} печатает...</span>
-                        </span>
-                      ) : (
-                        <div className={`text-xs truncate flex items-center gap-1 ${isActive ? 'text-white/90' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                          {(() => {
-                            if (!preview) {
-                              return <span className="text-zinc-400/80 italic">Нет сообщений</span>;
-                            }
-
-                            return (
-                              <div className="flex items-center gap-1 min-w-0 truncate">
-                                {preview.isMine && (
-                                  <span className="text-current shrink-0 inline-flex items-center">
-                                    <IconChecks size={14} className={isActive ? 'text-white' : 'text-accent'} />
-                                  </span>
-                                )}
-                                {preview.isPhoto && <IconPhoto size={13} className="shrink-0" />}
-                                {preview.isVideo && <IconVideo size={13} className="shrink-0" />}
-                                {preview.isVoice && <IconMicrophone size={13} className="shrink-0" />}
-                                {preview.isFile && <IconFileText size={13} className="shrink-0" />}
-                                {preview.isPoll && <IconChartBar size={13} className="shrink-0" />}
-                                <span className="truncate">{preview.text}</span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                      {count > 0 && (
-                        <span className={`shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tg-tabular shadow-xs ${
-                          isActive ? 'bg-white text-accent' : 'bg-accent text-white'
-                        }`}>
-                          {count}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-
-          {rooms.length <= 1 && rooms[0]?.id === 'saved-messages' && (
-            <div className="py-8 px-4 text-center my-auto flex flex-col items-center">
-              <div className="w-14 h-14 rounded-full bg-accent/10 text-accent flex items-center justify-center mb-3">
-                <IconEdit size={24} />
               </div>
-              <p className="text-xs font-bold text-zinc-800 dark:text-white mb-1">
-                У вас пока нет чатов
-              </p>
-              <p className="text-[11px] text-zinc-400 mb-3 max-w-[180px]">
-                Нажмите кнопку ниже, чтобы найти контакт или создать группу
-              </p>
-              {onOpenNewChatModal && (
-                <button
-                  type="button"
-                  onClick={onOpenNewChatModal}
-                  className="px-3 py-1.5 bg-accent hover:bg-accent-strong text-white rounded-xl text-xs font-semibold shadow-md shadow-accent/20 transition-all cursor-pointer"
-                >
-                  Найти собеседника ✏️
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Floating Action Button (FAB) for New Chat (Telegram Style) */}
-        {!isCompactSidebar && onOpenNewChatModal && (
-          <div
-            className="fixed right-4 z-30 md:absolute md:bottom-5 md:right-4"
-            style={{
-              bottom: 'calc(4.75rem + env(safe-area-inset-bottom, 0px))',
-            }}
-          >
-            <button
-              type="button"
-              onClick={onOpenNewChatModal}
-              className="w-12 h-12 rounded-full bg-accent hover:bg-accent-strong active:scale-95 text-white shadow-xl shadow-accent/35 flex items-center justify-center transition-all duration-200 cursor-pointer"
-              title="Новое сообщение"
-            >
-              <IconEdit size={22} className="stroke-[2.2]" />
-            </button>
+            )}
           </div>
+
+          {/* New message FAB */}
+          {!isCompactSidebar && onOpenNewChatModal && (
+            <div
+              className="fixed right-4 z-30 md:absolute md:bottom-5 md:right-4"
+              style={{
+                bottom: 'calc(max(0.625rem, env(safe-area-inset-bottom, 0px)) + 78px)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => onOpenNewChatModal()}
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-black/25 transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-95 cursor-pointer"
+                title="Новое сообщение"
+                aria-label="Новое сообщение"
+              >
+                <IconPencil size={24} stroke={2} />
+              </button>
+            </div>
+          )}
+          </>
+        ) : mobileTab === 'contacts' ? (
+          <MobileContactsScreen onOpenRoom={onSelectRoom} onNewChat={(mode) => onOpenNewChatModal?.(mode)} />
+        ) : (
+          <MobileSettingsScreen
+            profile={currentUserProfile}
+            currentUserName={currentUserName}
+            darkMode={darkMode}
+            onToggleDarkMode={onToggleDarkMode}
+            showInstall={!isStandalone}
+            onOpenSaved={savedRoom ? () => onSelectRoom(savedRoom.id) : undefined}
+            onOpenProfile={onOpenProfileModal}
+            onOpenSearch={onOpenGlobalSearch}
+            onOpenTheme={onOpenThemeModal}
+            onOpenPrivacy={() => setShowSecurityModal(true)}
+            onOpenQr={onOpenQrModal}
+            onOpenInstall={onOpenInstallModal}
+            onOpenArchive={onOpenArchiveModal}
+            onLogout={onLogout}
+          />
         )}
 
-        {/* Mobile Bottom Navigation Bar */}
-        {!isDesktopView && mobileView === 'list' && (
+        {/* Tab bar: docked at the sidebar bottom on wide screens… */}
+        {!isCompactSidebar && (
           <MobileBottomNav
+            docked
             activeTab={mobileTab}
-            onSelectTab={onSelectMobileTab}
+            onSelectTab={handleMobileTab}
             unreadCount={totalUnreadCount}
+            avatarUrl={currentUserProfile?.avatarUrl}
+            displayName={tabBarName}
+          />
+        )}
+
+        {/* …and floating over the list on phones */}
+        {!isDesktopView && (
+          <MobileBottomNav
+            hidden={mobileView !== 'list'}
+            activeTab={mobileTab}
+            onSelectTab={handleMobileTab}
+            unreadCount={totalUnreadCount}
+            avatarUrl={currentUserProfile?.avatarUrl}
+            displayName={tabBarName}
           />
         )}
       </aside>

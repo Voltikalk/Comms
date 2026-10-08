@@ -21,7 +21,7 @@ const isSameDay = (a: number, b: number) => new Date(a).toDateString() === new D
 
 /** Two adjacent messages belong to one cluster: same author, < 5 min apart, same day, `b` is not a reply. */
 export function canClusterWith(a: Message | null | undefined, b: Message | null | undefined): boolean {
-  if (!a || !b) return false;
+  if (!a || !b || a.service || b.service) return false;
   return (
     a.sender === b.sender &&
     !b.replyToId &&
@@ -37,7 +37,7 @@ export function isAlbumMedia(m: Message): boolean {
 
 /** `b` continues the album started by `a`. Explicit `albumId` wins; otherwise caption-less media sent within 1.5s. */
 export function canAlbumWith(a: Message, b: Message): boolean {
-  if (!isAlbumMedia(a) || !isAlbumMedia(b) || a.sender !== b.sender) return false;
+  if (a.service || b.service || !isAlbumMedia(a) || !isAlbumMedia(b) || a.sender !== b.sender) return false;
   if (a.albumId || b.albumId) return !!a.albumId && a.albumId === b.albumId;
   return (
     !b.replyToId &&
@@ -49,7 +49,7 @@ export function canAlbumWith(a: Message, b: Message): boolean {
 }
 
 export interface FeedEntryBase {
-  /** Stable React key (first message id). */
+  /** Stable React key (first message clientId, else id) — survives the send ack swapping the id. */
   key: string;
   /** Representative message (last one in an album — carries timestamp / status / caption). */
   message: Message;
@@ -103,9 +103,9 @@ export function buildFeedEntries(messages: Message[], opts: { isGroupChat?: bool
     const showDateSeparator = !prev || !isSameDay(prev.last.timestamp, unit.first.timestamp);
     const groupedAbove = !!prev && canClusterWith(prev.last, unit.first);
     const groupedBelow = !!next && canClusterWith(unit.last, next.first);
-    const isSameSender = !!prev && prev.last.sender === unit.first.sender && !showDateSeparator;
+    const isSameSender = !!prev && !prev.last.service && prev.last.sender === unit.first.sender && !showDateSeparator;
     const base: FeedEntryBase = {
-      key: unit.first.id,
+      key: unit.first.clientId || unit.first.id,
       message: unit.isAlbum ? unit.last : unit.first,
       showDateSeparator,
       groupedAbove,
@@ -139,6 +139,21 @@ export function getBubbleCorners(isSelf: boolean, groupedAbove: boolean, grouped
   return isSelf
     ? { topLeft: big, bottomLeft: big, topRight: authorTop, bottomRight: authorBottom, showTail }
     : { topRight: big, bottomRight: big, topLeft: authorTop, bottomLeft: authorBottom, showTail };
+}
+
+/**
+ * `border-radius` for a bubble driven by the user-tunable CSS variables
+ * (`--tg-bubble-radius` / `--tg-bubble-radius-grouped`, set by the appearance
+ * settings); the numeric corners only decide which variable each corner takes.
+ */
+export function bubbleRadiusCss(c: Pick<BubbleCorners, 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'>): string {
+  const v = (n: number) =>
+    n === BUBBLE_RADIUS
+      ? `var(--tg-bubble-radius, ${BUBBLE_RADIUS}px)`
+      : n === BUBBLE_RADIUS_GROUPED
+        ? `var(--tg-bubble-radius-grouped, ${BUBBLE_RADIUS_GROUPED}px)`
+        : `${n}px`;
+  return `${v(c.topLeft)} ${v(c.topRight)} ${v(c.bottomRight)} ${v(c.bottomLeft)}`;
 }
 
 export interface AlbumCell {

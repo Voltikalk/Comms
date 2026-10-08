@@ -20,9 +20,13 @@ import {
   IconBellOff,
   IconPalette,
   IconUser,
-  IconLock
+  IconLock,
+  IconSpeakerphone,
+  IconSettings,
+  IconLogout,
 } from '@tabler/icons-react';
 import { SecretChatMenu } from './SecretChatMenu';
+import { membersLabel } from '../../../lib/roles';
 
 export interface ChatHeaderProps {
   activeRoom: Room | null;
@@ -63,6 +67,12 @@ export interface ChatHeaderProps {
   onOpenThemeModal: () => void;
   onOpenUserInfo: () => void;
   onClearHistory: () => void;
+  /** Group members currently online (shown as «N в сети»). */
+  onlineCount?: number;
+  /** Group/channel management (admins only). */
+  onOpenManage?: () => void;
+  /** Leave the group / unsubscribe from the channel. */
+  onLeaveRoom?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -104,6 +114,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onOpenThemeModal,
   onOpenUserInfo,
   onClearHistory,
+  onlineCount = 0,
+  onOpenManage,
+  onLeaveRoom,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -111,7 +124,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   return (
     <>
-      <header className="px-3 sm:px-4 py-2 tg-header flex items-center justify-between z-10 select-none shadow-xs min-h-[56px] w-full min-w-0 max-w-full border-b border-black/[0.06] dark:border-white/[0.06]">
+      <header className="px-3 sm:px-4 py-2 tg-header relative flex items-center justify-between z-30 select-none shadow-xs min-h-[56px] w-full min-w-0 max-w-full border-b border-black/[0.06] dark:border-white/[0.06]">
         {isSelectMode ? (
           <div className="w-full min-w-0 flex items-center justify-between animate-pop-in">
             {/* Left: Cancel Cross Button & Counter */}
@@ -176,7 +189,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         ) : isSearching ? (
           /* Ultra-clean Telegram / iOS Minimalist Search Bar */
           <div className="w-full min-w-0 flex items-center gap-2">
-            <div className="flex-1 min-w-0 flex items-center h-9 px-3 bg-black/5 dark:bg-white/5 rounded-full border border-zinc-200/60 dark:border-white/10 focus-within:border-accent transition-colors">
+            <div className="flex-1 min-w-0 flex items-center h-9 px-3 bg-black/5 dark:bg-white/5 rounded-full border border-zinc-200/60 dark:border-white/10 transition-colors">
               <IconSearch size={16} className="text-zinc-400 shrink-0 mr-2" />
               <input
                 type="text"
@@ -258,7 +271,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   />
                 ) : (
                   <div className={`w-10 h-10 rounded-full ${getRoomColor(activeRoom)} text-white flex items-center justify-center font-bold text-base shadow-xs`}>
-                    {activeRoom.type === 'direct' ? activeRoomDisplayName.charAt(0).toUpperCase() : <IconUsers size={20} />}
+                    {activeRoom.type === 'direct' ? (
+                      activeRoomDisplayName.charAt(0).toUpperCase()
+                    ) : activeRoom.type === 'channel' ? (
+                      <IconSpeakerphone size={20} />
+                    ) : (
+                      <IconUsers size={20} />
+                    )}
                   </div>
                 )}
                 {activeRoom.type === 'direct' && isPeerOnline && (
@@ -302,7 +321,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                       {activeRoom.secret && <span className="text-emerald-500/80">· секретный чат</span>}
                     </>
                   ) : (
-                    <span>{activeRoom.participants?.length || 0} участников</span>
+                    <span>
+                      {membersLabel(activeRoom)}
+                      {activeRoom.type === 'group' && onlineCount > 1 && `, ${onlineCount} в сети`}
+                    </span>
                   )}
                 </div>
               </div>
@@ -393,6 +415,20 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                         <span>Информация</span>
                       </button>
 
+                      {onOpenManage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onOpenManage();
+                            setShowDropdown(false);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-zinc-700 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2.5 cursor-pointer transition-colors"
+                        >
+                          <IconSettings size={17} />
+                          <span>{activeRoom.type === 'channel' ? 'Управление каналом' : 'Управление группой'}</span>
+                        </button>
+                      )}
+
                       <div className="my-1 border-t border-zinc-100 dark:border-white/5" />
 
                       <button
@@ -406,6 +442,20 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                         <IconTrash size={17} />
                         <span>Очистить историю</span>
                       </button>
+
+                      {onLeaveRoom && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onLeaveRoom();
+                            setShowDropdown(false);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-rose-500 hover:bg-rose-500/10 flex items-center gap-2.5 cursor-pointer transition-colors"
+                        >
+                          <IconLogout size={17} />
+                          <span>{activeRoom.type === 'channel' ? 'Покинуть канал' : 'Покинуть группу'}</span>
+                        </button>
+                      )}
                     </div>
                   </>
                 )}

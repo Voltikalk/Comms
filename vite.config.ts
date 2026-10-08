@@ -2,6 +2,9 @@ import { defineConfig, createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+// Lets several checkouts run side by side: API_PROXY_TARGET=http://localhost:3001 npx vite --port 5174
+const apiTarget = process.env.API_PROXY_TARGET || 'http://localhost:3000'
+
 const customLogger = createLogger()
 const originalError = customLogger.error.bind(customLogger)
 
@@ -37,7 +40,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/socket.io': {
-        target: 'http://localhost:3000',
+        target: apiTarget,
         ws: true,
         changeOrigin: true,
         configure: (proxy) => {
@@ -57,7 +60,7 @@ export default defineConfig({
         }
       },
       '/api': {
-        target: 'http://localhost:3000',
+        target: apiTarget,
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
@@ -67,7 +70,7 @@ export default defineConfig({
         }
       },
       '/uploads': {
-        target: 'http://localhost:3000',
+        target: apiTarget,
         changeOrigin: true
       }
     },

@@ -40,13 +40,13 @@ export const ScheduledMessagesButton: React.FC = () => {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative w-9 h-9 rounded-full flex items-center justify-center text-[#3390ec] hover:bg-[#3390ec]/10 cursor-pointer transition-colors"
+        className="relative w-9 h-9 rounded-full flex items-center justify-center text-accent hover:bg-accent-muted cursor-pointer transition-colors"
         title="Отложенные сообщения"
         aria-label={`Отложенные сообщения: ${list.length}`}
         aria-expanded={open}
       >
         <IconCalendarTime size={21} />
-        <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-[#3390ec] text-white text-[9.5px] font-bold flex items-center justify-center">
+        <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[9.5px] font-bold flex items-center justify-center">
           {list.length}
         </span>
       </button>
@@ -93,7 +93,7 @@ export const ScheduledMessagesButton: React.FC = () => {
                         onClick={() => void run(m.id, sendScheduledNow)}
                         title="Отправить сейчас"
                         aria-label="Отправить сейчас"
-                        className="p-1.5 rounded-full text-[#3390ec] hover:bg-[#3390ec]/10 cursor-pointer disabled:opacity-50"
+                        className="p-1.5 rounded-full text-accent hover:bg-accent-muted cursor-pointer disabled:opacity-50"
                       >
                         <IconSend size={15} />
                       </button>

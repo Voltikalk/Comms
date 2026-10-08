@@ -71,6 +71,30 @@ export interface Message {
   ttl?: SecretChatTtl;
   /** Absolute expiry time (ms epoch) computed from `ttl` once the message is sent. */
   expiresAt?: number;
+  /** System event in a group/channel ("X добавил Y", "Название изменено…"), rendered as a centered pill. */
+  service?: ServiceEvent;
+  /** Author signature under a channel post (when "Подписывать сообщения" is on). */
+  signature?: string;
+  /** Channel post view counter. */
+  views?: number;
+}
+
+export type ServiceEventType =
+  | 'created'
+  | 'added'
+  | 'removed'
+  | 'left'
+  | 'joined'
+  | 'title'
+  | 'photo'
+  | 'photo_removed'
+  | 'pinned';
+
+export interface ServiceEvent {
+  type: ServiceEventType;
+  targets?: UserId[];
+  text?: string;
+  messageId?: string;
 }
 
 /** Allowed self-destruct timers for secret chats (seconds). */
@@ -122,6 +146,10 @@ export interface UserProfile {
   phoneNumber?: string;
   avatarUrl?: string;
   statusEmoji?: string;
+  /** Palette id from `PROFILE_COLORS` (constants). */
+  profileColor?: string;
+  /** `MM-DD` or `YYYY-MM-DD`; only visible to contacts. */
+  birthday?: string;
 }
 
 export interface UserSearchResult {
@@ -133,15 +161,87 @@ export interface UserSearchResult {
   isOnline?: boolean;
 }
 
+export type RoomType = 'direct' | 'group' | 'channel';
+
+/** Rights an admin can hold (Telegram "Права администратора"). */
+export type AdminRight =
+  | 'changeInfo'
+  | 'postMessages'
+  | 'editMessages'
+  | 'deleteMessages'
+  | 'banUsers'
+  | 'inviteUsers'
+  | 'pinMessages'
+  | 'addAdmins';
+export type AdminRights = Record<AdminRight, boolean>;
+
+/** What regular group members may do (Telegram "Разрешения"). */
+export type MemberPermission = 'sendMessages' | 'sendMedia' | 'sendPolls' | 'addMembers' | 'pinMessages' | 'changeInfo';
+export type GroupPermissions = Record<MemberPermission, boolean>;
+
+export interface RoomAdmin {
+  rights: AdminRights;
+  /** Custom title shown instead of «админ». */
+  title?: string;
+  promotedBy?: UserId;
+  since?: number;
+}
+
+export interface InviteLink {
+  code: string;
+  title?: string;
+  createdBy: UserId;
+  createdAt: number;
+  expiresAt?: number;
+  usageLimit?: number;
+  uses: number;
+  revoked?: boolean;
+  /** The main link of the chat (re-issued when revoked). */
+  primary?: boolean;
+  /** Not revoked, not expired and under its usage limit. */
+  active?: boolean;
+}
+
+/** Public card of a group/channel (invite link / @username preview, search). */
+export interface RoomPreview {
+  id: string;
+  name: string;
+  type: 'group' | 'channel';
+  avatarUrl?: string;
+  description?: string;
+  username?: string;
+  memberCount: number;
+  isMember: boolean;
+}
+
 export interface Room {
   id: string;
   name: string;
-  type: 'direct' | 'group';
+  type: RoomType;
   participants: UserId[];
   avatarUrl?: string;
   description?: string;
   /** End-to-end encrypted secret chat (`secret-…` id, ciphertext only on the server). */
   secret?: boolean;
+  // --- groups & channels ---
+  ownerId?: UserId;
+  admins?: Record<UserId, RoomAdmin>;
+  permissions?: GroupPermissions;
+  /** Seconds between messages for regular members (0 = off). */
+  slowMode?: number;
+  /** Public @username; absent = private chat. */
+  username?: string;
+  /** Channels: sign posts with the author's name. */
+  signMessages?: boolean;
+  /** Only present for people allowed to invite. */
+  inviteLinks?: InviteLink[];
+  /** Only present for people allowed to ban. */
+  banned?: UserId[];
+  /** Pinned for everyone, oldest → newest. */
+  pinnedIds?: string[];
+  /** Total members/subscribers (channel subscriber lists are only sent to admins). */
+  memberCount?: number;
+  createdAt?: number;
 }
 
 export type ConnectionStatus = Record<UserId, boolean>;
