@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { Room } from '../types';
-import { adjacentRoomId } from '../lib/chat-hotkeys';
+import { adjacentMatchingRoomId, adjacentRoomId } from '../lib/chat-hotkeys';
 
 export interface ChatNavigationOptions {
   /** All rooms in sidebar order (Ctrl+1..9). */
@@ -10,10 +10,12 @@ export interface ChatNavigationOptions {
   activeRoomId: string | null;
   setActiveRoomId: (id: string) => void;
   setMobileView: (view: 'list' | 'chat') => void;
+  /** Unread counter per room (Alt+Shift+↑/↓). */
+  unreadCount?: (roomId: string) => number;
 }
 
 /** Room switching shared by hotkeys, the command palette and toasts. */
-export function useChatNavigation({ rooms, filteredRooms, activeRoomId, setActiveRoomId, setMobileView }: ChatNavigationOptions) {
+export function useChatNavigation({ rooms, filteredRooms, activeRoomId, setActiveRoomId, setMobileView, unreadCount }: ChatNavigationOptions) {
   const openRoom = useCallback(
     (roomId: string) => {
       setActiveRoomId(roomId);
@@ -33,6 +35,18 @@ export function useChatNavigation({ rooms, filteredRooms, activeRoomId, setActiv
     [filteredRooms, activeRoomId, openRoom],
   );
 
+  /** Alt+Shift+↑ / ↓: nearest chat with unread messages in the current folder. */
+  const openAdjacentUnreadRoom = useCallback(
+    (direction: -1 | 1) => {
+      if (!unreadCount) return false;
+      const id = adjacentMatchingRoomId(filteredRooms.map((r) => r.id), activeRoomId, direction, (rid) => unreadCount(rid) > 0);
+      if (!id) return false;
+      openRoom(id);
+      return true;
+    },
+    [filteredRooms, activeRoomId, openRoom, unreadCount],
+  );
+
   /** Ctrl+N: N-th room of the full list; `false` when it does not exist. */
   const openRoomByIndex = useCallback(
     (index: number) => {
@@ -44,5 +58,5 @@ export function useChatNavigation({ rooms, filteredRooms, activeRoomId, setActiv
     [rooms, openRoom],
   );
 
-  return { openRoom, openAdjacentRoom, openRoomByIndex };
+  return { openRoom, openAdjacentRoom, openAdjacentUnreadRoom, openRoomByIndex };
 }

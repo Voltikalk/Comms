@@ -82,7 +82,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ className = '' }) =>
         aria-haspopup="true"
         aria-label="Настройки видео"
         title="Настройки"
-        className={`comms-video-control-btn focus-visible:ring-2 focus-visible:ring-accent outline-none ${
+        className={`comms-video-control-btn outline-none ${
           isSettingsOpen ? 'text-accent' : ''
         }`}
       >

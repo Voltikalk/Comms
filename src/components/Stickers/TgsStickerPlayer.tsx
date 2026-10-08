@@ -109,15 +109,15 @@ export const TgsStickerPlayer: React.FC<TgsStickerPlayerProps> = React.memo(({
         animItemRef.current = null;
       }
 
-      // Fast hardware-accelerated Canvas renderer (10x faster than SVG DOM)
+      // `lottie-web` is aliased to the SVG-only light build (see vite.config.ts:
+      // no `eval` under our CSP), so 'canvas' isn't registered and would throw.
       const anim = lottie.loadAnimation({
         container: containerRef.current,
-        renderer: 'canvas',
+        renderer: 'svg',
         loop: loop,
         autoplay: playOnHover ? false : autoplay,
         animationData: lottieJson,
         rendererSettings: {
-          clearCanvas: true,
           progressiveLoad: true,
           preserveAspectRatio: 'xMidYMid meet'
         }

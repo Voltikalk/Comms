@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { IconCheck, IconPlayerPlayFilled } from '@tabler/icons-react';
 import type { Message, UserId } from '../../../types';
-import { getAlbumLayout, getAlbumTileRadius, getBubbleCorners } from '../../../lib/message-grouping';
+import { bubbleRadiusCss, getAlbumLayout, getAlbumTileRadius, getBubbleCorners } from '../../../lib/message-grouping';
 import { MessageMeta, type MetaDeliveryStatus } from './MessageMeta';
 import { BubbleTail } from './BubbleTail';
 
@@ -56,7 +56,7 @@ export const AlbumBubble: React.FC<AlbumBubbleProps> = ({
   const last = items[items.length - 1];
   const caption = albumCaption(items);
   const corners = getBubbleCorners(isSelf, groupedAbove, groupedBelow);
-  const radius = `${corners.topLeft}px ${corners.topRight}px ${corners.bottomRight}px ${corners.bottomLeft}px`;
+  const radius = bubbleRadiusCss(corners);
   const allSelected = items.every((m) => selectedMessageIds.has(m.id));
 
   const readersCount = (last.readBy || []).filter((u) => u !== currentUser).length;
@@ -168,7 +168,8 @@ export const AlbumBubble: React.FC<AlbumBubbleProps> = ({
           </div>
 
           {caption ? (
-            <div className="px-2 pt-1.5 pb-1 text-[14px] leading-snug break-words whitespace-pre-wrap">
+            // w-0 + min-w-full: the caption wraps to the collage width instead of widening the bubble.
+            <div className="w-0 min-w-full px-2 pt-1.5 pb-1 text-[14px] leading-snug break-words whitespace-pre-wrap">
               {caption}
               <span className="float-right ml-2 mt-1.5 inline-flex items-center gap-0.5 text-[11px] opacity-60">
                 <MessageMeta message={last} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />

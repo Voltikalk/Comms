@@ -547,7 +547,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     autoFocus={idx === 0}
                     onChange={(e) => handleDigitChange(idx, e.target.value)}
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
-                    className="w-12 h-14 sm:w-13 sm:h-15 text-center text-2xl font-semibold tg-tabular rounded-xl bg-transparent border border-slate-300/90 dark:border-white/[0.14] hover:border-[#3390EC]/70 focus:border-[#3390EC] focus:shadow-[inset_0_0_0_1px_#3390EC] outline-hidden transition-[border-color,box-shadow] text-slate-900 dark:text-white"
+                    className="w-12 h-14 sm:w-13 sm:h-15 text-center text-2xl font-semibold tg-tabular rounded-xl bg-transparent border border-slate-300/90 dark:border-white/[0.14] hover:border-[#3390EC]/70 outline-hidden transition-[border-color,box-shadow] text-slate-900 dark:text-white"
                   />
                 ))}
               </div>
@@ -713,7 +713,7 @@ export const TelegramRegistrationWizard: React.FC<TelegramRegistrationWizardProp
                     value={username}
                     onChange={(e) => setUsername(e.target.value.replace(/\s+/g, '').toLowerCase())}
                     placeholder="username"
-                    className="w-full h-[54px] pl-9 pr-12 rounded-xl bg-transparent border border-slate-300/90 dark:border-white/[0.14] hover:border-[#3390EC]/70 focus:border-[#3390EC] focus:shadow-[inset_0_0_0_1px_#3390EC] outline-hidden transition-[border-color,box-shadow] text-slate-900 dark:text-white placeholder:text-slate-400 text-[15px]"
+                    className="w-full h-[54px] pl-9 pr-12 rounded-xl bg-transparent border border-slate-300/90 dark:border-white/[0.14] hover:border-[#3390EC]/70 outline-hidden transition-[border-color,box-shadow] text-slate-900 dark:text-white placeholder:text-slate-400 text-[15px]"
                   />
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[15px]">@</span>
                   <button

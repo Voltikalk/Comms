@@ -205,11 +205,11 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         markRoomAsRead(message.roomId);
         return;
       }
-      if (!notificationsRef.current) return;
+      if (!notificationsRef.current || message.service) return;
 
       const room = roomsRef.current.find((r) => r.id === message.roomId);
-      const senderName = displayNameRef.current(message.sender);
-      const roomName = room ? (room.type === 'group' ? room.name : senderName) : 'Чат';
+      const senderName = room?.type === 'channel' ? room.name : displayNameRef.current(message.sender);
+      const roomName = room ? (room.type === 'direct' ? senderName : room.name) : 'Чат';
       const secret = isSecretRoom(room ?? { id: message.roomId });
 
       // Mentions bypass per-chat mute (Telegram behaviour). Secret chats never leak plaintext.
@@ -483,9 +483,31 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const onPoll = (data: { messageId: string; roomId: string; poll: Poll }) => {
       setMessages((prev) => prev.map((m) => (m.id === data.messageId && m.roomId === data.roomId ? { ...m, poll: data.poll } : m)));
     };
-    const onRead = (data: { roomId: string; updatedMessages: { messageId: string; readBy: UserId[] }[] }) => {
-      const updates = new Map(data.updatedMessages.map((u) => [u.messageId, u.readBy]));
-      setMessages((prev) => prev.map((m) => (updates.has(m.id) ? { ...m, readBy: updates.get(m.id) } : m)));
+    const onRead = (data: { roomId: string; updatedMessages: { messageId: string; readBy: UserId[]; views?: number }[] }) => {
+      const updates = new Map(data.updatedMessages.map((u) => [u.messageId, u]));
+      setMessages((prev) =>
+        prev.map((m) => {
+          const u = updates.get(m.id);
+          if (!u) return m;
+          // Channels report a view counter instead of who read the post.
+          return typeof u.views === 'number' ? { ...m, views: u.views } : { ...m, readBy: u.readBy };
+        }),
+      );
+    };
+    /** History of a group/channel we just joined (the global `history` replaces everything, this merges one room). */
+    const onRoomHistory = (data: { roomId: string; messages: Message[] }) => {
+      if (!data?.roomId || !Array.isArray(data.messages)) return;
+      const incoming = data.messages.filter((m) => m.roomId === data.roomId && isMeaningfulMessage(m)).map(sanitize);
+      setMessages((prev) => {
+        let next = prev;
+        for (const m of incoming) next = upsertIncoming(next, m).next;
+        return next;
+      });
+    };
+    /** Left / removed / deleted chats disappear together with their messages. */
+    const onRoomRemoved = (data: { roomId: string }) => {
+      if (!data?.roomId) return;
+      setMessages((prev) => (prev.some((m) => m.roomId === data.roomId) ? prev.filter((m) => m.roomId !== data.roomId) : prev));
     };
     const onKeyUpdated = (data: { userId: UserId; publicKey: string }) => {
       if (!secrets || data.userId === currentUserRef.current) return;
@@ -501,6 +523,8 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     socket.on('reactions_updated', onReactions);
     socket.on('poll_updated', onPoll);
     socket.on('messages_read', onRead);
+    socket.on('room_history', onRoomHistory);
+    socket.on('room_removed', onRoomRemoved);
     socket.on('e2ee_key_updated', onKeyUpdated);
     socket.on('rate_limit', onRateLimit);
     return () => {
@@ -511,6 +535,8 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       socket.off('reactions_updated', onReactions);
       socket.off('poll_updated', onPoll);
       socket.off('messages_read', onRead);
+      socket.off('room_history', onRoomHistory);
+      socket.off('room_removed', onRoomRemoved);
       socket.off('e2ee_key_updated', onKeyUpdated);
       socket.off('rate_limit', onRateLimit);
     };

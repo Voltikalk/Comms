@@ -12,9 +12,10 @@ import { StoryCreateModal } from '../../Stories/StoryCreateModal';
 import { MediaGalleryModal } from '../../Media/MediaGalleryModal';
 import { CommandPaletteModal } from '../../Navigation/CommandPaletteModal';
 import { TelegramContextMenuModal } from '../../TelegramContextMenuModal';
+import { can, hasRight, isManagedRoom, sendRestriction } from '../../../lib/roles';
 import { CallOverlay } from '../../Call/CallOverlay';
 import { AdminArchive } from '../../../pages/AdminArchive';
-import { NewChatModal } from '../NewChatModal';
+import { NewChatModal, type NewChatMode } from '../NewChatModal';
 import {
   IconX,
   IconCopy,
@@ -70,6 +71,8 @@ export interface ChatModalsHostProps {
   setShowThemeModal: (show: boolean) => void;
   themeConfig: ChatThemeConfig;
   setThemeConfig: (config: ChatThemeConfig) => void;
+  /** Live preview of an unsaved appearance draft (`null` restores the saved one). */
+  setThemePreview: (config: ChatThemeConfig | null) => void;
   // Stories
   activeStoryViewerUser: UserId | null;
   setActiveStoryViewerUser: (user: UserId | null) => void;
@@ -115,6 +118,7 @@ export interface ChatModalsHostProps {
   setShowQrModal: (show: boolean) => void;
   // New Chat Modal
   showNewChatModal?: boolean;
+  newChatMode?: NewChatMode;
   setShowNewChatModal?: (show: boolean) => void;
 }
 
@@ -158,6 +162,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
   setShowThemeModal,
   themeConfig,
   setThemeConfig,
+  setThemePreview,
   activeStoryViewerUser,
   setActiveStoryViewerUser,
   isStoryCreateOpen,
@@ -192,6 +197,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
   showQrModal,
   setShowQrModal,
   showNewChatModal,
+  newChatMode,
   setShowNewChatModal,
 }) => {
   const [isUrlCopied, setIsUrlCopied] = React.useState(false);
@@ -202,7 +208,9 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
       {showNewChatModal && setShowNewChatModal && (
         <NewChatModal
           isOpen={showNewChatModal}
+          initialMode={newChatMode}
           onClose={() => setShowNewChatModal(false)}
+          onRoomOpened={onSelectRoomFromPalette}
         />
       )}
 
@@ -271,11 +279,16 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
         <ThemeSettingsModal
           currentConfig={themeConfig}
           isDark={darkMode}
+          onToggleDark={toggleDarkMode}
+          onPreview={setThemePreview}
           onSave={(newConfig) => {
             setThemeConfig(newConfig);
-            showToast('Тема и обои успешно обновлены');
+            showToast('Оформление сохранено');
           }}
-          onClose={() => setShowThemeModal(false)}
+          onClose={() => {
+            setThemePreview(null);
+            setShowThemeModal(false);
+          }}
         />
       )}
 
@@ -350,6 +363,17 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
           isSelf={contextMenuTarget.isSelf}
           isPinned={isMessagePinned(contextMenuTarget.message.id)}
           currentUser={currentUser}
+          roomKind={activeRoom?.type === 'channel' ? 'channel' : activeRoom && activeRoom.type !== 'direct' ? 'group' : 'direct'}
+          {...(isManagedRoom(activeRoom)
+            ? {
+                canReply: !sendRestriction(activeRoom, currentUser, 'text'),
+                canPin: can(activeRoom, currentUser, 'pinMessages'),
+                canEdit:
+                  contextMenuTarget.message.sender === currentUser ||
+                  (activeRoom.type === 'channel' && hasRight(activeRoom, currentUser, 'editMessages')),
+                canDelete: contextMenuTarget.message.sender === currentUser || hasRight(activeRoom, currentUser, 'deleteMessages'),
+              }
+            : {})}
           onClose={() => setContextMenuTarget(null)}
           onReply={(msg: Message) => {
             onReplyMessage(msg);
@@ -434,7 +458,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
             </div>
 
             <div className="max-h-60 overflow-y-auto space-y-1 pr-1 tg-scrollbar">
-              {rooms.map((room) => {
+              {rooms.filter((room) => !sendRestriction(room, currentUser, 'text')).map((room) => {
                 const name = getRoomDisplayName(room);
                 return (
                   <button
@@ -448,7 +472,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <span className="font-semibold text-xs text-zinc-900 dark:text-white truncate block">{name}</span>
-                      <span className="text-[10px] text-zinc-400 font-mono">{room.type === 'direct' ? 'Личный чат' : 'Группа'}</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">{room.type === 'channel' ? 'Канал' : room.type === 'group' ? 'Группа' : 'Личный чат'}</span>
                     </div>
                     <IconShare3 size={16} className="text-zinc-400 shrink-0" />
                   </button>

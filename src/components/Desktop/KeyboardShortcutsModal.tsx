@@ -26,8 +26,23 @@ const SHORTCUTS: ShortcutItem[] = [
     category: 'navigation',
   },
   {
-    keys: ['Alt', '1…5'],
-    description: 'Переключение вкладок папок (Все, Личные, Группы, Непрочитанные, Избранное)',
+    keys: ['Ctrl', 'Tab'],
+    description: 'Следующий чат (с Shift — предыдущий), в установленном приложении',
+    category: 'navigation',
+  },
+  {
+    keys: ['Alt', 'Shift', '↑ / ↓'],
+    description: 'Перейти к предыдущему / следующему непрочитанному чату',
+    category: 'navigation',
+  },
+  {
+    keys: ['Ctrl', '0'],
+    description: 'Открыть «Избранное»',
+    category: 'navigation',
+  },
+  {
+    keys: ['Alt', '1…6'],
+    description: 'Переключение вкладок папок (Все, Личные, Группы, Каналы, Непрочитанные, Избранное)',
     category: 'navigation',
   },
   {

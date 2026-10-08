@@ -10,8 +10,9 @@ export type ChatHotkeyHandlers = {
 };
 
 /**
- * Global keyboard shortcuts for the chat screen (Ctrl+K palette, Alt+↑/↓,
- * Alt+1..5 folders, Ctrl+1..9 chats, Ctrl+/, Ctrl+, and hierarchical Escape).
+ * Global keyboard shortcuts for the chat screen (Ctrl+K palette, Alt+↑/↓ and
+ * Ctrl+Tab chats, Alt+Shift+↑/↓ unread chats, Alt+1..6 folders, Ctrl+1..9
+ * chats, Ctrl+0 Saved Messages, Ctrl+/, Ctrl+, and hierarchical Escape).
  * Handlers are read through a ref, so the listener is attached once.
  */
 export function useChatHotkeys(handlers: ChatHotkeyHandlers): void {

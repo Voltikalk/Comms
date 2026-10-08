@@ -6,6 +6,7 @@ import {
   IconX,
   IconMessageCircle,
   IconUsers,
+  IconSpeakerphone,
   IconBookmark,
   IconSparkles,
   IconChartBar,
@@ -23,6 +24,7 @@ import {
   IconWorld,
   IconChevronRight
 } from '@tabler/icons-react';
+import { membersLabel } from '../../lib/roles';
 
 export type CommandCategory = 'all' | 'chats' | 'actions' | 'settings';
 
@@ -122,7 +124,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         ? 'Личное облако и заметки'
         : isDirect
         ? (peerId ? `@${peerId}` : 'Личный диалог')
-        : `${room.participants.length} участников`;
+        : membersLabel(room);
       const avatarUrl = isDirect && peerId ? getUserAvatar(peerId) : undefined;
       const isOnline = isDirect && peerId ? Boolean(onlineStatus[peerId]) : false;
       const count = unreadCount(room.id);
@@ -135,17 +137,19 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         avatarUrl,
         isOnline,
         unreadCount: count,
-        isGroup: room.type === 'group',
+        isGroup: room.type === 'group' || room.type === 'channel',
         isSavedMessages: isSaved,
         icon: isSaved ? (
           <IconBookmark size={18} className="text-accent" />
+        ) : room.type === 'channel' ? (
+          <IconSpeakerphone size={18} className="text-accent" />
         ) : room.type === 'group' ? (
           <IconUsers size={18} className="text-emerald-500" />
         ) : (
           <IconMessageCircle size={18} className="text-accent" />
         ),
         shortcut: room.id === activeRoomId ? 'Активен' : undefined,
-        keywords: [title, subtitle, room.id, isSaved ? 'saved' : '', isDirect ? 'direct dm' : 'group'],
+        keywords: [title, subtitle, room.id, isSaved ? 'saved' : '', isDirect ? 'direct dm' : room.type === 'channel' ? 'channel канал' : 'group группа'],
         onSelect: () => {
           onSelectRoom(room.id);
           onClose();

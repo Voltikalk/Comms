@@ -93,11 +93,14 @@ export const SendButton: React.FC<SendButtonProps> = ({ isEditing, onSend }) => 
           onSend();
         }}
         style={{ touchAction: 'manipulation' }}
-        className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full tg-btn-primary flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95 select-none"
+        className="w-12 h-12 rounded-full tg-btn-primary flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95 select-none"
         title={isEditing ? 'Сохранить изменения (Enter)' : 'Отправить (удерживайте — дополнительные параметры)'}
         aria-haspopup={isEditing ? undefined : 'menu'}
       >
-        {isEditing ? <IconCheck size={22} stroke={2.6} /> : <IconSend size={20} />}
+        {/* Swaps in from the mic button with a spin, like Telegram. */}
+        <span key={isEditing ? 'edit' : 'send'} className="tg-icon-swap flex items-center justify-center">
+          {isEditing ? <IconCheck size={24} stroke={2.6} /> : <IconSend size={22} />}
+        </span>
       </button>
 
       <AnimatePresence>
@@ -111,7 +114,7 @@ export const SendButton: React.FC<SendButtonProps> = ({ isEditing, onSend }) => 
               exit={{ opacity: 0, y: 10, scale: 0.94 }}
               transition={SPRING}
               role="menu"
-              className="tg-glass absolute right-0 bottom-[54px] z-50 rounded-2xl bg-white/95 dark:bg-[#17212b]/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-2xl p-1.5 origin-bottom-right select-none"
+              className="ui-sheet absolute right-0 bottom-[56px] z-50 rounded-2xl p-1.5 origin-bottom-right select-none"
             >
               {menu === 'menu' ? (
                 <div className="w-56">
@@ -119,31 +122,31 @@ export const SendButton: React.FC<SendButtonProps> = ({ isEditing, onSend }) => 
                     type="button"
                     role="menuitem"
                     onClick={() => sendWith({ silent: true })}
-                    className="w-full px-3 py-2.5 text-left text-[13px] text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center gap-3 cursor-pointer transition-colors"
+                    className="ui-menu-item cursor-pointer"
                   >
-                    <IconBellOff size={19} className="text-slate-500" />
+                    <IconBellOff size={19} />
                     Отправить без звука
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={openSchedule}
-                    className="w-full px-3 py-2.5 text-left text-[13px] text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl flex items-center gap-3 cursor-pointer transition-colors"
+                    className="ui-menu-item cursor-pointer"
                   >
-                    <IconCalendarTime size={19} className="text-slate-500" />
+                    <IconCalendarTime size={19} />
                     Отправить позже
                   </button>
                 </div>
               ) : (
                 <form onSubmit={submitSchedule} className="w-64 p-1.5 space-y-2">
-                  <div className="text-[13px] font-semibold text-slate-900 dark:text-white px-0.5">Отправить позже</div>
+                  <div className="text-[14px] font-semibold text-ink px-0.5">Отправить позже</div>
                   <div className="flex flex-wrap gap-1.5">
                     {schedulePresets().map((p) => (
                       <button
                         key={p.label}
                         type="button"
                         onClick={() => sendWith({ scheduledAt: p.at })}
-                        className="px-2.5 py-1 rounded-full text-[11.5px] font-medium bg-[#3390ec]/10 text-[#3390ec] hover:bg-[#3390ec]/20 cursor-pointer transition-colors"
+                        className="px-2.5 py-1 rounded-full text-[11.5px] font-medium bg-accent-muted text-accent hover:opacity-80 cursor-pointer transition-colors"
                       >
                         {p.label}
                       </button>
@@ -159,7 +162,7 @@ export const SendButton: React.FC<SendButtonProps> = ({ isEditing, onSend }) => 
                         setScheduleError(null);
                       }}
                       aria-label="Дата отправки"
-                      className="flex-1 min-w-0 px-2 py-1.5 rounded-lg text-[12.5px] bg-slate-100 dark:bg-[#0E1621] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white outline-hidden focus:border-[#3390ec]"
+                      className="flex-1 min-w-0 px-2 py-1.5 rounded-lg text-[12.5px] bg-elevated border border-line text-ink outline-hidden focus:border-accent"
                     />
                     <input
                       type="time"
@@ -169,13 +172,13 @@ export const SendButton: React.FC<SendButtonProps> = ({ isEditing, onSend }) => 
                         setScheduleError(null);
                       }}
                       aria-label="Время отправки"
-                      className="w-[88px] px-2 py-1.5 rounded-lg text-[12.5px] bg-slate-100 dark:bg-[#0E1621] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white outline-hidden focus:border-[#3390ec]"
+                      className="w-[88px] px-2 py-1.5 rounded-lg text-[12.5px] bg-elevated border border-line text-ink outline-hidden focus:border-accent"
                     />
                   </div>
-                  {scheduleError && <p role="alert" className="text-[11.5px] text-rose-500">{scheduleError}</p>}
+                  {scheduleError && <p role="alert" className="text-[11.5px] text-danger">{scheduleError}</p>}
                   <button
                     type="submit"
-                    className="w-full py-2 rounded-full text-[12.5px] font-semibold text-white bg-[#3390ec] hover:bg-[#2b7fd4] cursor-pointer transition-colors"
+                    className="tg-btn-primary w-full py-2 rounded-full text-[13px] font-semibold cursor-pointer"
                   >
                     {parsed && 'at' in parsed ? `Отправить ${formatScheduledAt(parsed.at)}` : 'Запланировать'}
                   </button>

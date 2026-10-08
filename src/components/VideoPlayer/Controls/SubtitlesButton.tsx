@@ -37,7 +37,7 @@ export const SubtitlesButton: React.FC<SubtitlesButtonProps> = ({ className = ''
         aria-label="Субтитры"
         aria-expanded={isOpen}
         title="Субтитры"
-        className={`comms-video-control-btn focus-visible:ring-2 focus-visible:ring-accent outline-none ${
+        className={`comms-video-control-btn outline-none ${
           activeSubtitleId ? 'text-accent' : ''
         }`}
       >

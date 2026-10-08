@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { Message, UserId } from '../../../types';
 import type { ActiveToken, MentionCandidate } from '../../../lib/mentions';
 import { FormattingToolbar } from '../FormattingToolbar';
@@ -6,34 +7,37 @@ import { VoiceRecorderHUD } from '../../Audio/VoiceRecorderHUD';
 import { VoicePreviewPlayer } from '../../Audio/VoicePreviewPlayer';
 import { TelegramEmojiPickerModal } from '../../TelegramEmojiPickerModal';
 import { TgsStickerPlayer } from '../../Stickers/TgsStickerPlayer';
-import { USER_NAMES } from '../../../constants';
-import type { SendOptions } from '../../../context/contexts';
+import { ROOM_AVATAR_COLORS } from '../../../constants';
+import { useRooms, type OutgoingFile, type SendOptions } from '../../../context/contexts';
+import { describeAttachments } from '../../../lib/outgoing-batch';
 import { SendButton } from './SendButton';
 import { ScheduledMessagesButton } from './ScheduledMessagesButton';
 import {
-  IconX,
-  IconEdit,
-  IconPaperclip,
-  IconMoodSmile,
+  IconArrowBackUp,
   IconCamera,
   IconChartBar,
+  IconFile,
   IconMicrophone,
-  IconSend
+  IconMoodSmile,
+  IconPaperclip,
+  IconPencil,
+  IconPhoto,
+  IconPlus,
+  IconPlayerPlayFilled,
+  IconSend,
+  IconX,
 } from '@tabler/icons-react';
 
-const ROOM_AVATAR_COLORS: Record<string, string> = {
-  vlad: 'bg-gradient-to-tr from-blue-500 to-indigo-600',
-  anya: 'bg-gradient-to-tr from-rose-400 to-pink-500',
-  sergey: 'bg-gradient-to-tr from-amber-500 to-orange-600',
-  elena: 'bg-gradient-to-tr from-emerald-500 to-teal-600',
-  alex: 'bg-gradient-to-tr from-purple-500 to-violet-600',
-  family: 'bg-gradient-to-tr from-sky-400 to-blue-600',
-  general: 'bg-gradient-to-tr from-violet-500 to-purple-600',
-};
+const formatBytes = (bytes: number) =>
+  bytes > 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} МБ` : `${Math.max(1, Math.round(bytes / 1024))} КБ`;
 
 export interface ChatInputBarProps {
-  selectedFile: any;
-  onClearSelectedFile: () => void;
+  /** Pending attachments; photos / videos are sent as one album. */
+  selectedFiles: OutgoingFile[];
+  onRemoveSelectedFile: (data: string) => void;
+  onClearSelectedFiles: () => void;
+  /** Files pasted into the text field (clipboard screenshots, copied files). */
+  onAddFiles: (files: File[]) => void;
   editingMessage: Message | null;
   onCancelEditing: () => void;
   replyingToMessage: Message | null;
@@ -50,6 +54,7 @@ export interface ChatInputBarProps {
   showEmojiPicker: boolean;
   setShowEmojiPicker: (show: boolean) => void;
   onInsertEmoji: (emoji: string) => void;
+  onEmojiBackspace: () => void;
   recordedVoicePreview: { url: string; duration: number; waveform: number[]; blob: Blob } | null;
   onCancelRecordedVoicePreview: () => void;
   onSendRecordedVoicePreview: () => void;
@@ -71,7 +76,6 @@ export interface ChatInputBarProps {
   formattingToolbar: { isVisible: boolean; position: { top: number; left: number } } | null;
   applyFormatting: (tagOpen: string, tagClose: string) => void;
   onCloseFormattingToolbar: () => void;
-  onStartVideoRecording: () => void;
   onOpenPollModal: () => void;
   inputActionMode: 'voice' | 'video';
   setInputActionMode: (mode: 'voice' | 'video') => void;
@@ -79,12 +83,16 @@ export interface ChatInputBarProps {
   onVoicePointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onVoicePointerUp: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onSend: (e?: React.FormEvent, options?: SendOptions) => void;
-  showToast: (msg: string) => void;
+  /** Group permissions: why media / polls can't be sent here (hidden from the attach menu). */
+  mediaRestriction?: string | null;
+  pollRestriction?: string | null;
 }
 
 export const ChatInputBar: React.FC<ChatInputBarProps> = ({
-  selectedFile,
-  onClearSelectedFile,
+  selectedFiles,
+  onRemoveSelectedFile,
+  onClearSelectedFiles,
+  onAddFiles,
   editingMessage,
   onCancelEditing,
   replyingToMessage,
@@ -101,6 +109,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   showEmojiPicker,
   setShowEmojiPicker,
   onInsertEmoji,
+  onEmojiBackspace,
   recordedVoicePreview,
   onCancelRecordedVoicePreview,
   onSendRecordedVoicePreview,
@@ -122,7 +131,6 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   formattingToolbar,
   applyFormatting,
   onCloseFormattingToolbar,
-  onStartVideoRecording,
   onOpenPollModal,
   inputActionMode,
   setInputActionMode,
@@ -130,261 +138,350 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onVoicePointerMove,
   onVoicePointerUp,
   onSend,
-  showToast,
+  mediaRestriction,
+  pollRestriction,
 }) => {
+  const { getUserDisplayName } = useRooms();
+  const [attachOpen, setAttachOpen] = useState(false);
+  const attachRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!attachOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!attachRef.current?.contains(e.target as Node)) setAttachOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setAttachOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [attachOpen]);
+
+  const pickFile = (accept: string) => {
+    setAttachOpen(false);
+    const input = fileInputRef.current;
+    if (!input) return;
+    if (accept) input.setAttribute('accept', accept);
+    else input.removeAttribute('accept');
+    input.click();
+  };
+
+  const attachItems = [
+    ...(mediaRestriction
+      ? []
+      : [
+          { key: 'media', label: 'Фото или видео', icon: <IconPhoto size={20} />, onSelect: () => pickFile('image/*,video/*') },
+          { key: 'file', label: 'Файл', icon: <IconFile size={20} />, onSelect: () => pickFile('') },
+        ]),
+    ...(pollRestriction
+      ? []
+      : [{ key: 'poll', label: 'Опрос', icon: <IconChartBar size={20} />, onSelect: () => { setAttachOpen(false); onOpenPollModal(); } }]),
+  ];
+
+  // Context strip above the text: editing wins over reply, file preview is shown separately.
+  const context = editingMessage
+    ? {
+        key: `edit-${editingMessage.id}`,
+        icon: <IconPencil size={20} />,
+        title: 'Редактирование',
+        text: getCleanMessageText(editingMessage) || editingMessage.text,
+        onClose: onCancelEditing,
+        closeLabel: 'Отменить редактирование',
+      }
+    : replyingToMessage
+      ? {
+          key: `reply-${replyingToMessage.id}`,
+          icon: <IconArrowBackUp size={20} />,
+          title: `В ответ ${replyingToMessage.sender === currentUser ? 'себе' : getUserDisplayName(replyingToMessage.sender)}`,
+          text: getCleanMessageText(replyingToMessage),
+          onClose: onCancelReply,
+          closeLabel: 'Отменить ответ',
+        }
+      : null;
+
+  const showActionSlot = !isRecording && !recordedVoicePreview;
+  const hasPayload = Boolean(inputText.trim() || selectedFiles.length > 0);
+  const singleFile = selectedFiles.length === 1 ? selectedFiles[0] : null;
+  const mediaCount = selectedFiles.filter((f) => f.type === 'image' || f.type === 'video').length;
+  const actionClass =
+    'flex h-12 w-12 shrink-0 select-none items-center justify-center rounded-full shadow-md transition-transform active:scale-95 cursor-pointer';
+
   return (
     <footer
-      className="p-2 sm:p-3 relative z-10 w-full min-w-0 max-w-full"
-      style={{
-        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0.75rem))',
-      }}
+      className="relative z-10 w-full min-w-0 max-w-full px-2 pt-2 sm:px-3"
+      style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0.5rem))' }}
     >
-      <div className="max-w-2xl mx-auto w-full min-w-0 max-w-full flex flex-col gap-1.5 relative">
-        {/* 1. Selected File Preview Bar */}
-        {selectedFile && (
-          <div className="w-full bg-white/95 dark:bg-surface/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border border-zinc-200/80 dark:border-white/10 animate-pop-in">
-            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              {selectedFile.type === 'image' ? (
-                <img src={selectedFile.data} className="w-11 h-11 rounded-xl object-cover shadow-xs border border-zinc-200/50 dark:border-white/10 shrink-0" alt="preview" />
-              ) : selectedFile.type === 'video' ? (
-                <div className="w-11 h-11 rounded-xl bg-black relative overflow-hidden flex items-center justify-center shrink-0 shadow-xs border border-zinc-200/50 dark:border-white/10">
-                  <video src={selectedFile.data} className="w-full h-full object-cover" muted playsInline />
-                  <span className="absolute bottom-0.5 right-0.5 text-[8px] bg-black/80 text-white px-1 rounded-xs font-mono font-bold">
-                    {selectedFile.orientation === 'vertical' ? '9:16' : '16:9'}
-                  </span>
-                </div>
-              ) : selectedFile.type === 'audio' ? (
-                <div className="w-11 h-11 rounded-xl bg-accent flex items-center justify-center text-white text-lg shadow-xs shrink-0">
-                  🎤
-                </div>
-              ) : (
-                <div className="w-11 h-11 rounded-xl bg-zinc-200 dark:bg-white/10 text-accent flex items-center justify-center text-lg shadow-xs shrink-0">
-                  📄
-                </div>
-              )}
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate block">{selectedFile.name}</span>
-                  {selectedFile.type === 'video' && selectedFile.orientation === 'vertical' && (
-                    <span className="text-[9px] bg-accent/20 text-accent font-medium px-1 rounded-xs shrink-0">📱 Вертикальное</span>
-                  )}
-                </div>
-                <span className="text-[10.5px] text-zinc-400 dark:text-zinc-500 font-mono block">
-                  {selectedFile.size > 1024 * 1024 
-                    ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} МБ` 
-                    : `${(selectedFile.size / 1024).toFixed(1)} КБ`}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onClearSelectedFile}
-              className="p-1.5 rounded-full text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
-              title="Удалить прикрепленный файл"
+      <div className="relative mx-auto flex w-full min-w-0 max-w-2xl items-end gap-2">
+        {/* @mention autocomplete */}
+        {mentionState && mentionState.type === 'mention' && filteredMentions.length > 0 && !showEmojiPicker && (
+          <div className="absolute inset-x-0 bottom-full z-40 mb-2 animate-pop-in">
+            <div
+              className="max-h-64 select-none overflow-y-auto rounded-2xl bg-elevated/95 p-1.5 shadow-xl ring-1 ring-line backdrop-blur-xl tg-scrollbar"
+              onMouseDown={(e) => e.preventDefault()}
             >
-              <IconX size={18} />
-            </button>
-          </div>
-        )}
-
-        {/* 2. Editing Message Bar */}
-        {editingMessage && (
-          <div className="w-full bg-white/95 dark:bg-surface/95 backdrop-blur-xl rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[3.5px] border-accent border border-zinc-200/80 dark:border-white/10 animate-pop-in">
-            <div className="min-w-0 pl-1 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center text-accent shrink-0">
-                <IconEdit size={16} stroke={2.4} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-bold text-accent block leading-tight">
-                    Редактирование
-                  </span>
-                </div>
-                <span className="text-xs text-zinc-700 dark:text-zinc-300 truncate block mt-0.5 max-w-[280px] sm:max-w-md">
-                  {editingMessage.text}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onCancelEditing}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors shrink-0"
-              title="Отменить редактирование (Esc)"
-            >
-              <IconX size={16} />
-            </button>
-          </div>
-        )}
-
-        {/* 3. Reply Quote Bar */}
-        {replyingToMessage && (
-          <div className="w-full bg-white/95 dark:bg-surface/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 flex items-center justify-between shadow-xl border-l-[4px] border-accent border-zinc-200/80 dark:border-white/10 animate-pop-in">
-            <div className="min-w-0 pl-1">
-              <span className="text-[11px] font-bold text-accent block">
-                Ответ для: {replyingToMessage.sender === currentUser ? 'Вы' : (USER_NAMES[replyingToMessage.sender] || replyingToMessage.sender)}
-              </span>
-              <span className="text-xs text-zinc-700 dark:text-zinc-300 truncate block mt-0.5">
-                {getCleanMessageText(replyingToMessage)}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={onCancelReply}
-              className="p-1.5 rounded-full text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer transition-colors"
-              title="Отменить ответ"
-            >
-              <IconX size={16} />
-            </button>
-          </div>
-        )}
-
-        <div className="flex items-end gap-2 relative w-full">
-          {/* @Mention Autocomplete Popup */}
-          {mentionState && mentionState.type === 'mention' && filteredMentions.length > 0 && !showEmojiPicker && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 z-40 animate-pop-in">
-              <div
-                className="p-1.5 bg-white/95 dark:bg-surface/95 rounded-2xl shadow-xl border border-zinc-200 dark:border-white/10 backdrop-blur-md select-none"
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                {filteredMentions.map((candidate, index) => (
-                  <button
-                    key={`mention-${candidate.userId}`}
-                    type="button"
-                    onClick={() => applyMention(candidate)}
-                    onMouseEnter={() => setMentionCursor(index)}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl cursor-pointer transition-colors text-left ${
-                      index === mentionCursor
-                        ? 'bg-accent/10 dark:bg-accent/20'
-                        : 'hover:bg-black/5 dark:hover:bg-white/5'
+              {filteredMentions.map((candidate, index) => (
+                <button
+                  key={`mention-${candidate.userId}`}
+                  type="button"
+                  onClick={() => applyMention(candidate)}
+                  onMouseEnter={() => setMentionCursor(index)}
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors cursor-pointer ${
+                    index === mentionCursor ? 'bg-accent-muted' : 'hover:bg-ink/[0.05]'
+                  }`}
+                >
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ${
+                      ROOM_AVATAR_COLORS[candidate.userId] || 'bg-zinc-500'
                     }`}
                   >
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${ROOM_AVATAR_COLORS[candidate.userId] || 'bg-zinc-500'}`}>
-                      {(candidate.profile?.avatarUrl)
-                        ? <img src={candidate.profile.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
-                        : candidate.displayName.slice(0, 1).toUpperCase()}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-semibold text-zinc-900 dark:text-white truncate leading-tight">
-                        {candidate.displayName}
-                      </span>
-                      <span className="block text-[12px] text-accent truncate leading-tight">
-                        @{candidate.profile?.username || candidate.userId}
-                      </span>
-                    </span>
-                    {index === mentionCursor && (
-                      <span className="text-[10px] font-bold text-zinc-400 shrink-0 hidden sm:block">Tab ⏎</span>
+                    {candidate.profile?.avatarUrl ? (
+                      <img src={candidate.profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      candidate.displayName.slice(0, 1).toUpperCase()
                     )}
-                  </button>
-                ))}
-              </div>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-semibold leading-tight text-ink">{candidate.displayName}</span>
+                    <span className="block truncate text-[12px] leading-tight text-muted">
+                      @{candidate.profile?.username || candidate.userId}
+                    </span>
+                  </span>
+                  {index === mentionCursor && (
+                    <span className="hidden shrink-0 text-[10px] font-bold text-muted sm:block">Tab ⏎</span>
+                  )}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Quick Emoji-to-Sticker Floating Bar */}
-          {quickStickerSuggestions.length > 0 && !showEmojiPicker && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 z-30 animate-pop-in">
-              <div className="p-2 bg-white/95 dark:bg-surface/95 rounded-2xl shadow-xl border border-zinc-200 dark:border-white/10 flex items-center gap-2 overflow-x-auto tg-scrollbar select-none backdrop-blur-md">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-1.5 shrink-0 flex items-center gap-1">
-                  <span>✨</span>
-                  <span>Стикеры:</span>
+        {/* Emoji → sticker suggestions */}
+        {quickStickerSuggestions.length > 0 && !showEmojiPicker && (
+          <div className="absolute inset-x-0 bottom-full z-30 mb-2 animate-pop-in">
+            <div className="flex select-none items-center gap-1 overflow-x-auto rounded-2xl bg-elevated/95 p-1.5 shadow-xl ring-1 ring-line backdrop-blur-xl [scrollbar-width:none]">
+              {quickStickerSuggestions.slice(0, 12).map((sticker) => (
+                <button
+                  key={`quick-${sticker.id}`}
+                  type="button"
+                  onClick={() => onSendSticker(sticker)}
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl p-1 transition-transform hover:scale-110 hover:bg-ink/[0.05] active:scale-95 cursor-pointer"
+                  title={`${sticker.title} (${sticker.emoji})`}
+                >
+                  <TgsStickerPlayer src={sticker.url} alt={sticker.title} className="h-full w-full" loop autoplay />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Emoji & sticker picker */}
+        {showEmojiPicker && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
+            <div
+              className="absolute bottom-full left-0 z-50 mb-2.5 max-w-[calc(100vw-16px)] animate-pop-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <TelegramEmojiPickerModal
+                onSelectEmoji={(emoji) => onInsertEmoji(emoji)}
+                onBackspace={onEmojiBackspace}
+                onSelectSticker={(sticker) => onSendSticker(sticker)}
+                onClose={() => setShowEmojiPicker(false)}
+              />
+            </div>
+          </>
+        )}
+
+        {recordedVoicePreview ? (
+          <VoicePreviewPlayer
+            audioUrl={recordedVoicePreview.url}
+            duration={recordedVoicePreview.duration}
+            waveform={recordedVoicePreview.waveform}
+            onCancel={onCancelRecordedVoicePreview}
+            onSend={onSendRecordedVoicePreview}
+          />
+        ) : isRecording ? (
+          <VoiceRecorderHUD
+            isRecording={isRecording}
+            isLocked={isVoiceLocked}
+            isPaused={isVoicePaused}
+            recordTime={recordTime}
+            liveVolumeLevels={liveVolumeLevels}
+            dragOffset={voiceDragOffset}
+            onCancel={() => onStopRecording('cancel')}
+            onTogglePause={onToggleVoicePause}
+            onStopAndPreview={() => onStopRecording('preview')}
+            onSend={() => onStopRecording('send')}
+          />
+        ) : (
+          <form onSubmit={onSend} className="tg-input-capsule relative flex min-w-0 flex-1 flex-col !rounded-[24px]">
+            <input type="file" multiple ref={fileInputRef} onChange={onFileSelect} className="hidden" />
+
+            {/* Reply / edit strip */}
+            <AnimatePresence initial={false}>
+              {context && (
+                <motion.div
+                  key={context.key}
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.16, ease: [0.2, 0.9, 0.3, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center gap-2 pl-3 pr-1.5 pt-1.5">
+                    <span className="shrink-0 text-accent">{context.icon}</span>
+                    <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
+                      <div className="truncate text-[13px] font-semibold leading-tight text-accent">{context.title}</div>
+                      <div className="truncate text-[13px] leading-snug text-muted">{context.text || 'Сообщение'}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={context.onClose}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-ink/[0.06] hover:text-ink cursor-pointer"
+                      aria-label={context.closeLabel}
+                      title={context.closeLabel}
+                    >
+                      <IconX size={18} />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Attached file */}
+            {singleFile && (
+              <div className="flex items-center gap-2.5 pl-2 pr-1.5 pt-1.5 animate-pop-in">
+                <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-accent-muted text-accent">
+                  <AttachmentThumb file={singleFile} />
                 </span>
-                {quickStickerSuggestions.slice(0, 12).map((sticker) => (
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13.5px] font-semibold leading-tight text-ink">{singleFile.name}</div>
+                  <div className="text-[12px] leading-snug text-muted">
+                    {singleFile.type === 'image' ? 'Фото' : singleFile.type === 'video' ? 'Видео' : 'Файл'}
+                    {typeof singleFile.size === 'number' && ` · ${formatBytes(singleFile.size)}`}
+                  </div>
+                </div>
+                {!mediaRestriction && (
                   <button
-                    key={`quick-${sticker.id}`}
                     type="button"
-                    onClick={() => onSendSticker(sticker)}
-                    className="w-11 h-11 p-1 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 shrink-0 cursor-pointer transition-transform hover:scale-115 active:scale-95 flex items-center justify-center"
-                    title={`${sticker.title} (${sticker.emoji})`}
+                    onClick={() => pickFile('')}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-ink/[0.06] hover:text-ink cursor-pointer"
+                    aria-label="Добавить ещё файлы"
+                    title="Добавить ещё"
                   >
-                    <TgsStickerPlayer
-                      src={sticker.url}
-                      alt={sticker.title}
-                      className="w-full h-full"
-                      loop={true}
-                      autoplay={true}
-                    />
+                    <IconPlus size={18} />
                   </button>
-                ))}
+                )}
+                <button
+                  type="button"
+                  onClick={onClearSelectedFiles}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-ink/[0.06] hover:text-ink cursor-pointer"
+                  aria-label="Убрать вложение"
+                  title="Убрать вложение"
+                >
+                  <IconX size={18} />
+                </button>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Emoji Popup Anchored Right Above Input Bar */}
-          {showEmojiPicker && (
-            <>
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setShowEmojiPicker(false)} 
-              />
-              <div 
-                className="absolute bottom-full right-0 sm:right-12 mb-2.5 z-50 animate-pop-in max-w-[calc(100vw-24px)]"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <TelegramEmojiPickerModal
-                  onSelectEmoji={(emoji) => onInsertEmoji(emoji)}
-                  onSelectSticker={(sticker) => onSendSticker(sticker)}
-                  onClose={() => setShowEmojiPicker(false)}
-                />
+            {/* Several attachments: thumbnail strip, photos / videos go out as one album */}
+            {selectedFiles.length > 1 && (
+              <div className="pt-1.5 animate-pop-in">
+                <div className="flex items-center gap-2 pl-3 pr-1.5">
+                  <div className="min-w-0 flex-1 truncate text-[13px] leading-tight">
+                    <span className="font-semibold text-accent">{describeAttachments(selectedFiles)}</span>
+                    {mediaCount > 1 && <span className="text-muted"> · альбомом</span>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClearSelectedFiles}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-ink/[0.06] hover:text-ink cursor-pointer"
+                    aria-label="Убрать все вложения"
+                    title="Убрать все"
+                  >
+                    <IconX size={18} />
+                  </button>
+                </div>
+                <ul className="no-scrollbar flex gap-1.5 overflow-x-auto px-2 pb-0.5 pt-1" aria-label="Вложения">
+                  {selectedFiles.map((file) => (
+                    <li key={file.data} className="group relative h-16 w-16 shrink-0 animate-pop-in">
+                      <span
+                        className="flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-xl bg-accent-muted text-accent"
+                        title={`${file.name} · ${formatBytes(file.size)}`}
+                      >
+                        <AttachmentThumb file={file} showExtension />
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveSelectedFile(file.data)}
+                        className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-transform hover:scale-110 cursor-pointer"
+                        aria-label={`Убрать ${file.name}`}
+                        title="Убрать"
+                      >
+                        <IconX size={12} stroke={2.6} />
+                      </button>
+                    </li>
+                  ))}
+                  {!mediaRestriction && (
+                    <li className="h-16 w-16 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => pickFile('')}
+                        className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-line text-muted transition-colors hover:border-accent hover:text-accent cursor-pointer"
+                        aria-label="Добавить ещё файлы"
+                        title="Добавить ещё"
+                      >
+                        <IconPlus size={22} />
+                      </button>
+                    </li>
+                  )}
+                </ul>
               </div>
-            </>
-          )}
+            )}
 
-          {/* Input Capsule or Active Voice Recorder / Preview HUD */}
-          {recordedVoicePreview ? (
-            <VoicePreviewPlayer
-              audioUrl={recordedVoicePreview.url}
-              duration={recordedVoicePreview.duration}
-              waveform={recordedVoicePreview.waveform}
-              onCancel={onCancelRecordedVoicePreview}
-              onSend={onSendRecordedVoicePreview}
-            />
-          ) : isRecording ? (
-            <VoiceRecorderHUD
-              isRecording={isRecording}
-              isLocked={isVoiceLocked}
-              isPaused={isVoicePaused}
-              recordTime={recordTime}
-              liveVolumeLevels={liveVolumeLevels}
-              dragOffset={voiceDragOffset}
-              onCancel={() => onStopRecording('cancel')}
-              onTogglePause={onToggleVoicePause}
-              onStopAndPreview={() => onStopRecording('preview')}
-              onSend={() => onStopRecording('send')}
-            />
-          ) : (
-            <form onSubmit={onSend} className="flex-1 min-w-0 flex items-center min-h-[44px] sm:min-h-[46px] px-1.5 py-1 rounded-[22px] tg-input-capsule">
-              <input
-                type="file"
-                ref={fileInputRef as any}
-                onChange={onFileSelect}
-                className="hidden"
-              />
-
-              {/* Clip */}
+            {/* Emoji · text · scheduled · attach */}
+            <div className="flex items-end px-1">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-accent cursor-pointer shrink-0 transition-colors rounded-full"
-                title="Прикрепить"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`flex h-[46px] w-10 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer ${
+                  showEmojiPicker ? 'text-accent' : 'text-muted hover:text-ink'
+                }`}
+                title="Эмодзи и стикеры"
+                aria-label="Эмодзи и стикеры"
+                aria-expanded={showEmojiPicker}
               >
-                <IconPaperclip size={20} />
+                <IconMoodSmile size={24} stroke={1.8} />
               </button>
 
               <textarea
-                ref={textareaRef as any}
+                ref={textareaRef}
                 rows={1}
                 value={inputText}
                 onChange={(e) => onInputChange(e.target.value)}
                 onKeyDown={onKeyDown}
+                onPaste={(e) => {
+                  const files = Array.from(e.clipboardData?.files ?? []);
+                  if (files.length === 0) return;
+                  e.preventDefault();
+                  onAddFiles(files);
+                }}
                 onSelect={onTextSelection}
                 onMouseUp={onTextSelection}
                 onKeyUp={onTextSelection}
-                placeholder="Сообщение..."
-                className="flex-1 py-0.5 px-2 bg-transparent border-none text-zinc-900 dark:text-white text-[15px] focus:outline-none focus:ring-0 placeholder-zinc-400 resize-none max-h-[160px] leading-[22px] tg-scrollbar self-center"
-                style={{ minHeight: '22px', height: '22px' }}
+                placeholder="Сообщение"
+                aria-label="Сообщение"
+                className="my-[11px] max-h-[160px] min-w-0 flex-1 resize-none border-none bg-transparent px-1.5 py-0 text-[16px] leading-[24px] text-ink placeholder:text-muted focus:outline-none tg-scrollbar"
+                style={{ minHeight: '24px', height: '24px' }}
               />
 
-              {/* Floating Text Formatting Toolbar */}
               {formattingToolbar && (
                 <FormattingToolbar
                   isVisible={formattingToolbar.isVisible}
@@ -394,95 +491,138 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 />
               )}
 
-              {/* Emoji */}
-              <button
-                type="button"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-accent cursor-pointer shrink-0 transition-colors rounded-full"
-                title="Эмодзи"
-              >
-                <IconMoodSmile size={20} />
-              </button>
+              <div className="flex h-[46px] shrink-0 items-center">
+                <ScheduledMessagesButton />
+              </div>
 
-              {/* Video Note Circle Direct Trigger */}
-              <button
-                type="button"
-                onClick={onStartVideoRecording}
-                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-accent cursor-pointer shrink-0 transition-colors rounded-full"
-                title="Видео-кружок"
-              >
-                <IconCamera size={20} />
-              </button>
+              {attachItems.length > 0 && (
+              <div ref={attachRef} className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setAttachOpen((v) => !v)}
+                  className={`flex h-[46px] w-10 items-center justify-center rounded-full transition-colors cursor-pointer ${
+                    attachOpen ? 'text-accent' : 'text-muted hover:text-ink'
+                  }`}
+                  title="Прикрепить"
+                  aria-label="Прикрепить"
+                  aria-haspopup="menu"
+                  aria-expanded={attachOpen}
+                >
+                  <IconPaperclip size={23} stroke={1.8} className={`transition-transform ${attachOpen ? 'rotate-45' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {attachOpen && (
+                    <motion.div
+                      role="menu"
+                      initial={{ opacity: 0, scale: 0.9, y: 8 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: 8 }}
+                      transition={{ duration: 0.14, ease: [0.2, 0.9, 0.3, 1] }}
+                      className="absolute bottom-[54px] right-0 z-50 min-w-[210px] origin-bottom-right rounded-xl bg-elevated/95 p-1 shadow-2xl ring-1 ring-line backdrop-blur-xl"
+                    >
+                      {attachItems.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          role="menuitem"
+                          onClick={item.onSelect}
+                          className="flex w-full items-center gap-3.5 rounded-lg px-3 py-2.5 text-left text-[14.5px] font-medium text-ink transition-colors hover:bg-ink/[0.06] cursor-pointer"
+                        >
+                          <span className="text-muted">{item.icon}</span>
+                          {item.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              )}
+            </div>
+          </form>
+        )}
 
-              {/* Poll */}
-              <button
-                type="button"
-                onClick={onOpenPollModal}
-                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-accent cursor-pointer shrink-0 transition-colors rounded-full"
-                title="Создать опрос"
+        {/* Mic / video note / send */}
+        {showActionSlot && !hasPayload && !mediaRestriction ? (
+          // Like Telegram: a tap switches voice <-> video note, press-and-hold records.
+          <button
+            type="button"
+            onPointerDown={onVoicePointerDown}
+            onPointerMove={onVoicePointerMove}
+            onPointerUp={onVoicePointerUp}
+            onPointerCancel={onVoicePointerUp}
+            onClick={(e) => {
+              // Keyboard activation (Enter / Space) has no pointer sequence.
+              if (e.detail === 0) setInputActionMode(inputActionMode === 'voice' ? 'video' : 'voice');
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{ touchAction: 'none' }}
+            className={`${actionClass} tg-btn-primary relative overflow-hidden`}
+            title={
+              inputActionMode === 'voice'
+                ? 'Удерживайте для записи голосового (вверх — без рук, влево — отмена). Нажмите — видеосообщение'
+                : 'Удерживайте для записи видеосообщения (вверх — без рук, влево — отмена). Нажмите — голосовое'
+            }
+            aria-label={inputActionMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}
+          >
+            <span className="tg-icon-swap flex items-center justify-center">
+            <AnimatePresence initial={false} mode="popLayout">
+              <motion.span
+                key={inputActionMode}
+                initial={{ scale: 0.4, opacity: 0, rotate: -45 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                exit={{ scale: 0.4, opacity: 0, rotate: 45 }}
+                transition={{ duration: 0.16 }}
+                className="flex items-center justify-center"
               >
-                <IconChartBar size={20} />
-              </button>
-            </form>
-          )}
-
-          {!isRecording && !recordedVoicePreview && <ScheduledMessagesButton />}
-
-          {/* Blue Circle Action Button (Mic / Video / Send / Checkmark) */}
-          {!inputText.trim() && !selectedFile && !isRecording && !recordedVoicePreview ? (
-            inputActionMode === 'voice' ? (
-              <button
-                type="button"
-                onPointerDown={onVoicePointerDown}
-                onPointerMove={onVoicePointerMove}
-                onPointerUp={onVoicePointerUp}
-                onPointerCancel={onVoicePointerUp}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setInputActionMode('video');
-                  showToast('Режим переключен на Видео-кружок');
-                }}
-                style={{ touchAction: 'none' }}
-                className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full tg-btn-primary flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95 relative group select-none"
-                title="Удерживайте для записи голоса (свайп вверх — замочек, влево — отмена, правый клик — кружок)"
-              >
-                <IconMicrophone size={20} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onStartVideoRecording}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setInputActionMode('voice');
-                  showToast('Режим переключен на Голосовое');
-                }}
-                className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full tg-btn-primary flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95 relative group"
-                title="Записать видео-кружок (правый клик: голосовое)"
-              >
-                <IconCamera size={20} />
-              </button>
-            )
-          ) : isRecording && !isVoiceLocked ? (
-            <button
-              type="button"
-              onPointerMove={onVoicePointerMove}
-              onPointerUp={onVoicePointerUp}
-              onPointerCancel={onVoicePointerUp}
-              onClick={() => onStopRecording('send')}
-              style={{ touchAction: 'none' }}
-              className="w-[44px] h-[44px] sm:w-[46px] sm:h-[46px] rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95"
-              title="Отпустить для отправки"
-            >
-              <IconSend size={20} />
-            </button>
-          ) : !isRecording && !recordedVoicePreview ? (
-            <SendButton isEditing={!!editingMessage} onSend={(options) => onSend(undefined, options)} />
-          ) : null}
-        </div>
+                {inputActionMode === 'voice' ? <IconMicrophone size={24} stroke={1.9} /> : <IconCamera size={24} stroke={1.9} />}
+              </motion.span>
+            </AnimatePresence>
+            </span>
+          </button>
+        ) : isRecording && !isVoiceLocked ? (
+          <button
+            type="button"
+            onPointerMove={onVoicePointerMove}
+            onPointerUp={onVoicePointerUp}
+            onPointerCancel={onVoicePointerUp}
+            onClick={() => onStopRecording('send')}
+            style={{ touchAction: 'none' }}
+            className={`${actionClass} bg-accent text-white hover:bg-accent-strong`}
+            title="Отпустите, чтобы отправить"
+            aria-label="Отправить голосовое"
+          >
+            <IconSend size={22} />
+          </button>
+        ) : showActionSlot ? (
+          <SendButton isEditing={!!editingMessage} onSend={(options) => onSend(undefined, options)} />
+        ) : null}
       </div>
     </footer>
   );
 };
 
 export default ChatInputBar;
+
+/** Preview inside an attachment tile: photo / video frame, otherwise a kind icon (+ extension). */
+const AttachmentThumb: React.FC<{ file: OutgoingFile; showExtension?: boolean }> = ({ file, showExtension }) => {
+  if (file.type === 'image') return <img src={file.data} className="h-full w-full object-cover" alt="" draggable={false} />;
+  if (file.type === 'video') {
+    return (
+      <>
+        <video src={file.data} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/45 text-white">
+            <IconPlayerPlayFilled size={12} />
+          </span>
+        </span>
+      </>
+    );
+  }
+  const ext = file.name.includes('.') ? file.name.split('.').pop()!.slice(0, 4).toUpperCase() : '';
+  return (
+    <>
+      {file.type === 'audio' ? <IconMicrophone size={20} /> : <IconFile size={20} />}
+      {showExtension && ext && <span className="mt-0.5 text-[10px] font-bold leading-none">{ext}</span>}
+    </>
+  );
+};

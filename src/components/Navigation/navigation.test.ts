@@ -92,6 +92,7 @@ export const calculateFolderCounts = (
     all: { total: rooms.length, unread: allUnread },
     direct: { total: directTotal, unread: directUnread },
     groups: { total: groupsTotal, unread: groupsUnread },
+    channels: { total: 0, unread: 0 },
     unread: { total: unreadTotal, unread: unreadUnread },
     saved: { total: savedTotal, unread: savedUnread },
   };

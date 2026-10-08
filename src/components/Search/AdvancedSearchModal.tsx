@@ -85,7 +85,7 @@ export const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({
                     type="date"
                     value={localStartDate}
                     onChange={(e) => setLocalStartDate(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:border-cyan-400 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:outline-none"
                   />
                 </div>
                 <div>
@@ -94,7 +94,7 @@ export const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({
                     type="date"
                     value={localEndDate}
                     onChange={(e) => setLocalEndDate(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:border-cyan-400 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-white focus:outline-none"
                   />
                 </div>
               </div>
@@ -108,7 +108,7 @@ export const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({
                 value={localSenderId}
                 onChange={(e) => setLocalSenderId(e.target.value)}
                 placeholder="Например: vlad, anya..."
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-cyan-400 focus:outline-none"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:outline-none"
               />
             </div>
 
@@ -121,7 +121,7 @@ export const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({
                   setLocalContentType(e.target.value);
                   if (e.target.value) setLocalHasAttachments(true);
                 }}
-                className="w-full rounded-xl border border-white/10 bg-zinc-950 p-2 text-white focus:border-cyan-400 focus:outline-none"
+                className="w-full rounded-xl border border-white/10 bg-zinc-950 p-2 text-white focus:outline-none"
               >
                 <option value="">Любой контент (текст и файлы)</option>
                 <option value="image">📷 Только изображения (JPG, PNG, GIF)</option>
@@ -137,7 +137,7 @@ export const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({
                 type="checkbox"
                 checked={localHasAttachments}
                 onChange={(e) => setLocalHasAttachments(e.target.checked)}
-                className="rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-0"
+                className="rounded border-white/20 bg-white/5 text-cyan-500"
               />
               <span className="text-white/80">Только сообщения с прикрепленными файлами</span>
             </label>

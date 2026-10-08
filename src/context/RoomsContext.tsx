@@ -1,8 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ConnectionStatus, Room, UserId, UserProfile, UserSearchResult } from '../types';
+import type { ConnectionStatus, Room, RoomPreview, UserId, UserProfile, UserSearchResult } from '../types';
 import { ALL_ROOMS, DEFAULT_USER_PROFILES, USER_NAMES } from '../constants';
 import authService from '../services/auth.service';
-import { RoomsContext, useAuth, useConnection, type RoomsContextValue } from './contexts';
+import {
+  RoomsContext,
+  useAuth,
+  useConnection,
+  type CreateChannelInput,
+  type JoinTarget,
+  type RoomActionResult,
+  type RoomEvent,
+  type RoomsContextValue,
+} from './contexts';
 
 const SAVED_MESSAGES_ID = 'saved-messages';
 const ACTIVE_ROOM_KEY = 'chat_active_room_v2';
@@ -78,7 +87,16 @@ export const RoomsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [storeRooms],
   );
 
-  // Mirror the authenticated account into the profile directory.
+  /** Replaces a room with the server's fresher copy (or adds it). */
+  const upsertRoom = useCallback(
+    (room: Room) =>
+      storeRooms((prev) => (prev.some((r) => r.id === room.id) ? prev.map((r) => (r.id === room.id ? room : r)) : [room, ...prev])),
+    [storeRooms],
+  );
+
+  const removeRoom = useCallback((roomId: string) => storeRooms((prev) => prev.filter((r) => r.id !== roomId)), [storeRooms]);
+
+  // Mirror the authenticated account until the socket delivers the server copy.
   useEffect(() => {
     if (!user) return;
     const uid = user.userId as UserId;
@@ -138,6 +156,20 @@ export const RoomsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     activeRoomIdRef.current = activeRoomId;
   }, [activeRoomId]);
 
+  /** Server profiles win over the local cache; the phone is only sent to contacts. */
+  const mergeServerProfiles = useCallback((list: UserProfile[]) => {
+    setUserProfiles((prev) => {
+      const next = { ...prev };
+      for (const p of list) {
+        if (!p?.userId) continue;
+        const uid = p.userId as UserId;
+        next[uid] = { ...prev[uid], ...p, phoneNumber: p.phoneNumber ?? prev[uid]?.phoneNumber };
+      }
+      writeJson(PROFILES_KEY, next);
+      return next;
+    });
+  }, []);
+
   // ===== Socket events =====
   useEffect(() => {
     if (!socket) return;
@@ -145,7 +177,14 @@ export const RoomsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(list)) storeRooms(() => list);
     };
     const onRoomCreated = (room: Room) => {
-      addRoom(room);
+      // Re-joining a group delivers it again with the current state.
+      upsertRoom(room);
+    };
+    const onRoomUpdated = (room: Room) => {
+      if (room?.id) upsertRoom(room);
+    };
+    const onRoomRemoved = (data: { roomId: string }) => {
+      if (data?.roomId) removeRoom(data.roomId);
     };
     const onStatus = (status: ConnectionStatus) => {
       setOnlineStatus(status);
@@ -169,17 +208,46 @@ export const RoomsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { ...prev, [data.roomId]: roomTyping };
       });
     };
+    const onProfilesState = (state: Record<string, UserProfile>) => {
+      if (state && typeof state === 'object') mergeServerProfiles(Object.values(state));
+    };
+    const onProfileUpdated = (profile: UserProfile) => {
+      if (profile?.userId) mergeServerProfiles([profile]);
+    };
     socket.on('rooms_list', onRoomsList);
     socket.on('room_created', onRoomCreated);
+    socket.on('room_updated', onRoomUpdated);
+    socket.on('room_removed', onRoomRemoved);
     socket.on('status_update', onStatus);
     socket.on('typing_update', onTyping);
+    socket.on('profiles_state', onProfilesState);
+    socket.on('profile_updated', onProfileUpdated);
     return () => {
       socket.off('rooms_list', onRoomsList);
       socket.off('room_created', onRoomCreated);
+      socket.off('room_updated', onRoomUpdated);
+      socket.off('room_removed', onRoomRemoved);
       socket.off('status_update', onStatus);
       socket.off('typing_update', onTyping);
+      socket.off('profiles_state', onProfilesState);
+      socket.off('profile_updated', onProfileUpdated);
     };
-  }, [socket, storeRooms, addRoom]);
+  }, [socket, storeRooms, upsertRoom, removeRoom, mergeServerProfiles]);
+
+  // Members of chats joined later (new groups, new DMs) are not in the initial snapshot.
+  const requestedProfiles = useRef(new Set<string>());
+  useEffect(() => {
+    if (!socket) requestedProfiles.current.clear();
+  }, [socket]);
+  useEffect(() => {
+    if (!isConnected) return;
+    const missing = [...new Set(rooms.flatMap((r) => r.participants))].filter((id) => id && !requestedProfiles.current.has(id));
+    if (missing.length === 0) return;
+    missing.forEach((id) => requestedProfiles.current.add(id));
+    void emitWithAck<{ profiles?: Record<string, UserProfile> }>('get_profiles', { userIds: missing }, 5000).then((res) => {
+      if (res?.profiles) mergeServerProfiles(Object.values(res.profiles));
+    });
+  }, [rooms, isConnected, emitWithAck, mergeServerProfiles]);
 
   // ===== Navigation =====
   const setActiveRoomId = useCallback(
@@ -228,16 +296,17 @@ export const RoomsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   // ===== Profiles =====
+  /** Saves on the server; contacts receive the change via `profile_updated`. */
   const updateUserProfile = useCallback(
-    (updates: Partial<UserProfile>) => {
-      if (!currentUser) return;
-      setUserProfiles((prev) => {
-        const next = { ...prev, [currentUser]: { ...(prev[currentUser] || DEFAULT_USER_PROFILES[currentUser]), ...updates } };
-        writeJson(PROFILES_KEY, next);
-        return next;
-      });
+    async (updates: Partial<UserProfile>): Promise<{ ok: boolean; error?: string }> => {
+      if (!currentUser) return { ok: false, error: 'Вы не вошли в аккаунт.' };
+      const res = await emitWithAck<{ ok: boolean; error?: string; profile?: UserProfile }>('update_profile', updates, 8000);
+      if (!res) return { ok: false, error: 'Нет соединения с сервером.' };
+      if (!res.ok || !res.profile) return { ok: false, error: res.error || 'Не удалось сохранить профиль.' };
+      mergeServerProfiles([res.profile]);
+      return { ok: true };
     },
-    [currentUser],
+    [currentUser, emitWithAck, mergeServerProfiles],
   );
 
   const getUserDisplayName = useCallback(
@@ -302,6 +371,65 @@ export const RoomsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [openRoom],
   );
 
+  // ===== Groups & channels =====
+  const roomAction = useCallback(
+    async <T extends object = object>(event: RoomEvent, payload: Record<string, unknown>) => {
+      const res = await emitWithAck<RoomActionResult & Partial<T>>(event, payload, 8000);
+      if (!res) return { ok: false, error: 'Нет соединения с сервером.' } as RoomActionResult & Partial<T>;
+      // Apply our own change right away instead of waiting for `room_updated`.
+      if (res.ok && res.room) upsertRoom(res.room);
+      if (res.ok && (event === 'leave_room' || event === 'delete_room') && typeof payload.roomId === 'string') removeRoom(payload.roomId);
+      return res;
+    },
+    [emitWithAck, upsertRoom, removeRoom],
+  );
+
+  const createChannel = useCallback(
+    async (input: CreateChannelInput): Promise<RoomActionResult> => {
+      if (!input.name?.trim()) return { ok: false, error: 'Укажите название канала' };
+      const res = await emitWithAck<RoomActionResult>('create_channel', { ...input, name: input.name.trim() }, 8000);
+      if (!res) return { ok: false, error: 'Нет соединения с сервером.' };
+      if (res.ok && res.room) {
+        upsertRoom(res.room);
+        setActiveRoomId(res.room.id);
+      }
+      return res;
+    },
+    [emitWithAck, upsertRoom, setActiveRoomId],
+  );
+
+  const getInvitePreview = useCallback(
+    async (target: JoinTarget) =>
+      (await emitWithAck<{ ok: boolean; error?: string; room?: RoomPreview }>('get_invite_info', target, 6000)) ?? {
+        ok: false,
+        error: 'Нет соединения с сервером.',
+      },
+    [emitWithAck],
+  );
+
+  const joinRoom = useCallback(
+    async (target: JoinTarget): Promise<RoomActionResult> => {
+      const res = await emitWithAck<RoomActionResult>('join_room', target, 8000);
+      if (!res) return { ok: false, error: 'Нет соединения с сервером.' };
+      if (res.ok && res.room) {
+        upsertRoom(res.room);
+        setActiveRoomId(res.room.id);
+      }
+      return res;
+    },
+    [emitWithAck, upsertRoom, setActiveRoomId],
+  );
+
+  const searchPublicRooms = useCallback(
+    async (query: string): Promise<RoomPreview[]> => {
+      const q = (query || '').trim();
+      if (q.replace(/^@/, '').length < 2) return [];
+      const res = await emitWithAck<{ rooms?: RoomPreview[] }>('search_users', { query: q }, 3500);
+      return res?.rooms || [];
+    },
+    [emitWithAck],
+  );
+
   const currentUserProfile = currentUser ? userProfiles[currentUser] || DEFAULT_USER_PROFILES[currentUser] || null : null;
   const currentUserName = currentUser ? getUserDisplayName(currentUser) : null;
 
@@ -324,6 +452,11 @@ export const RoomsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createDirectChat,
       createGroupChat,
       createSecretChat,
+      createChannel,
+      roomAction,
+      getInvitePreview,
+      joinRoom,
+      searchPublicRooms,
     }),
     [
       rooms,
@@ -343,6 +476,11 @@ export const RoomsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createDirectChat,
       createGroupChat,
       createSecretChat,
+      createChannel,
+      roomAction,
+      getInvitePreview,
+      joinRoom,
+      searchPublicRooms,
     ],
   );
 

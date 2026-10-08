@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageMeta, type MetaDeliveryStatus } from './Chat/Feed/MessageMeta';
 import { BubbleTail } from './Chat/Feed/BubbleTail';
-import { getBubbleCorners } from '../lib/message-grouping';
+import { bubbleRadiusCss, getBubbleCorners } from '../lib/message-grouping';
+import { jumboEmoji } from '../lib/emoji-text';
 import { useSocket } from '../context/contexts';
 import { USER_NAMES, DEFAULT_USER_PROFILES } from '../constants';
 import { parseAndRenderRichText } from '../lib/markdown-parser';
@@ -391,6 +392,14 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
     rawCleanText === '📎'
   );
   const hasText = !!rawCleanText && !isAutoFileNameCaption && !isSticker;
+  // Telegram: a message of 1–3 emoji and nothing else is drawn large, without a bubble.
+  const jumbo = useMemo(
+    () => (hasText && !hasFile && !message.poll && !parentMessage && !forwardedSenderName ? jumboEmoji(rawCleanText) : null),
+    [hasText, hasFile, message.poll, parentMessage, forwardedSenderName, rawCleanText],
+  );
+  // Messages typed in this tab fly in from the composer; everything else just fades in.
+  // Captured once so the ack (pending → sent) doesn't swap the animation and replay it.
+  const [sentHere] = useState(() => isSelf && !!message.pending);
 
   const isPureImage = hasFile && isImageFile && !hasText && !parentMessage;
   const isPureAudio = hasFile && isAudioFile && !hasText;
@@ -407,18 +416,18 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
       : 'sent';
 
   // Video notes and stickers have NO rectangular bubble background
-  const bubbleClass = (isVideoNote || isSticker) 
+  const bubbleClass = (isVideoNote || isSticker || jumbo) 
     ? 'bg-transparent shadow-none border-none' 
     : isSelf 
       ? 'tg-bubble-self' 
       : 'tg-bubble-peer';
 
   // Telegram clustering: adaptive radii inside a run, SVG tail on the last bubble only
-  const hasBubbleChrome = !isVideoNote && !isSticker;
+  const hasBubbleChrome = !isVideoNote && !isSticker && !jumbo;
   const corners = getBubbleCorners(isSelf, groupedAbove, groupedBelow);
   const groupCornerStyle: React.CSSProperties = hasBubbleChrome
     ? {
-        borderRadius: `${corners.topLeft}px ${corners.topRight}px ${corners.bottomRight}px ${corners.bottomLeft}px`,
+        borderRadius: bubbleRadiusCss(corners),
       }
     : {};
   const showTail = hasBubbleChrome && corners.showTail;
@@ -524,7 +533,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
           onToggleSelect(message.id);
         }
       }}
-      className={`w-full ${groupedAbove ? 'pt-px' : 'pt-1'} ${groupedBelow ? 'pb-px' : 'pb-1'} px-1.5 sm:px-2 relative group animate-message-appear transition-colors duration-150 rounded-xl ${
+      className={`w-full ${groupedAbove ? 'pt-px' : 'pt-1'} ${groupedBelow ? 'pb-px' : 'pb-1'} px-1.5 sm:px-2 relative group ${sentHere ? 'animate-message-send' : 'animate-message-appear'} transition-colors duration-150 rounded-xl ${
         isSelectMode ? 'cursor-pointer' : ''
       } ${
         isSelected 
@@ -1077,9 +1086,28 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
               </div>
             )}
 
+            {/* Jumbo emoji (1–3 emoji, no bubble) with a floating time pill */}
+            {jumbo && !isEditing && (
+              <div className={`flex flex-col py-0.5 select-none ${isSelf ? 'items-end' : 'items-start'}`}>
+                <div role="img" aria-label={rawCleanText} className="flex items-center">
+                  {jumbo.map((emoji, i) => (
+                    <HoverAnimatedEmoji
+                      key={`${emoji}-${i}`}
+                      emoji={emoji}
+                      size={jumbo.length === 1 ? 104 : jumbo.length === 2 ? 64 : 52}
+                      alwaysAnimate={jumbo.length === 1}
+                    />
+                  ))}
+                </div>
+                <div className="mt-0.5 inline-flex items-center gap-0.5 rounded-full bg-black/40 px-2 py-[3px] text-[11px] leading-none text-white backdrop-blur-xs">
+                  <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />
+                </div>
+              </div>
+            )}
+
             {/* Message Text with Authentic Telegram Inline Timestamp */}
-            {hasText && (
-              <div className={`px-3 ${hasFile ? 'pb-2 pt-1' : 'py-1.5'} leading-[1.35] text-[14.5px]`}>
+            {hasText && !(jumbo && !isEditing) && (
+              <div className={`tg-msg-text relative px-3 ${hasFile ? 'pb-[7px] pt-1' : 'pt-[6px] pb-[7px]'}`}>
                 {isEditing ? (
                   <div className="flex flex-col gap-2 min-w-[200px]" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -1096,7 +1124,7 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                           setIsEditing(false);
                         }
                       }}
-                      className="w-full bg-transparent border-b border-black/20 dark:border-white/20 py-1 text-[14px] focus:outline-none focus:border-accent"
+                      className="w-full bg-transparent border-b border-black/20 dark:border-white/20 py-1 text-[14px] focus:outline-none"
                       autoFocus
                     />
                     <div className="flex justify-end gap-2 text-[11px] font-semibold">
@@ -1127,11 +1155,14 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                       <span className="whitespace-pre-wrap break-words">{parseAndRenderRichText(displayMessageText, searchQuery, onHashtagClick)}</span>
                     )}
                     
-                    {/* Telegram Inline Timestamp & Double Checkmarks (Baseline-Aligned) */}
-                    <span className={`inline-flex items-center gap-0.5 select-none ml-2 text-[11px] leading-none align-baseline whitespace-nowrap ${
-                      isSelf 
-                        ? 'text-tick dark:text-tick' 
-                        : 'text-muted dark:text-muted'
+                    {/* Telegram layout: an invisible copy of the meta reserves room at the end of the
+                        last line, the visible one is pinned to the bottom-right corner. Long last
+                        lines push the spacer (and so the time) onto its own row automatically. */}
+                    <span aria-hidden className="tg-msg-meta-spacer invisible ml-2 inline-flex items-center gap-0.5 whitespace-nowrap text-[11px] leading-none">
+                      <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />
+                    </span>
+                    <span className={`tg-msg-meta absolute bottom-[6px] right-3 inline-flex items-center gap-0.5 select-none whitespace-nowrap text-[11px] leading-none ${
+                      isSelf ? 'text-tick' : 'text-muted'
                     }`}>
                       <MessageMeta message={message} isSelf={isSelf} deliveryStatus={deliveryStatus} formatTime={formatTime} />
                     </span>

@@ -33,7 +33,7 @@ export const SearchStats: React.FC<SearchStatsProps> = ({
         <select
           value={sortOrder}
           onChange={(e) => onSortChange(e.target.value as SearchSortOrder)}
-          className="rounded-xl border border-white/10 bg-black/40 px-2 py-1 text-xs text-white/80 focus:border-cyan-400 focus:outline-none"
+          className="rounded-xl border border-white/10 bg-black/40 px-2 py-1 text-xs text-white/80 focus:outline-none"
         >
           <option value="relevance">По релевантности</option>
           <option value="newest">Сначала новые</option>
