@@ -157,6 +157,7 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
                     onToggleSelect={onToggleSelectMessage}
                     onOpenGallery={onOpenGalleryMedia}
                     onOpenContextMenu={openContextMenu}
+                    onToggleReaction={onToggleReaction}
                   />
                 ) : (
                   <div data-message-id={message.id} className="transition-all duration-300">

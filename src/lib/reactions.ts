@@ -46,3 +46,34 @@ export function quickReactionStrip(limit = 8): string[] {
 export function fullReactionList(): string[] {
   return uniq([...QUICK_REACTIONS, ...ALL_REACTIONS, ...Object.keys(ANIMATED_EMOJIS)]);
 }
+
+export interface ReactionEntry {
+  emoji: string;
+  reactors: string[];
+  /** Message a click toggles: the one carrying my reaction, else the fallback. */
+  targetId: string;
+}
+
+/**
+ * Reactions of one or more messages (an album is several messages) merged into
+ * one row of chips, in order of first appearance. Clicking a chip I already
+ * reacted with removes it from the message it lives on; any other chip adds
+ * the reaction to `fallbackId` — the message the context menu targets.
+ */
+export function mergeReactions(
+  messages: ReadonlyArray<{ id: string; reactions?: Record<string, string[]> }>,
+  currentUser: string | null,
+  fallbackId: string,
+): ReactionEntry[] {
+  const byEmoji = new Map<string, ReactionEntry>();
+  for (const m of messages) {
+    for (const [emoji, reactors] of Object.entries(m.reactions || {})) {
+      if (!reactors?.length) continue;
+      const entry = byEmoji.get(emoji) ?? { emoji, reactors: [], targetId: fallbackId };
+      for (const id of reactors) if (!entry.reactors.includes(id)) entry.reactors.push(id);
+      if (currentUser && reactors.includes(currentUser)) entry.targetId = m.id;
+      byEmoji.set(emoji, entry);
+    }
+  }
+  return Array.from(byEmoji.values());
+}
