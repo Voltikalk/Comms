@@ -31,6 +31,7 @@ import { STORY_PRIVACY_OPTIONS, type Story, type StoryPrivacy } from '../../type
 import { plural, reactionOf, startStoryIndex, storyReactionCount, storyViewerEntries } from '../../lib/story-utils';
 import { StoryContent } from './storyCanvas';
 import { StoryThumb } from './StoryThumb';
+import { StoryRing } from './StoryRing';
 import { CloseFriendsSheet } from './CloseFriendsSheet';
 import { PRIVACY_META, formatStoryAge, storyGradient } from './storyStyle';
 
@@ -444,19 +445,29 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ onOpenCreate, onSendRe
         type="button"
         onClick={() => goToUser(idx)}
         aria-label={`Истории: ${sideName}`}
-        className="group hidden shrink-0 cursor-pointer opacity-55 transition-opacity hover:opacity-90 lg:block"
+        className="group hidden shrink-0 cursor-pointer outline-none lg:block"
       >
-        <StoryThumb story={s} className="w-[min(22dvh,200px)] rounded-[16px]">
-          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/45 p-3 transition-colors group-hover:bg-black/30">
-            <span
-              className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white/15 text-[20px] font-semibold ring-[2.5px] ring-offset-2 ring-offset-black/40 ${
-                unseen ? 'ring-accent' : 'ring-white/35'
-              }`}
-            >
-              {src ? <img src={src} alt="" className="h-full w-full object-cover" draggable={false} /> : (getUserDisplayName(sideId).trim().charAt(0) || '?').toUpperCase()}
+        <StoryThumb
+          story={s}
+          className="w-[min(22dvh,200px)] rounded-[18px] shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/10 transition-transform duration-300 group-hover:scale-[1.03] group-focus-visible:ring-2 group-focus-visible:ring-accent"
+        >
+          {/* The story stays readable, just dimmed; it brightens on hover */}
+          <span className="absolute inset-0 bg-black/45 transition-colors duration-300 group-hover:bg-black/20" />
+          {/* Author strip at the bottom, never on top of the story text */}
+          <span className="absolute inset-x-0 bottom-0 flex items-center gap-2.5 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-3 pb-3 pt-10 text-left">
+            <span className="relative block h-11 w-11 shrink-0">
+              <StoryRing stories={sideList} isStoryViewed={isStoryViewed} />
+              <span className="absolute inset-[4px] flex items-center justify-center overflow-hidden rounded-full bg-white/15 text-[15px] font-semibold">
+                {src ? <img src={src} alt="" className="h-full w-full object-cover" draggable={false} /> : (getUserDisplayName(sideId).trim().charAt(0) || '?').toUpperCase()}
+              </span>
             </span>
-            <span className="max-w-full truncate text-[13.5px] font-semibold">{sideName}</span>
-            <span className="text-[11.5px] text-white/65">{formatStoryAge(s.timestamp)}</span>
+            <span className="min-w-0">
+              <span className={`block truncate text-[13px] leading-tight ${unseen ? 'font-semibold text-white' : 'font-medium text-white/80'}`}>{sideName}</span>
+              <span className="mt-0.5 block truncate text-[11.5px] leading-tight text-white/60">
+                {formatStoryAge(s.timestamp)}
+                {sideList.length > 1 && ` · ${sideList.length}`}
+              </span>
+            </span>
           </span>
         </StoryThumb>
       </button>
