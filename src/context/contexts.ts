@@ -21,6 +21,7 @@ import type {
   Room,
   RoomPreview,
   SecretChatTtl,
+  StoryReplyRef,
   UserId,
   UserProfile,
   UserSearchResult,
@@ -158,6 +159,8 @@ export interface SendOptions {
   scheduledAt?: number;
   /** Groups several media into one bento album. */
   albumId?: string;
+  /** Marks the message as a reply to this story (the server re-derives the preview). */
+  storyReply?: StoryReplyRef;
 }
 
 export interface MessagesContextValue {

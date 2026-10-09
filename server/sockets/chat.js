@@ -17,6 +17,7 @@ import {
   broadcastTarget,
   canSeeMessage,
   e2eePublicKeys,
+  getStoriesState,
   isRoomAllowedForUser,
   isSecretRoom,
   memoryRooms,
@@ -70,6 +71,11 @@ export async function persistMessage(message) {
 
     const { data: insertedMsg, error } = await supabase.from('messages').insert(insertPayload).select().single();
     if (error) console.warn('[Supabase Sync Warning]', error.message);
+    // Separate best-effort write: the column only exists once migration 008 is applied.
+    if (insertedMsg && message.storyReply) {
+      const res = await supabase.from('messages').update({ story_reply: message.storyReply }).eq('id', insertedMsg.id);
+      if (res?.error) console.warn('[Supabase Story Reply]', res.error.message);
+    }
     if (insertedMsg && message.file) {
       await supabase.from('message_attachments').insert({
         message_id: insertedMsg.id,
@@ -106,6 +112,23 @@ export function startChatSweeper(io, intervalMs = 1000) {
   const timer = setInterval(() => runChatSweep(io), intervalMs);
   timer.unref?.();
   return () => clearInterval(timer);
+}
+
+/**
+ * Builds the story card of a story reply from the story itself (never from the
+ * client's preview): only stories the sender can currently see qualify.
+ */
+function storyReplyFor(user, ref) {
+  if (!ref || typeof ref !== 'object' || typeof ref.authorId !== 'string' || typeof ref.storyId !== 'string') return undefined;
+  const story = getStoriesState(user)[ref.authorId]?.find((s) => s.id === ref.storyId);
+  if (!story) return undefined;
+  return {
+    authorId: story.userId,
+    storyId: story.id,
+    type: story.type,
+    preview: story.type === 'text' ? story.data.slice(0, 120) : story.data,
+    background: story.type === 'text' ? story.background : undefined,
+  };
 }
 
 const sameSenderDuplicate = (user, id, clientId) =>
@@ -222,6 +245,7 @@ export function registerChatHandlers({ io, socket, user, on }) {
       poll: data.poll || undefined,
       silent: data.silent === true || undefined,
       albumId: typeof data.albumId === 'string' && CLIENT_ID_RE.test(data.albumId) ? data.albumId : undefined,
+      storyReply: encrypted ? undefined : storyReplyFor(user, data.storyReply),
       encrypted: encrypted ? pickEnvelope(encrypted) : undefined,
       ttl,
       expiresAt: ttl ? now + ttl * 1000 : undefined,

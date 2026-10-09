@@ -27,6 +27,8 @@ import {
 } from '@tabler/icons-react';
 import { SecretChatMenu } from './SecretChatMenu';
 import { membersLabel } from '../../../lib/roles';
+import { useAuth } from '../../../context/contexts';
+import { StoryAvatarRing } from '../../Stories/StoryRing';
 
 export interface ChatHeaderProps {
   activeRoom: Room | null;
@@ -119,8 +121,11 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onLeaveRoom,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const me = useAuth().currentUser;
 
   if (!activeRoom) return null;
+  // Direct chats ring the avatar with the peer's stories (saved messages have no peer).
+  const storyPeer = activeRoom.type === 'direct' ? activeRoom.participants.find((p) => p !== me) : undefined;
 
   return (
     <>
@@ -259,10 +264,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 <IconChevronLeft size={22} />
               </button>
 
-              <div 
-                onClick={onOpenUserInfo}
-                className="relative shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
-              >
+              <div className="relative shrink-0 cursor-pointer hover:opacity-90 transition-opacity">
+                <StoryAvatarRing userId={storyPeer} onClick={onOpenUserInfo}>
                 {getRoomAvatar(activeRoom) ? (
                   <img 
                     src={getRoomAvatar(activeRoom)} 
@@ -280,6 +283,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                     )}
                   </div>
                 )}
+                </StoryAvatarRing>
                 {activeRoom.type === 'direct' && isPeerOnline && (
                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-surface shadow-xs" />
                 )}

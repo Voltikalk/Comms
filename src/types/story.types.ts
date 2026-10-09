@@ -45,6 +45,8 @@ export interface Story {
   textBgStyle?: 'none' | 'fill' | 'glow';
   timestamp: number;
   views: UserId[];
+  /** When each viewer opened the story (ms epoch) — only sent to the author. */
+  viewTimes?: Record<string, number>;
   expiresAt: number;
   /** Story duration in hours: 6, 12, 24, 48 */
   durationHours?: number;

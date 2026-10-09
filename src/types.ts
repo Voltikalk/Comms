@@ -22,6 +22,17 @@ export interface Poll {
   explanation?: string;
 }
 
+/** A reply to a story, rendered as a 9:16 thumbnail card above the reply text. */
+export interface StoryReplyRef {
+  authorId: UserId;
+  storyId: string;
+  type: 'image' | 'text' | 'video';
+  /** Media URL, or the first characters of a text story. */
+  preview: string;
+  /** Gradient key of a text story. */
+  background?: string;
+}
+
 export interface Message {
   id: string;
   roomId: string;
@@ -77,6 +88,8 @@ export interface Message {
   signature?: string;
   /** Channel post view counter. */
   views?: number;
+  /** Set when the message answers someone's story. */
+  storyReply?: StoryReplyRef;
 }
 
 export type ServiceEventType =

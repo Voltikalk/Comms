@@ -602,6 +602,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         silent: options.silent || undefined,
         scheduledAt,
         albumId: options.albumId,
+        storyReply: options.storyReply,
         encrypted,
         ttl,
       };

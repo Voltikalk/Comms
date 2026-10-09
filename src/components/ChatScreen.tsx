@@ -38,6 +38,7 @@ import { findStickersByEmoji } from '../constants/stickers';
 import { createAudioLiveAnalyser, normalizeWaveform, type AudioLiveAnalyser } from '../lib/audio-waveform';
 import type { Sticker } from '../types/sticker.types';
 import { usePlatform } from '../context/platform-context';
+import { useStories } from '../context/stories-context';
 import type { MobileTab } from './Mobile/MobileBottomNav';
 import type { NewChatMode } from './Chat/NewChatModal';
 import type { ChatFolderId, FolderCountInfo } from './Navigation/ChatFolderTabs';
@@ -111,6 +112,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     callSession,
     startCall,
   } = useSocket();
+  const { openStories } = useStories();
 
   const {
     isDesktopView,
@@ -599,7 +601,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   }, []);
 
   // Stories Modal States
-  const [activeStoryViewerUser, setActiveStoryViewerUser] = useState<string | null>(null);
   const [isStoryCreateOpen, setIsStoryCreateOpen] = useState(false);
 
   const showToast = useCallback((
@@ -2351,7 +2352,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           onToggleDarkMode={toggleDarkMode}
           onLogout={logout}
           onOpenStoryCreate={() => setIsStoryCreateOpen(true)}
-          onOpenStoryViewer={(userId) => setActiveStoryViewerUser(userId)}
+          onOpenStoryViewer={(userId) => openStories(userId ?? 'me')}
           startResizingSidebar={startResizingSidebar}
           totalUnreadCount={totalUnreadCount}
         />
@@ -2636,17 +2637,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         themeConfig={themeConfig}
         setThemeConfig={setThemeConfig}
         setThemePreview={setThemePreview}
-        activeStoryViewerUser={activeStoryViewerUser}
-        setActiveStoryViewerUser={setActiveStoryViewerUser}
         isStoryCreateOpen={isStoryCreateOpen}
         setIsStoryCreateOpen={setIsStoryCreateOpen}
-        onSendStoryDirectMessage={async (peerUserId, text) => {
+        onSendStoryReply={async (peerUserId, text, storyReply) => {
           // Stories can be public, so there may be no chat with the author yet — open one.
           const dmRoom =
             rooms.find(r => r.type === 'direct' && r.participants.includes(peerUserId as UserId)) ??
             (await createDirectChat(peerUserId));
           if (dmRoom) {
-            sendMessage(text, undefined, undefined, dmRoom.id);
+            sendMessage(text, undefined, undefined, dmRoom.id, undefined, undefined, { storyReply });
           }
         }}
         activeGalleryMediaId={activeGalleryMediaId}

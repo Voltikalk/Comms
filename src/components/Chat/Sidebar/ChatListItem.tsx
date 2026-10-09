@@ -15,6 +15,7 @@ import {
   IconVideo,
   IconVolumeOff,
 } from '@tabler/icons-react';
+import { StoryAvatarRing } from '../../Stories/StoryRing';
 
 /** Last-message summary shown under the chat name. */
 export interface ChatPreview {
@@ -44,6 +45,8 @@ export interface ChatListItemProps {
   unread: number;
   preview: ChatPreview | null;
   typers: string[];
+  /** Peer of a direct chat: their stories ring the avatar, a click on it opens them. */
+  storyUserId?: string;
   onClick: () => void;
   onContextMenu: (x: number, y: number) => void;
 }
@@ -73,6 +76,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   unread,
   preview,
   typers,
+  storyUserId,
   onClick,
   onContextMenu,
 }) => {
@@ -104,6 +108,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
 
   const avatar = (
     <span className="relative shrink-0">
+      <StoryAvatarRing userId={storyUserId} isolateClick>
       <span
         className={`flex h-[54px] w-[54px] items-center justify-center overflow-hidden rounded-full text-[21px] font-semibold text-white ${
           avatarUrl ? 'bg-elevated' : kind === 'saved' ? 'bg-accent' : avatarColor
@@ -121,6 +126,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
           (name.trim().charAt(0) || '?').toUpperCase()
         )}
       </span>
+      </StoryAvatarRing>
       {kind === 'direct' && online && (
         <span
           className={`absolute bottom-[1px] right-[1px] h-[14px] w-[14px] rounded-full border-[2.5px] bg-emerald-500 ${

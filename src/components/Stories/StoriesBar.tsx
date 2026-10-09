@@ -1,9 +1,11 @@
-import React, { useId, useRef } from 'react';
-import { IconPlus } from '@tabler/icons-react';
+import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { IconChevronLeft, IconEye, IconEyeOff, IconPlus } from '@tabler/icons-react';
 import { useStories } from '../../context/stories-context';
 import { useAuth, useRooms } from '../../context/contexts';
 import type { UserId } from '../../types';
-import type { Story } from '../../types/story.types';
+import type { StoryAuthorEntry } from '../../lib/story-utils';
+import { StoryRing } from './StoryRing';
 
 interface StoriesBarProps {
   onOpenCreate: () => void;
@@ -11,50 +13,6 @@ interface StoriesBarProps {
 }
 
 const RING = 58;
-const R = 27;
-const C = 2 * Math.PI * R;
-
-/** One arc per story: accent = unseen, green = close friends, muted = seen. */
-const StoryRing: React.FC<{ stories: Story[]; isStoryViewed: (id: string) => boolean }> = ({ stories, isStoryViewed }) => {
-  const gid = useId();
-  const count = stories.length;
-  const gap = count > 1 ? Math.min(4, 24 / count) : 0;
-  const segment = C / count - gap;
-
-  return (
-    <svg viewBox="0 0 60 60" className="pointer-events-none absolute inset-0 h-full w-full -rotate-90" aria-hidden>
-      <defs>
-        <linearGradient id={`${gid}a`} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor="var(--accent-strong)" />
-          <stop offset="100%" stopColor="var(--accent)" />
-        </linearGradient>
-        <linearGradient id={`${gid}g`} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor="#22c55e" />
-          <stop offset="100%" stopColor="#a3e635" />
-        </linearGradient>
-      </defs>
-      {stories.map((s, i) => {
-        const seen = isStoryViewed(s.id);
-        return (
-          <circle
-            key={s.id}
-            cx="30"
-            cy="30"
-            r={R}
-            fill="none"
-            strokeWidth={seen ? 1.6 : 2.4}
-            strokeLinecap={count > 1 ? 'round' : 'butt'}
-            stroke={seen ? 'var(--muted)' : s.isCloseFriends ? `url(#${gid}g)` : `url(#${gid}a)`}
-            strokeOpacity={seen ? 0.45 : 1}
-            strokeDasharray={count > 1 ? `${segment} ${C - segment}` : undefined}
-            strokeDashoffset={count > 1 ? -(i * (C / count) + gap / 2) : undefined}
-            className="transition-[stroke,stroke-width] duration-300"
-          />
-        );
-      })}
-    </svg>
-  );
-};
 
 const Face: React.FC<{ src?: string; name: string }> = ({ src, name }) => (
   <span className="absolute inset-[5px] flex items-center justify-center overflow-hidden rounded-full bg-elevated text-[17px] font-semibold text-ink">
@@ -63,7 +21,9 @@ const Face: React.FC<{ src?: string; name: string }> = ({ src, name }) => (
 );
 
 export const StoriesBar: React.FC<StoriesBarProps> = ({ onOpenCreate, onOpenViewer }) => {
-  const { myStories, othersStories, isStoryViewed } = useStories();
+  const { myStories, othersStories, hiddenStories, isStoryViewed, isAuthorHidden, toggleHiddenAuthor } = useStories();
+  const [showHidden, setShowHidden] = useState(false);
+  const [menu, setMenu] = useState<{ userId: string; x: number; y: number } | null>(null);
   const me = (useAuth().currentUser ?? '') as UserId;
   const { getUserDisplayName, getUserAvatar } = useRooms();
 
@@ -90,6 +50,55 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({ onOpenCreate, onOpenView
   };
 
   const hasMine = myStories.length > 0;
+
+  // Right click / long press on an author → «Скрыть истории» / «Показать истории».
+  const press = useRef<{ timer: number; fired: boolean } | null>(null);
+  const openMenu = (userId: string, x: number, y: number) => setMenu({ userId, x, y });
+  const authorTile = ({ userId, stories }: StoryAuthorEntry, hidden: boolean) => {
+    const unseen = stories.some((s) => !isStoryViewed(s.id));
+    const name = getUserDisplayName(userId);
+    return (
+      <div key={userId} role="listitem" className="shrink-0">
+        <button
+          type="button"
+          onClick={() => {
+            if (press.current?.fired) {
+              press.current = null;
+              return;
+            }
+            onOpenViewer(userId);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            openMenu(userId, e.clientX, e.clientY);
+          }}
+          onPointerDown={(e) => {
+            if (e.pointerType === 'mouse') return;
+            const { clientX: x, clientY: y } = e;
+            const state = { timer: 0, fired: false };
+            state.timer = window.setTimeout(() => {
+              state.fired = true;
+              navigator.vibrate?.(12);
+              openMenu(userId, x, y);
+            }, 480);
+            press.current = state;
+          }}
+          onPointerUp={() => press.current && window.clearTimeout(press.current.timer)}
+          onPointerLeave={() => press.current && window.clearTimeout(press.current.timer)}
+          className={`group flex w-[66px] flex-col items-center gap-1 rounded-xl py-1 cursor-pointer outline-none focus-visible:bg-accent-muted ${hidden ? 'opacity-60 hover:opacity-100' : ''}`}
+          title={`${name} · ${stories.length}`}
+        >
+          <span className="relative block transition-transform group-active:scale-95" style={{ width: RING, height: RING }}>
+            <StoryRing stories={stories} isStoryViewed={isStoryViewed} />
+            <Face src={getUserAvatar(userId)} name={name} />
+          </span>
+          <span className={`w-full truncate text-center text-[11.5px] leading-tight ${unseen && !hidden ? 'font-semibold text-ink' : 'text-muted'}`}>
+            {name.split(' ')[0]}
+          </span>
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -140,28 +149,59 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({ onOpenCreate, onOpenView
         </button>
       </div>
 
-      {othersStories.map(({ userId, stories }) => {
-        const unseen = stories.some((s) => !isStoryViewed(s.id));
-        const name = getUserDisplayName(userId);
-        return (
-          <div key={userId} role="listitem" className="shrink-0">
-            <button
-              type="button"
-              onClick={() => onOpenViewer(userId)}
-              className="group flex w-[66px] flex-col items-center gap-1 rounded-xl py-1 cursor-pointer outline-none focus-visible:bg-accent-muted"
-              title={`${name} · ${stories.length}`}
+      {othersStories.map((entry) => authorTile(entry, false))}
+
+      {/* Hidden authors: one collapsed tile at the end, expands in place */}
+      {hiddenStories.length > 0 && (
+        <div role="listitem" className="shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowHidden((v) => !v)}
+            aria-expanded={showHidden}
+            className="group flex w-[66px] flex-col items-center gap-1 rounded-xl py-1 cursor-pointer outline-none focus-visible:bg-accent-muted"
+            title={showHidden ? 'Свернуть скрытые' : 'Скрытые истории'}
+          >
+            <span
+              className="relative flex items-center justify-center rounded-full bg-elevated text-muted transition-[transform,color] group-hover:text-ink group-active:scale-95"
+              style={{ width: RING - 10, height: RING - 10, margin: 5 }}
             >
-              <span className="relative block transition-transform group-active:scale-95" style={{ width: RING, height: RING }}>
-                <StoryRing stories={stories} isStoryViewed={isStoryViewed} />
-                <Face src={getUserAvatar(userId)} name={name} />
-              </span>
-              <span className={`w-full truncate text-center text-[11.5px] leading-tight ${unseen ? 'font-semibold text-ink' : 'text-muted'}`}>
-                {name.split(' ')[0]}
-              </span>
-            </button>
-          </div>
-        );
-      })}
+              {showHidden ? <IconChevronLeft size={22} /> : <IconEyeOff size={21} />}
+              {!showHidden && (
+                <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-muted px-1 text-[10.5px] font-bold tabular-nums text-white ring-2 ring-canvas">
+                  {hiddenStories.length}
+                </span>
+              )}
+            </span>
+            <span className="w-full truncate text-center text-[11.5px] leading-tight text-muted">{showHidden ? 'Свернуть' : 'Скрытые'}</span>
+          </button>
+        </div>
+      )}
+      {showHidden && hiddenStories.map((entry) => authorTile(entry, true))}
+
+      {menu &&
+        createPortal(
+          <div className="fixed inset-0 z-[70]" onClick={() => setMenu(null)} onContextMenu={(e) => (e.preventDefault(), setMenu(null))}>
+            <div
+              role="menu"
+              className="absolute min-w-[210px] rounded-xl bg-elevated p-1 shadow-xl ring-1 ring-line"
+              style={{ left: Math.min(menu.x, window.innerWidth - 222), top: Math.min(menu.y, window.innerHeight - 60) }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  toggleHiddenAuthor(menu.userId);
+                  setMenu(null);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] text-ink cursor-pointer hover:bg-accent-muted"
+              >
+                {isAuthorHidden(menu.userId) ? <IconEye size={18} className="text-muted" /> : <IconEyeOff size={18} className="text-muted" />}
+                {isAuthorHidden(menu.userId) ? 'Показывать истории' : 'Скрыть истории'}
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

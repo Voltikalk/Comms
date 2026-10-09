@@ -17,20 +17,27 @@ import {
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
   IconLoader2,
+  IconDots,
+  IconPin,
+  IconPinnedOff,
+  IconEyeOff,
+  IconCheck,
+  IconUsers,
 } from '@tabler/icons-react';
 import { useStories } from '../../context/stories-context';
 import { useAuth, useRooms } from '../../context/contexts';
-import type { UserId } from '../../types';
-import type { Story } from '../../types/story.types';
+import type { StoryReplyRef, UserId } from '../../types';
+import { STORY_PRIVACY_OPTIONS, type Story, type StoryPrivacy } from '../../types/story.types';
+import { plural, reactionOf, startStoryIndex, storyReactionCount, storyViewerEntries } from '../../lib/story-utils';
 import { StoryContent } from './storyCanvas';
+import { StoryThumb } from './StoryThumb';
+import { CloseFriendsSheet } from './CloseFriendsSheet';
 import { PRIVACY_META, formatStoryAge, storyGradient } from './storyStyle';
 
 interface StoryViewerProps {
-  /** 'me' opens own stories, otherwise a specific userId */
-  targetUser: string | null;
-  onClose: () => void;
   onOpenCreate: () => void;
-  onSendDirectMessage?: (peerUserId: string, text: string) => void;
+  /** Sends a reply to the author's DM with the story card attached. */
+  onSendReply?: (peerUserId: string, text: string, storyReply: StoryReplyRef) => void;
 }
 
 const PHOTO_DURATION_MS = 5500;
@@ -41,27 +48,58 @@ const REACTIONS = ['❤️', '🔥', '😂', '😍', '👏', '😮', '😢', '�
 const isTypingTarget = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
 
-export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, onOpenCreate, onSendDirectMessage }) => {
-  const { stories, myStories, othersStories, deleteStory, viewStory, reactStory, isStoryViewed, markStoryViewedLocal } = useStories();
+/** What the reply card in the chat shows: the text itself or the media URL. */
+const replyRefOf = (story: Story): StoryReplyRef => ({
+  authorId: story.userId,
+  storyId: story.id,
+  type: story.type,
+  preview: story.type === 'text' ? story.data.slice(0, 120) : story.data,
+  background: story.type === 'text' ? story.background : undefined,
+});
+
+/** Opened from the context (`openStories`); remounted per open, so the author order is a snapshot. */
+export const StoryViewer: React.FC<StoryViewerProps> = ({ onOpenCreate, onSendReply }) => {
+  const {
+    stories,
+    myStories,
+    othersStories,
+    hiddenStories,
+    deleteStory,
+    updateStory,
+    viewStory,
+    reactStory,
+    isStoryViewed,
+    markStoryViewedLocal,
+    isAuthorHidden,
+    toggleHiddenAuthor,
+    viewer,
+    closeStories: onClose,
+  } = useStories();
   const me = useAuth().currentUser ?? '';
   const { getUserDisplayName, getUserAvatar } = useRooms();
 
-  const normalize = (uid: string | null) => (!uid || uid === me ? 'me' : uid);
+  const isViewed = (s: Story) => isStoryViewed(s.id);
   const listFor = (uid: string): Story[] => (uid === 'me' ? myStories : stories[uid] ?? []);
-  const startIndexFor = (uid: string) => {
-    if (uid === 'me') return 0;
-    const i = listFor(uid).findIndex((s) => !isStoryViewed(s.id));
-    return i === -1 ? 0 : i;
-  };
+  const startIndexFor = (uid: string, storyId?: string) =>
+    // Own stories always start from the first one; others from the first unseen.
+    startStoryIndex(listFor(uid), uid === 'me' ? () => false : isViewed, storyId);
 
   // The author order is snapshotted on open: viewing a story re-sorts the bar, which must not reshuffle the viewer.
   const [order] = useState<string[]>(() => {
-    const ids = [...(myStories.length > 0 ? ['me'] : []), ...othersStories.map((o) => o.userId as string)];
-    const target = normalize(targetUser);
+    const raw = viewer?.userId ?? 'me';
+    const target = !raw || raw === me ? 'me' : raw;
+    // A hidden author is opened together with the other hidden ones, never mixed into the main row.
+    const ids =
+      target !== 'me' && isAuthorHidden(target)
+        ? hiddenStories.map((o) => o.userId as string)
+        : [...(myStories.length > 0 ? ['me'] : []), ...othersStories.map((o) => o.userId as string)];
     return ids.includes(target) ? ids : [target, ...ids];
   });
-  const [userIdx, setUserIdx] = useState(() => Math.max(0, order.indexOf(normalize(targetUser))));
-  const [storyIdx, setStoryIdx] = useState(() => startIndexFor(normalize(targetUser)));
+  const [userIdx, setUserIdx] = useState(() => {
+    const raw = viewer?.userId ?? 'me';
+    return Math.max(0, order.indexOf(!raw || raw === me ? 'me' : raw));
+  });
+  const [storyIdx, setStoryIdx] = useState(() => startIndexFor(order[userIdx], viewer?.storyId));
 
   const userId = order[userIdx];
   const isOwn = userId === 'me';
@@ -75,7 +113,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
   const [userPaused, setUserPaused] = useState(false);
   const [replyFocused, setReplyFocused] = useState(false);
   const [viewersOpen, setViewersOpen] = useState(false);
+  const [viewersFilter, setViewersFilter] = useState<'all' | 'reactions'>('all');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const [tabHidden, setTabHidden] = useState(() => document.visibilityState === 'hidden');
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
@@ -84,12 +126,20 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
   const [toast, setToast] = useState<string | null>(null);
 
   const loaded = story ? story.type === 'text' || loadedId === story.id : false;
-  const paused = holding || userPaused || replyFocused || viewersOpen || confirmDelete || tabHidden || !!reply.trim();
+  const overlayOpen = viewersOpen || confirmDelete || menuOpen || privacyOpen || friendsOpen;
+  const paused = holding || userPaused || replyFocused || overlayOpen || tabHidden || !!reply.trim();
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
   const elapsedRef = useRef(0);
   const replyRef = useRef<HTMLInputElement | null>(null);
+
+  const closeOverlays = () => {
+    setViewersOpen(false);
+    setConfirmDelete(false);
+    setMenuOpen(false);
+    setPrivacyOpen(false);
+  };
 
   // ---------------------------------------------------------------------------
   // Navigation
@@ -99,8 +149,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
       if (nextIdx < 0 || nextIdx >= order.length) return onClose();
       setUserIdx(nextIdx);
       setStoryIdx(startIndexFor(order[nextIdx]));
-      setViewersOpen(false);
-      setConfirmDelete(false);
+      closeOverlays();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [order, onClose, stories, myStories]
@@ -124,7 +173,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, userIdx, order, stories, myStories]);
 
-  // Author ran out of stories (expired / deleted) → move on.
+  // Author ran out of stories (expired / deleted / unpinned) → move on.
   useEffect(() => {
     if (list.length === 0) goToUser(order.findIndex((uid, i) => i > userIdx && listFor(uid).length > 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,6 +187,37 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
     else viewStory(story.id, story.userId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?.id]);
+
+  // Preload the story that comes next, so tapping forward doesn't show a spinner.
+  const nextStory: Story | undefined =
+    index < list.length - 1
+      ? list[index + 1]
+      : (() => {
+          const uid = order[userIdx + 1];
+          return uid ? listFor(uid)[startIndexFor(uid)] : undefined;
+        })();
+  const nextType = nextStory?.type;
+  const nextSrc = nextStory?.data;
+  const preloadRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null);
+  useEffect(() => {
+    if (!nextSrc || !nextType || nextType === 'text') return;
+    if (nextType === 'image') {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = nextSrc;
+      preloadRef.current = img;
+    } else {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      video.src = nextSrc;
+      video.load();
+      preloadRef.current = video;
+    }
+    return () => {
+      preloadRef.current = null;
+    };
+  }, [nextType, nextSrc]);
 
   // ---------------------------------------------------------------------------
   // Playback clock — writes the progress bar directly instead of re-rendering every frame
@@ -207,13 +287,16 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      if (confirmDelete) setConfirmDelete(false);
+      if (friendsOpen) setFriendsOpen(false);
+      else if (privacyOpen) setPrivacyOpen(false);
+      else if (menuOpen) setMenuOpen(false);
+      else if (confirmDelete) setConfirmDelete(false);
       else if (viewersOpen) setViewersOpen(false);
       else if (isTypingTarget(e.target)) (e.target as HTMLElement).blur();
       else onClose();
       return;
     }
-    if (isTypingTarget(e.target) || viewersOpen || confirmDelete) return;
+    if (isTypingTarget(e.target) || overlayOpen) return;
     if (e.key === 'ArrowRight') goNext();
     else if (e.key === 'ArrowLeft') goPrev();
     else if (e.key === ' ') {
@@ -286,22 +369,23 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
-  const myReaction = story && Object.entries(story.reactions ?? {}).find(([, users]) => users.includes(me as UserId))?.[0];
+  const myReaction = story ? reactionOf(story, me) : undefined;
 
+  /** One reaction per story: the same emoji again removes it. */
   const react = (emoji: string) => {
     if (!story || isOwn) return;
     reactStory(story.id, story.userId, emoji);
-    setBurst({ emoji, key: Date.now() });
+    if (myReaction !== emoji) setBurst({ emoji, key: Date.now() });
     replyRef.current?.blur();
   };
 
   const sendReply = () => {
     const text = reply.trim();
-    if (!story || !text || !onSendDirectMessage) return;
-    onSendDirectMessage(story.userId, `Ответ на историю: ${text}`);
+    if (!story || !text || !onSendReply) return;
+    onSendReply(story.userId, text, replyRefOf(story));
     setReply('');
     replyRef.current?.blur();
-    setToast('Ответ отправлен в личные сообщения');
+    setToast('Ответ отправлен');
   };
 
   const removeStory = () => {
@@ -310,15 +394,74 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
     setConfirmDelete(false);
   };
 
+  const togglePin = () => {
+    if (!story) return;
+    const pinned = !story.isPinned;
+    const expired = !pinned && story.timestamp + (story.durationHours || 24) * 3600_000 <= Date.now();
+    updateStory(story.id, { isPinned: pinned });
+    setMenuOpen(false);
+    setToast(pinned ? 'История закреплена в профиле' : expired ? 'История убрана — срок истёк' : 'История убрана из профиля');
+  };
+
+  const setPrivacy = (privacy: StoryPrivacy) => {
+    if (!story) return;
+    updateStory(story.id, { privacy });
+    setPrivacyOpen(false);
+    setToast(`Видимость: ${PRIVACY_META[privacy].label}`);
+  };
+
+  const hideAuthor = () => {
+    const hidden = isAuthorHidden(authorId);
+    toggleHiddenAuthor(authorId);
+    setMenuOpen(false);
+    if (hidden) setToast('Истории снова в общей ленте');
+    else goToUser(userIdx + 1);
+  };
+
   if (!story) return null;
 
   const name = isOwn ? 'Моя история' : getUserDisplayName(authorId);
   const avatar = getUserAvatar(authorId);
   const privacy = story.privacy ?? 'everyone';
   const PrivacyIcon = PRIVACY_META[privacy].icon;
-  const reactionByUser = new Map<string, string>();
-  Object.entries(story.reactions ?? {}).forEach(([emoji, users]) => users.forEach((u) => reactionByUser.set(u, emoji)));
-  const chromeHidden = holding && !viewersOpen;
+  const chromeHidden = holding && !overlayOpen;
+  const viewerEntries = storyViewerEntries(story);
+  const reactionCount = storyReactionCount(story);
+  const shownViewers = viewersFilter === 'reactions' ? viewerEntries.filter((v) => v.emoji) : viewerEntries;
+
+  /** Desktop side preview of a neighbouring author. */
+  const sidePreview = (idx: number) => {
+    const uid = order[idx];
+    const sideList = uid ? listFor(uid) : [];
+    if (!uid || sideList.length === 0) return <div className="hidden w-[min(22dvh,200px)] lg:block" aria-hidden />;
+    const s = sideList[startIndexFor(uid)];
+    const sideId = (uid === 'me' ? me : uid) as UserId;
+    const sideName = uid === 'me' ? 'Моя история' : getUserDisplayName(sideId);
+    const src = getUserAvatar(sideId);
+    const unseen = uid !== 'me' && sideList.some((x) => !isStoryViewed(x.id));
+    return (
+      <button
+        type="button"
+        onClick={() => goToUser(idx)}
+        aria-label={`Истории: ${sideName}`}
+        className="group hidden shrink-0 cursor-pointer opacity-55 transition-opacity hover:opacity-90 lg:block"
+      >
+        <StoryThumb story={s} className="w-[min(22dvh,200px)] rounded-[16px]">
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/45 p-3 transition-colors group-hover:bg-black/30">
+            <span
+              className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white/15 text-[20px] font-semibold ring-[2.5px] ring-offset-2 ring-offset-black/40 ${
+                unseen ? 'ring-accent' : 'ring-white/35'
+              }`}
+            >
+              {src ? <img src={src} alt="" className="h-full w-full object-cover" draggable={false} /> : (getUserDisplayName(sideId).trim().charAt(0) || '?').toUpperCase()}
+            </span>
+            <span className="max-w-full truncate text-[13.5px] font-semibold">{sideName}</span>
+            <span className="text-[11.5px] text-white/65">{formatStoryAge(s.timestamp)}</span>
+          </span>
+        </StoryThumb>
+      </button>
+    );
+  };
 
   return createPortal(
     <motion.div
@@ -351,6 +494,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
       </button>
 
       <div className="relative flex items-center gap-5">
+        {sidePreview(userIdx - 1)}
+
         {/* Desktop prev */}
         <button
           type="button"
@@ -372,7 +517,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
             style={{ y: dragY }}
             className="@container relative aspect-[9/16] h-[min(100dvh,calc(100vw*16/9))] overflow-hidden bg-black select-none sm:h-[min(calc(100dvh-40px),880px)] sm:rounded-[22px] sm:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] data-[gesture=on]:touch-none"
             // touch-action is intersected down the tree, so let the viewers list scroll while the sheet is open
-            data-gesture={viewersOpen ? 'off' : 'on'}
+            data-gesture={viewersOpen || privacyOpen ? 'off' : 'on'}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -436,25 +581,81 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
                   <HeaderButton label={userPaused ? 'Продолжить' : 'Пауза'} onClick={() => setUserPaused((p) => !p)}>
                     {userPaused ? <IconPlayerPlayFilled size={18} /> : <IconPlayerPauseFilled size={18} />}
                   </HeaderButton>
-                  {story.type !== 'text' && (
-                    <a
-                      href={story.data}
-                      download
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Скачать"
-                      title="Скачать"
-                      className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/15"
-                    >
-                      <IconDownload size={20} />
-                    </a>
-                  )}
+                  <HeaderButton label="Ещё" onClick={() => setMenuOpen((o) => !o)}>
+                    <IconDots size={20} />
+                  </HeaderButton>
                   <HeaderButton label="Закрыть" onClick={onClose} className="sm:hidden">
                     <IconX size={22} />
                   </HeaderButton>
                 </div>
               </div>
             </div>
+
+            {/* ⋯ menu */}
+            <AnimatePresence>
+              {menuOpen && (
+                <>
+                  <div className="absolute inset-0 z-40" data-no-tap onClick={() => setMenuOpen(false)} />
+                  <motion.div
+                    role="menu"
+                    data-no-tap
+                    className="absolute right-3 top-[calc(max(10px,env(safe-area-inset-top))+52px)] z-50 w-[min(250px,calc(100%-24px))] origin-top-right overflow-hidden rounded-2xl bg-[#1c1c1f]/95 p-1 shadow-2xl ring-1 ring-white/10 backdrop-blur-xl"
+                    initial={{ opacity: 0, scale: 0.92, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.1 } }}
+                    transition={{ type: 'spring', stiffness: 560, damping: 36 }}
+                  >
+                    {isOwn ? (
+                      <>
+                        <MenuItem icon={story.isPinned ? <IconPinnedOff size={18} /> : <IconPin size={18} />} onClick={togglePin}>
+                          {story.isPinned ? 'Убрать из профиля' : 'Закрепить в профиле'}
+                        </MenuItem>
+                        <MenuItem
+                          icon={<PrivacyIcon size={18} />}
+                          hint={PRIVACY_META[privacy].label}
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setPrivacyOpen(true);
+                          }}
+                        >
+                          Кто может видеть
+                        </MenuItem>
+                      </>
+                    ) : (
+                      <MenuItem icon={<IconEyeOff size={18} />} onClick={hideAuthor}>
+                        {isAuthorHidden(authorId) ? 'Показывать истории' : 'Скрыть истории'}
+                      </MenuItem>
+                    )}
+                    {story.type !== 'text' && (
+                      <a
+                        href={story.data}
+                        download
+                        target="_blank"
+                        rel="noreferrer"
+                        role="menuitem"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] transition-colors hover:bg-white/[0.08]"
+                      >
+                        <IconDownload size={18} className="text-white/75" />
+                        Скачать
+                      </a>
+                    )}
+                    {isOwn && (
+                      <MenuItem
+                        danger
+                        icon={<IconTrash size={18} />}
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setConfirmDelete(true);
+                        }}
+                      >
+                        Удалить
+                      </MenuItem>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
 
             {/* Reaction burst */}
             <AnimatePresence>
@@ -475,12 +676,12 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
             <AnimatePresence>
               {toast && (
                 <motion.div
-                  className="pointer-events-none absolute inset-x-0 top-[18%] z-30 flex justify-center"
+                  className="pointer-events-none absolute inset-x-0 top-[18%] z-[60] flex justify-center px-4"
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                 >
-                  <span className="rounded-full bg-black/70 px-3.5 py-1.5 text-[13px] font-medium backdrop-blur-md">{toast}</span>
+                  <span className="rounded-full bg-black/70 px-3.5 py-1.5 text-center text-[13px] font-medium backdrop-blur-md">{toast}</span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -501,8 +702,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
                   >
                     {story.views.length > 0 ? (
                       <span className="flex -space-x-2">
-                        {story.views.slice(-3).map((v) => (
-                          <Avatar key={v} src={getUserAvatar(v)} name={getUserDisplayName(v)} size={24} ring />
+                        {viewerEntries.slice(0, 3).map((v) => (
+                          <Avatar key={v.userId} src={getUserAvatar(v.userId)} name={getUserDisplayName(v.userId)} size={24} ring />
                         ))}
                       </span>
                     ) : (
@@ -513,6 +714,12 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
                     <span className="truncate">
                       {story.views.length === 0 ? 'Пока нет просмотров' : `${story.views.length} ${plural(story.views.length, 'просмотр', 'просмотра', 'просмотров')}`}
                     </span>
+                    {reactionCount > 0 && (
+                      <span className="flex shrink-0 items-center gap-1 text-white/80">
+                        <IconHeartFilled size={14} className="text-[#ff375f]" />
+                        {reactionCount}
+                      </span>
+                    )}
                   </button>
                   <div className="flex-1" />
                   <FooterButton label="Удалить" onClick={() => setConfirmDelete(true)}>
@@ -543,13 +750,15 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
                           <motion.button
                             key={emoji}
                             type="button"
+                            aria-pressed={myReaction === emoji}
+                            title={myReaction === emoji ? 'Убрать реакцию' : undefined}
                             // keep focus in the input so the strip doesn't collapse before the click lands
                             onPointerDown={(e) => e.preventDefault()}
                             onClick={() => react(emoji)}
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0, transition: { delay: i * 0.02 } }}
                             className={`flex h-9 w-9 items-center justify-center rounded-full text-[22px] cursor-pointer transition-transform hover:scale-125 active:scale-95 ${
-                              myReaction === emoji ? 'bg-white/20' : ''
+                              myReaction === emoji ? 'bg-white/25 ring-1 ring-white/40' : ''
                             }`}
                           >
                             {emoji}
@@ -573,8 +782,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
                         onFocus={() => setReplyFocused(true)}
                         onBlur={() => setReplyFocused(false)}
                         maxLength={1000}
-                        disabled={!onSendDirectMessage}
-                        placeholder="Ответить…"
+                        disabled={!onSendReply}
+                        placeholder={`Ответить ${getUserDisplayName(authorId).split(' ')[0]}…`}
                         className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-[14px] text-white placeholder:text-white/65 outline-none"
                       />
                       {reply.trim() && (
@@ -588,7 +797,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
                         </button>
                       )}
                     </form>
-                    <FooterButton label={myReaction ? 'Реакция поставлена' : 'Нравится'} onClick={() => react(myReaction ?? '❤️')}>
+                    <FooterButton label={myReaction ? 'Убрать реакцию' : 'Нравится'} onClick={() => react(myReaction ?? '❤️')}>
                       {myReaction && myReaction !== '❤️' ? (
                         <span className="text-[20px] leading-none">{myReaction}</span>
                       ) : myReaction ? (
@@ -619,62 +828,95 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
             </AnimatePresence>
 
             {/* Viewers sheet (own stories) */}
-            <AnimatePresence>
-              {viewersOpen && (
-                <>
-                  <motion.div
-                    className="absolute inset-0 z-40 bg-black/50"
-                    data-no-tap
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setViewersOpen(false)}
-                  />
-                  <motion.div
-                    className="absolute inset-x-0 bottom-0 z-50 flex max-h-[62%] flex-col rounded-t-[20px] bg-[#1c1c1f] pb-[env(safe-area-inset-bottom)]"
-                    data-no-tap
-                    initial={{ y: '100%' }}
-                    animate={{ y: 0 }}
-                    exit={{ y: '100%' }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 40 }}
-                  >
-                    <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-white/20" />
-                    <div className="flex items-center justify-between px-4 pb-2 pt-3">
-                      <div>
-                        <p className="text-[15px] font-semibold">Просмотры</p>
-                        <p className="text-[12px] text-white/45">
-                          {PRIVACY_META[privacy].label} · {story.isPinned ? 'в профиле' : `${story.durationHours ?? 24} ч`}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setViewersOpen(false)}
-                        aria-label="Закрыть"
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 cursor-pointer hover:bg-white/15"
-                      >
-                        <IconX size={17} />
-                      </button>
-                    </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-                      {story.views.length === 0 ? (
-                        <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-                          <IconEye size={28} className="text-white/30" />
-                          <p className="text-[13.5px] text-white/55">Здесь появятся те, кто посмотрел историю</p>
-                        </div>
-                      ) : (
-                        [...story.views].reverse().map((v) => (
-                          <div key={v} className="flex items-center gap-3 rounded-xl px-2 py-2">
-                            <Avatar src={getUserAvatar(v)} name={getUserDisplayName(v)} size={38} />
-                            <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium">{getUserDisplayName(v)}</span>
-                            {reactionByUser.get(v) && <span className="text-[20px]">{reactionByUser.get(v)}</span>}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </motion.div>
-                </>
+            <Sheet open={viewersOpen} onClose={() => setViewersOpen(false)}>
+              <div className="flex items-center justify-between px-4 pb-2 pt-3">
+                <div>
+                  <p className="text-[15px] font-semibold">Просмотры</p>
+                  <p className="text-[12px] text-white/45">
+                    {PRIVACY_META[privacy].label} · {story.isPinned ? 'в профиле' : `${story.durationHours ?? 24} ч`} · {formatStoryAge(story.timestamp)}
+                  </p>
+                </div>
+                <SheetClose onClick={() => setViewersOpen(false)} />
+              </div>
+              {story.views.length > 0 && (
+                <div className="flex gap-1.5 px-4 pb-2">
+                  <Chip active={viewersFilter === 'all'} onClick={() => setViewersFilter('all')}>
+                    <IconEye size={15} /> {story.views.length}
+                  </Chip>
+                  <Chip active={viewersFilter === 'reactions'} onClick={() => setViewersFilter('reactions')} disabled={reactionCount === 0}>
+                    <IconHeartFilled size={14} className="text-[#ff375f]" /> {reactionCount}
+                  </Chip>
+                </div>
               )}
-            </AnimatePresence>
+              <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+                {shownViewers.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+                    <IconEye size={28} className="text-white/30" />
+                    <p className="text-[13.5px] text-white/55">
+                      {story.views.length === 0 ? 'Здесь появятся те, кто посмотрел историю' : 'Реакций пока нет'}
+                    </p>
+                  </div>
+                ) : (
+                  shownViewers.map((v) => (
+                    <div key={v.userId} className="flex items-center gap-3 rounded-xl px-2 py-2">
+                      <Avatar src={getUserAvatar(v.userId)} name={getUserDisplayName(v.userId)} size={38} />
+                      <span className="min-w-0 flex-1 leading-tight">
+                        <span className="block truncate text-[14.5px] font-medium">{getUserDisplayName(v.userId)}</span>
+                        {v.at !== undefined && <span className="block text-[12px] text-white/45">{formatStoryAge(v.at)}</span>}
+                      </span>
+                      {v.emoji && <span className="text-[20px]">{v.emoji}</span>}
+                    </div>
+                  ))
+                )}
+              </div>
+            </Sheet>
+
+            {/* Privacy after publishing (own stories) */}
+            <Sheet open={privacyOpen} onClose={() => setPrivacyOpen(false)}>
+              <div className="flex items-center justify-between px-4 pb-1 pt-3">
+                <p className="text-[15px] font-semibold">Кто может видеть</p>
+                <SheetClose onClick={() => setPrivacyOpen(false)} />
+              </div>
+              <div className="px-2 pb-3">
+                {STORY_PRIVACY_OPTIONS.map(({ id }) => {
+                  const meta = PRIVACY_META[id];
+                  const Icon = meta.icon;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setPrivacy(id)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left cursor-pointer transition-colors ${
+                        privacy === id ? 'bg-white/[0.08]' : 'hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                          id === 'close_friends' ? 'bg-[#32d74b]/15 text-[#32d74b]' : 'bg-white/[0.08] text-white/85'
+                        }`}
+                      >
+                        <Icon size={17} stroke={1.9} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-medium leading-tight">{meta.label}</span>
+                        <span className="block truncate text-[12px] leading-tight text-white/45">{meta.hint}</span>
+                      </span>
+                      {privacy === id && <IconCheck size={18} stroke={2.4} className="shrink-0 text-accent" />}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setFriendsOpen(true)}
+                  className="mt-1 flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13.5px] font-medium text-[#32d74b] cursor-pointer hover:bg-white/[0.05]"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center">
+                    <IconUsers size={17} />
+                  </span>
+                  Список близких друзей
+                </button>
+              </div>
+            </Sheet>
 
             {/* Delete confirmation */}
             <AnimatePresence>
@@ -722,18 +964,14 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ targetUser, onClose, o
         >
           <IconChevronRight size={24} />
         </button>
+
+        {sidePreview(userIdx + 1)}
       </div>
+
+      <AnimatePresence>{friendsOpen && <CloseFriendsSheet onClose={() => setFriendsOpen(false)} />}</AnimatePresence>
     </motion.div>,
     document.body
   );
-};
-
-const plural = (n: number, one: string, few: string, many: string) => {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-  return many;
 };
 
 const Avatar: React.FC<{ src?: string; name: string; size: number; ring?: boolean }> = ({ src, name, size, ring }) => (
@@ -764,6 +1002,80 @@ const FooterButton: React.FC<{ label: string; onClick: () => void; children: Rea
     title={label}
     onClick={onClick}
     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/40 backdrop-blur-md cursor-pointer transition-all hover:bg-black/55 active:scale-90"
+  >
+    {children}
+  </button>
+);
+
+const MenuItem: React.FC<{ icon: React.ReactNode; hint?: string; danger?: boolean; onClick: () => void; children: React.ReactNode }> = ({
+  icon,
+  hint,
+  danger,
+  onClick,
+  children,
+}) => (
+  <button
+    type="button"
+    role="menuitem"
+    onClick={onClick}
+    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] cursor-pointer transition-colors hover:bg-white/[0.08] ${
+      danger ? 'text-[#ff6b6b]' : ''
+    }`}
+  >
+    <span className={danger ? '' : 'text-white/75'}>{icon}</span>
+    <span className="min-w-0 flex-1 truncate">{children}</span>
+    {hint && <span className="shrink-0 text-[12px] text-white/45">{hint}</span>}
+  </button>
+);
+
+/** Bottom sheet inside the story card. */
+const Sheet: React.FC<{ open: boolean; onClose: () => void; children: React.ReactNode }> = ({ open, onClose, children }) => (
+  <AnimatePresence>
+    {open && (
+      <>
+        <motion.div
+          className="absolute inset-0 z-40 bg-black/50"
+          data-no-tap
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        />
+        <motion.div
+          className="absolute inset-x-0 bottom-0 z-50 flex max-h-[66%] flex-col rounded-t-[20px] bg-[#1c1c1f] pb-[env(safe-area-inset-bottom)]"
+          data-no-tap
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+        >
+          <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-white/20" />
+          {children}
+        </motion.div>
+      </>
+    )}
+  </AnimatePresence>
+);
+
+const SheetClose: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label="Закрыть"
+    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 cursor-pointer hover:bg-white/15"
+  >
+    <IconX size={17} />
+  </button>
+);
+
+const Chip: React.FC<{ active: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, disabled, onClick, children }) => (
+  <button
+    type="button"
+    disabled={disabled}
+    onClick={onClick}
+    className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-semibold tabular-nums cursor-pointer transition-colors disabled:cursor-default disabled:opacity-40 ${
+      active ? 'bg-white text-black' : 'bg-white/10 text-white/80 hover:bg-white/15'
+    }`}
   >
     {children}
   </button>
