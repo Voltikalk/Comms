@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import type { Room } from '../../../types';
-import type { FilterOptions } from '../../../lib/filter-utils';
 import {
   IconChevronLeft,
   IconSearch,
@@ -12,9 +11,6 @@ import {
   IconCopy,
   IconShare3,
   IconTrash,
-  IconChevronUp,
-  IconChevronDown,
-  IconWorld,
   IconUsers,
   IconBell,
   IconBellOff,
@@ -46,19 +42,8 @@ export interface ChatHeaderProps {
   onCopySelected: () => void;
   onForwardSelected: () => void;
   onDeleteSelected: () => void;
-  // Search Mode Props
-  isSearching: boolean;
-  searchQuery: string;
-  onSearchQueryChange: (q: string) => void;
-  totalSearchMatches: number;
-  currentMatchIndex: number;
-  onPrevMatch: () => void;
-  onNextMatch: () => void;
-  onCloseSearch: () => void;
-  onOpenGlobalSearch: () => void;
-  chatFilters: FilterOptions;
-  setChatFilters: React.Dispatch<React.SetStateAction<FilterOptions>>;
-  handleDatePreset: (preset: 'today') => void;
+  /** In-chat search bar; when set it replaces the title row (`InChatSearch`). */
+  searchBar?: React.ReactNode;
   // Calling & Actions
   onStartAudioCall: () => void;
   onStartVideoCall: () => void;
@@ -93,19 +78,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onCopySelected,
   onForwardSelected,
   onDeleteSelected,
-  // Search
-  isSearching,
-  searchQuery,
-  onSearchQueryChange,
-  totalSearchMatches,
-  currentMatchIndex,
-  onPrevMatch,
-  onNextMatch,
-  onCloseSearch,
-  onOpenGlobalSearch,
-  chatFilters,
-  setChatFilters,
-  handleDatePreset,
+  searchBar,
   // Calls & Actions
   onStartAudioCall,
   onStartVideoCall,
@@ -191,65 +164,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               </button>
             </div>
           </div>
-        ) : isSearching ? (
-          /* Ultra-clean Telegram / iOS Minimalist Search Bar */
-          <div className="w-full min-w-0 flex items-center gap-2">
-            <div className="flex-1 min-w-0 flex items-center h-9 px-3 bg-black/5 dark:bg-white/5 rounded-full border border-zinc-200/60 dark:border-white/10 transition-colors">
-              <IconSearch size={16} className="text-zinc-400 shrink-0 mr-2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
-                placeholder="Поиск по чату..."
-                autoFocus
-                className="w-full bg-transparent text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => onSearchQueryChange('')}
-                  className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
-                >
-                  <IconX size={14} />
-                </button>
-              )}
-            </div>
-
-            {/* Navigation Arrows & Counter */}
-            {totalSearchMatches > 0 ? (
-              <div className="flex items-center gap-1 shrink-0 bg-black/5 dark:bg-white/5 px-2 py-1 rounded-full text-xs font-mono text-zinc-600 dark:text-zinc-300">
-                <span>{currentMatchIndex + 1} из {totalSearchMatches}</span>
-                <button
-                  type="button"
-                  onClick={onPrevMatch}
-                  className="p-0.5 hover:text-accent cursor-pointer"
-                  title="Предыдущее совпадение"
-                >
-                  <IconChevronUp size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={onNextMatch}
-                  className="p-0.5 hover:text-accent cursor-pointer"
-                  title="Следующее совпадение"
-                >
-                  <IconChevronDown size={14} />
-                </button>
-              </div>
-            ) : searchQuery.trim() ? (
-              <span className="text-xs text-zinc-400 shrink-0 px-2 font-mono">0 найдено</span>
-            ) : null}
-
-            {/* Close Search */}
-            <button
-              type="button"
-              onClick={onCloseSearch}
-              className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer shrink-0 transition-colors"
-              title="Закрыть поиск (Esc)"
-            >
-              <IconX size={18} />
-            </button>
-          </div>
+        ) : searchBar ? (
+          searchBar
         ) : (
           /* Normal Chat Header View */
           <>
@@ -468,102 +384,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </>
         )}
       </header>
-
-      {/* Filter Chips Bar during in-chat search */}
-      {isSearching && !isSelectMode && (
-        <div className="px-3 sm:px-4 py-1.5 bg-white/95 dark:bg-surface/95 border-b border-zinc-200 dark:border-white/10 flex items-center gap-1.5 overflow-x-auto select-none z-10 backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => setChatFilters({})}
-            className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-              !chatFilters.attachmentTypes && !chatFilters.dateRange
-                ? 'bg-accent text-white shadow-xs'
-                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
-            }`}
-          >
-            Все
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const isMedia = chatFilters.attachmentTypes?.includes('image') || chatFilters.attachmentTypes?.includes('video');
-              setChatFilters(prev => ({
-                ...prev,
-                attachmentTypes: isMedia ? undefined : ['image', 'video'],
-                hasAttachments: isMedia ? undefined : true,
-              }));
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-              chatFilters.attachmentTypes?.includes('image') || chatFilters.attachmentTypes?.includes('video')
-                ? 'bg-accent text-white shadow-xs'
-                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
-            }`}
-          >
-            Медиа
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const isDoc = chatFilters.attachmentTypes?.includes('document');
-              setChatFilters(prev => ({
-                ...prev,
-                attachmentTypes: isDoc ? undefined : ['document'],
-                hasAttachments: isDoc ? undefined : true,
-              }));
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-              chatFilters.attachmentTypes?.includes('document')
-                ? 'bg-accent text-white shadow-xs'
-                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
-            }`}
-          >
-            Файлы
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const isAudio = chatFilters.attachmentTypes?.includes('audio');
-              setChatFilters(prev => ({
-                ...prev,
-                attachmentTypes: isAudio ? undefined : ['audio'],
-                hasAttachments: isAudio ? undefined : true,
-              }));
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-              chatFilters.attachmentTypes?.includes('audio')
-                ? 'bg-accent text-white shadow-xs'
-                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
-            }`}
-          >
-            Голосовые
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleDatePreset('today')}
-            className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-              chatFilters.dateRange?.startDate
-                ? 'bg-accent text-white shadow-xs'
-                : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
-            }`}
-          >
-            Сегодня
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenGlobalSearch}
-            className="ml-auto px-2.5 py-1 rounded-full text-xs text-zinc-500 dark:text-zinc-400 hover:text-accent dark:hover:text-accent shrink-0 transition-colors flex items-center gap-1 cursor-pointer font-medium"
-          >
-            <IconWorld size={14} />
-            <span className="hidden sm:inline">Во всех чатах</span>
-            <span className="sm:hidden">Везде</span>
-          </button>
-        </div>
-      )}
     </>
   );
 };

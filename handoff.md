@@ -40,7 +40,7 @@ npm run dev
 
 ### 5. Тестирование, проверка качества и сборка
 ```bash
-# Запуск юнит-тестов Vitest (327/327 тестов)
+# Запуск юнит-тестов Vitest (353/353 тестов)
 npm test
 
 # Линтинг кодовой базы (Oxlint)
@@ -91,7 +91,19 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 63 — Stories 4.0: Persistence, Close Friends & Story Rings [v3.33.0]):
+### 📌 Текущая стадия разработки (Status: Phase 65 — Telegram-Style In-Chat Search [v3.35.0]):
+* ✅ **Поиск в чате как в Telegram [v3.35.0]**: Ctrl/Cmd+F или кнопка 🔍 заменяют шапку чата строкой поиска (`InChatSearch`). Лента больше не фильтруется — под строкой выпадает список найденных сообщений (аватар, автор, дата, сниппет с подсветкой), Enter / клик переводят к сообщению, «N из M» и стрелки ↑/↓ листают совпадения, а сами совпадения подсвечиваются прямо в облачках.
+* ✅ **Фильтр «от:» [v3.35.0]**: в группах кнопка 👤 выбирает участника — чип «от: Имя» показывает все его сообщения или ищет только среди них; Backspace в пустом поле снимает фильтр.
+* ✅ **Старый глобальный поиск удалён [v3.35.0]**: модалка `SearchPage` («Везде / В этом чате», чипсы фильтров, фейковые «Недавние запросы») и `AdvancedSearchModal` убраны — «Поиск по сообщениям» в меню, палитра команд и хештеги из галереи открывают поиск в сайдбаре (`SidebarSearch`), клик по #хештегу в сообщении — поиск в текущем чате.
+* ✅ **Качество**: `npm test` — 353/353 (37 файлов), `npm run lint` — 0 предупреждений, `npm run build` — OK.
+
+### 📌 Предыдущая стадия разработки (Status: Phase 64 — Telegram-Style Chat Search [v3.34.0]):
+* ✅ **Поиск в стиле Telegram [v3.34.0]**: фокус на строке поиска превращает сайдбар в панель поиска (`SidebarSearch`) — «Часто пишете» и «Недавние» до ввода, затем «Чаты и контакты», «Глобальный поиск» (люди и публичные группы) и «Сообщения» с подсветкой совпадений.
+* ✅ **Умное сопоставление [v3.34.0]**: неверная раскладка (`ghbdtn` → «привет»), транслит (`anya` → «Аня»), ё = е, слова в любом порядке, ранжирование «точно > начало > начало слова > подстрока»; короткие запросы — только с начала слова.
+* ✅ **Вкладки и клавиатура [v3.34.0]**: «Чаты», «Медиа», «Ссылки», «Файлы», «Голосовые»; ↑/↓ + Enter, Esc очищает и закрывает, переход к найденному сообщению.
+* ✅ **Качество**: `npm test` — 350/350 (37 файлов), `npm run lint` — 0 предупреждений, `npm run build` — OK.
+
+### 📌 Предыдущая стадия разработки (Status: Phase 63 — Stories 4.0: Persistence, Close Friends & Story Rings [v3.33.0]):
 * ✅ **Истории переживают рестарт [v3.33.0]**: хранение в Supabase (миграция `008_stories.sql`: таблицы `stories` и `story_close_friends`), загрузка при старте сервера, время просмотров, одна реакция на человека с повторным нажатием для снятия.
 * ✅ **Управление после публикации [v3.33.0]**: меню «⋯» в просмотрщике — закрепить в профиле / убрать, сменить аудиторию, скрыть автора, скачать, удалить; настоящий список «Близкие друзья» (`CloseFriendsSheet`).
 * ✅ **Истории по всему интерфейсу [v3.33.0]**: кольца на аватарах в списке чатов и шапке чата (`StoryAvatarRing`), карточка «ответ на историю» в сообщении (`StoryReplyCard`), закреплённые истории в профиле, боковые превью соседних авторов на ПК, предзагрузка следующей истории, скрытые авторы в конце строки историй.
@@ -233,7 +245,7 @@ npm run migrate:status
     * [`ChatMessageFeed.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Feed/ChatMessageFeed.tsx) (228 строк) — скроллируемый поток сообщений: плашка закрепленного сообщения с переходом, баннер оффлайн-статуса, разделители дат ("Сегодня", "Вчера", календарные дни), визуальная дропзона Drag & Drop, плавающая кнопка скролла вниз со счетчиком непрочитанных.
     * [`ChatInputBar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Input/ChatInputBar.tsx) (491 строк) — расширенная нижняя панель ввода: плашки ответов и редактирования, предпросмотр медиа и документов, выпадающий автокомплит @упоминаний (`ActiveToken`, `MentionCandidate`), быстрые подсказки стикеров, попап эмодзи, диктофон `<VoiceRecorderHUD />` с живым спектром звука, плеер превью `<VoicePreviewPlayer />` и тулбар форматирования `<FormattingToolbar />`.
     * [`ChatUserInfoPanel.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/UserInfo/ChatUserInfoPanel.tsx) (190 строк) — правая панель деталей пользователя и группы: переключатель беззвучного режима, телефон, био, галерея общих медиафайлов.
-    * [`ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx) (834 строк) — централизованный хост модальных окон: `ProfileEditModal`, `PollCreateModal`, `SearchPage`, `AdvancedSearchModal`, `ThemeSettingsModal`, `StoryViewer`, `StoryCreateModal`, `MediaGalleryModal`, `CommandPaletteModal`, `TelegramContextMenuModal`, оверлей WebRTC-звонков, модалка видео-сообщений, QR-код профиля, нижняя панель действий выбора и тосты.
+    * [`ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx) (834 строк) — централизованный хост модальных окон: `ProfileEditModal`, `PollCreateModal`, `ThemeSettingsModal`, `StoryViewer`, `StoryCreateModal`, `MediaGalleryModal`, `CommandPaletteModal`, `TelegramContextMenuModal`, оверлей WebRTC-звонков, модалка видео-сообщений, QR-код профиля, нижняя панель действий выбора и тосты.
     * [`ChatScreen.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/ChatScreen.tsx) — сокращен с 4 478 до 2 609 строк (~50% сокращение объема файла!), преобразован в чистый координатор состояний, эффектов и доменной логики.
 * ✅ **Подключение неиспользуемых страниц и очистка Git-репозитория**:
   * [`AdminArchive.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/pages/AdminArchive.tsx) подключен к пользовательскому интерфейсу: добавлен проп `onClose` с кнопкой «✕ Закрыть», доступен из бокового меню сайдбара, через горячую команду в `CommandPaletteModal` (поиск по словам: *архив, archive, бд, хранилище, admin*) и через модальный хост `ChatModalsHost`.
@@ -350,9 +362,10 @@ Comms/
 │   ├── message-sync.ts                    # Слияние истории, ACK отправки, дедупликация
 │   ├── pins.ts / schedule.ts / sessions.ts # Мульти-закрепы, отложенная отправка, сеансы и облачный пароль
 │   ├── chat-hotkeys.ts                    # Чистая логика горячих клавиш ChatScreen [v3.30.0]
+│   ├── chat-search.ts                     # Поиск: раскладка, транслит, ранжирование, сниппеты [v3.34.0], highlightRanges и фильтр по автору [v3.35.0]
+│   ├── chat-search.test.ts                # 26 юнит-тестов поиска по чатам и сообщениям [v3.35.0]
 │   └── supabase/                          # Клиент Supabase (без persistSession)
 ├── hooks/
-│   ├── useSearchMessages.ts               # Хук быстрого поиска с таймингом и подсветкой
 │   ├── useVideoPlayer.ts                  # Хук управления воспроизведением видеоплеера
 │   ├── usePinnedMessages.ts               # Мульти-закрепы активного чата [v3.30.0]
 │   ├── useChatHotkeys.ts                  # Глобальные горячие клавиши чата [v3.30.0]
@@ -376,6 +389,8 @@ Comms/
 │   ├── Chat/Feed/                         # ChatMessageFeed, AlbumBubble, BubbleTail, MessageMeta, PinnedBar
 │   ├── Chat/Header/                       # ChatHeader, SecretChatMenu
 │   ├── Chat/Input/                        # ChatInputBar, SendButton, ScheduledMessagesButton
+│   ├── Chat/Sidebar/                      # ChatSidebar, ChatListItem, SidebarSearch (панель поиска) [v3.34.0], PublicRoomResults
+│   ├── Chat/Search/                       # InChatSearch (поиск в чате), SearchHighlight (подсветка совпадений) [v3.35.0]
 │   ├── ErrorBoundary.tsx                  # Граница ошибок с красивым фоллбэк UI
 │   ├── FileUploadInput.tsx                # Drag-and-drop компонент загрузки файлов
 │   ├── Desktop/
@@ -401,13 +416,6 @@ Comms/
 │   ├── Stickers/
 │   │   ├── StickerPicker.tsx              # Стикер-пикер с поиском, паками, избранным и недавними
 │   │   └── TgsStickerPlayer.tsx           # 60 FPS Lottie/Canvas плеер векторных .TGS анимаций
-│   ├── Search/
-│   │   ├── SearchBar.tsx                  # Поисковая строка с хоткеем Ctrl+F
-│   │   ├── SearchResultCard.tsx           # Карточка найденного сообщения с подсветкой
-│   │   ├── SearchResults.tsx              # Лента результатов и пустое состояние
-│   │   ├── SearchHistory.tsx              # Чипсы недавних поисковых запросов
-│   │   ├── SearchStats.tsx                # Счетчик совпадений, время ответа и сортировка
-│   │   └── AdvancedSearchModal.tsx        # Модальное окно расширенных фильтров
 │   ├── Theme/
 │   │   └── ThemeSettingsModal.tsx         # Настройки тем, размытия (0-20px) и затемнения (0-80%)
 │   ├── VideoPlayer/
@@ -428,7 +436,6 @@ Comms/
 │       ├── Card.tsx                       # Glassmorphism карточки
 │       └── LoadingSpinner.tsx             # Индикаторы загрузки
 └── pages/
-    ├── SearchPage.tsx                     # Главный экран глобального FTS поиска сообщений
     ├── AdminArchive.tsx                   # Панель управления долговременной архивацией
     ├── RegisterPage.tsx                   # Страница регистрации
     └── ResetPasswordPage.tsx              # Страница восстановления пароля
@@ -485,9 +492,10 @@ Comms/
 * **Стикер-пикер ([`src/components/Stickers/StickerPicker.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stickers/StickerPicker.tsx))**: поиск по эмодзи/тегам, избранное (❤️), недавние стикеры (🕒), предиктивные подсказки при вводе эмодзи в поле набора.
 
 ### 4.5. Полнотекстовый поиск и фильтрация
-* **Глобальный поиск ([`src/pages/SearchPage.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/pages/SearchPage.tsx))**: полнотекстовый поиск по всем сообщениям, авторам, файлам и опросам с подсветкой совпадений, историей запросов и фильтрами по датам и типам медиа.
+* **Поиск в сайдбаре [v3.34.0] ([`src/components/Chat/Sidebar/SidebarSearch.tsx`](src/components/Chat/Sidebar/SidebarSearch.tsx))**: панель поиска как в Telegram — чаты и контакты, люди, публичные группы, сообщения и вкладки по типам вложений. Логика сопоставления и ранжирования — [`src/lib/chat-search.ts`](src/lib/chat-search.ts). Старый фильтр списка чатов по строке удалён: список папки больше не фильтруется запросом.
+* **Поиск в чате [v3.35.0] ([`src/components/Chat/Search/InChatSearch.tsx`](src/components/Chat/Search/InChatSearch.tsx))**: строка поиска вместо шапки чата (Ctrl/Cmd+F), выпадающий список совпадений, «N из M» со стрелками, фильтр «от:» в группах; лента не фильтруется, совпадения подсвечиваются в облачках (`highlightRanges` + `renderHighlightedText`). Отдельной модалки глобального поиска больше нет — все входы «искать везде» ведут в поиск сайдбара.
 * **Мгновенный переход к сообщению**: переход в нужный чат (`setMobileView('chat')`, `handleSetActiveRoomId`), расширение среза видимых сообщений и плавная подсветка целевого облачка (`jumpToMessage`).
-* **Поиск по #хештегам**: клик по любому `#тегу` в чате мгновенно открывает глобальный поиск с предзаполненным запросом.
+* **Поиск по #хештегам**: клик по `#тегу` в сообщении открывает поиск по этому тегу в текущем чате; в галерее медиа — поиск в сайдбаре по всем чатам.
 
 ### 4.6. Кастомный видеоплеер (Custom Video Player Suite)
 * **Архитектура ([`src/components/VideoPlayer/`](https://github.com/Voltikalk/Comms/blob/main/src/components/VideoPlayer/))**: кастомный HTML5-плеер в стилистике Telegram Web с поддержкой авто-определения ориентации (вертикальные 9:16 Reels / горизонтальные 16:9), управления скоростью (`0.5x`–`2x`), слайдером громкости, хоткеями (Space/K/F/M/P/ArrowLeft/ArrowRight), Picture-in-Picture и полноэкранным режимом.
@@ -603,6 +611,46 @@ npm run storybook
 
 ## 📜 Журнал изменений (Changelog)
 
+### [v3.35.0] — 10 октября 2026 г.
+* **Phase 65 — Telegram-Style In-Chat Search**
+
+#### Новые компоненты и модули
+* [`Chat/Search/InChatSearch.tsx`](src/components/Chat/Search/InChatSearch.tsx): строка поиска в шапке чата.
+  * Выпадающий список совпадений: аватар, «Вы» / имя автора, дата (`formatSearchDate`), иконка вложения и сниппет с подсветкой; заголовок «Найдено: N сообщений» или «Сообщения от X · N»; пустое состояние «Ничего не найдено».
+  * Enter / клик — переход к сообщению (`jumpToMessage`) и закрытие списка; счётчик «N из M», шевроны ↑ (старше) / ↓ (новее), Enter / Shift+Enter и стрелки листают совпадения, кнопка списка открывает его снова.
+  * Фильтр «от:» в группах: выбор участника (сначала «Вы», поиск по имени), чип «от: Имя ×», Backspace в начале поля снимает фильтр.
+  * Esc по уровням: выбор участника → список → закрытие поиска; клик вне компонента сворачивает список.
+* [`Chat/Search/SearchHighlight.tsx`](src/components/Chat/Search/SearchHighlight.tsx): общая подсветка совпадений (`splitHighlight`) для `SidebarSearch` и `InChatSearch`.
+* [`src/lib/chat-search.ts`](src/lib/chat-search.ts): `highlightRanges(text, query)` — все вхождения всех слов запроса (обе раскладки, короткие запросы — с начала слова) для подсветки в облачках; опция `sender` в `searchMessages` (без запроса — все сообщения автора); `SIDEBAR_SEARCH_INPUT_ID`, `IN_CHAT_SEARCH_INPUT_ID`. Тесты — +3 (26 в файле).
+
+#### Изменённые компоненты
+* [`ChatHeader.tsx`](src/components/Chat/Header/ChatHeader.tsx): старая строка поиска, счётчик и чипсы фильтров удалены; новый проп `searchBar` заменяет содержимое шапки.
+* [`ChatScreen.tsx`](src/components/ChatScreen.tsx): лента больше не фильтруется запросом (`chatFilters`, `filteredMessages`, `currentMatchIndex` удалены); Ctrl/Cmd+F открывает `InChatSearch`, смена чата закрывает поиск; `openGlobalSearch(seed?)` фокусирует поиск в сайдбаре; клик по #хештегу ищет в текущем чате.
+* [`ChatMessageFeed.tsx`](src/components/Chat/Feed/ChatMessageFeed.tsx): пропсы `searchQuery` (подсветка в облачках) и `onHashtagClick`.
+* [`markdown-parser.tsx`](src/lib/markdown-parser.tsx): `renderHighlightedText` использует `highlightRanges` — подсветка понимает раскладку, ё и порядок слов.
+* [`ChatModalsHost.tsx`](src/components/Chat/Modals/ChatModalsHost.tsx): модалки `SearchPage` и `AdvancedSearchModal` удалены; новый проп `onOpenGlobalSearch` для палитры команд.
+* [`SidebarSearch.tsx`](src/components/Chat/Sidebar/SidebarSearch.tsx), [`ChatSidebar.tsx`](src/components/Chat/Sidebar/ChatSidebar.tsx): убрана кнопка «Расширенный поиск» и проп `onOpenAdvancedSearch`; поле поиска получило `id` для фокуса извне.
+
+#### Удалённые файлы
+* `src/pages/SearchPage.tsx`, `src/components/Search/` (`SearchBar`, `SearchResultCard`, `SearchResults`, `SearchHistory`, `SearchStats`, `AdvancedSearchModal`), `src/hooks/useSearchMessages.ts`, `src/services/message-search.service.ts`.
+* Итог: `npm test` — **353/353** (37 файлов), `npm run lint` — 0 предупреждений, `npm run build` — OK.
+
+### [v3.34.0] — 10 октября 2026 г.
+* **Phase 64 — Telegram-Style Chat Search**
+
+#### Новые компоненты и модули
+* [`src/lib/chat-search.ts`](src/lib/chat-search.ts): `normalizeSearch` (регистр, ё → е, диакритика), `swapKeyboardLayout` (RU ↔ EN), `transliterate`, `searchVariants`, `matchText` (ранги: точное совпадение > начало > начало слова > подстрока, слова в любом порядке, другая раскладка чуть ниже, транслит без подсветки), `splitHighlight`, `makeSnippet` (обрезка вокруг совпадения), `SEARCH_CATEGORIES`, `extractLinks` / `linkHost`, `messageCategory`, `searchMessages` (без сервисных сообщений, по тексту, имени файла и вопросу опроса; запрос короче 4 символов ищется только с начала слова; во вкладках вложений совпадает и название чата), `formatSearchDate`, `pushRecent`, `topRooms`. Тесты — [`src/lib/chat-search.test.ts`](src/lib/chat-search.test.ts) (+23).
+* [`Chat/Sidebar/SidebarSearch.tsx`](src/components/Chat/Sidebar/SidebarSearch.tsx): панель поиска в сайдбаре.
+  * Пустой запрос — «Часто пишете» (чаты, куда я чаще писал за 30 дней) и «Недавние» (`tg_search_recent_rooms`, «Очистить»).
+  * Вкладка «Чаты»: «Чаты и контакты» (все комнаты, независимо от выбранной папки), «Глобальный поиск» (люди из `usePeopleDirectory`, клик создаёт личный чат; публичные группы и каналы — `PublicRoomResults`), «Сообщения · N» (первые 5 и «Показать все»).
+  * Вкладки «Медиа» (сетка превью), «Ссылки», «Файлы», «Голосовые»; подсветка совпадений, пустые состояния с кнопкой «Расширенный поиск».
+  * Клавиатура: ↑/↓ двигают курсор по всем результатам, Enter открывает чат или переходит к сообщению (результаты при этом остаются).
+
+#### Изменённые компоненты
+* [`ChatSidebar.tsx`](src/components/Chat/Sidebar/ChatSidebar.tsx): фокус в строке поиска открывает `SidebarSearch` вместо историй, папок и списка; кнопка меню становится стрелкой «Закрыть поиск»; Esc очищает запрос, повторный Esc закрывает; клик вне сайдбара при пустом запросе закрывает поиск; новые пропсы `allRooms`, `messages`, `onOpenMessage`, `onOpenAdvancedSearch`; поле — `role="combobox"`, `enterKeyHint="search"`.
+* [`ChatScreen.tsx`](src/components/ChatScreen.tsx): `filteredRooms` больше не фильтрует по запросу (только папка и закреплённые); переход к сообщению из поиска — через `handleNavigateFromGlobalSearch`, «Расширенный поиск» открывает глобальный поиск с предзаполненным запросом.
+* Итог: `npm test` — **350/350** (37 файлов), `npm run lint` — 0 предупреждений, `npm run build` — OK.
+
 ### [v3.33.0] — 10 октября 2026 г.
 * **Phase 63 — Stories 4.0: Persistence, Close Friends & Story Rings** ([PR #6](https://github.com/Voltikalk/Comms/pull/6))
 
@@ -622,7 +670,7 @@ npm run storybook
 
 #### Изменённые компоненты
 * [`StoriesContext.tsx`](src/context/StoriesContext.tsx) / [`stories-context.ts`](src/context/stories-context.ts): просмотренность = локально ∪ сервер; оптимистичные `updateStory` / `deleteStory` / `reactStory`; `hiddenStories`, `isAuthorHidden`, `toggleHiddenAuthor` (`tg_hidden_story_authors`); `closeFriends`, `saveCloseFriends` (с подтверждением сервера); `storiesOf`, `ringState`; просмотрщик открывается из любого места через `openStories` / `closeStories`.
-* [`StoryViewer.tsx`](src/components/Stories/StoryViewer.tsx) переписан: старт с первой непросмотренной, меню «⋯» (закрепить / убрать из профиля, «Кто может видеть», скрыть автора, скачать, удалить), боковые превью соседних авторов на ПК, предзагрузка следующей истории, список зрителей со временем и фильтром «с реакциями», ответ уходит в личный чат с карточкой истории.
+* [`StoryViewer.tsx`](src/components/Stories/StoryViewer.tsx) переписан: старт с первой непросмотренной, меню «⋯» (закрепить / убрать из профиля, «Кто может видеть», скрыть автора, скачать, удалить), боковые превью соседних авторов на ПК (история видна под затемнением, внизу — полоска автора с сегментным `StoryRing`, временем и числом историй; при наведении карточка светлеет и чуть увеличивается), предзагрузка следующей истории, список зрителей со временем и фильтром «с реакциями», ответ уходит в личный чат с карточкой истории.
 * [`StoriesBar.tsx`](src/components/Stories/StoriesBar.tsx): общее `StoryRing`; ПКМ / долгое нажатие — «Скрыть истории»; скрытые авторы свёрнуты в плитку «Скрытые» в конце.
 * [`StoryCreateModal.tsx`](src/components/Stories/StoryCreateModal.tsx): для «Близкие друзья» — строка «Выбрать близких друзей» / «Список: N».
 * [`ChatListItem.tsx`](src/components/Chat/Sidebar/ChatListItem.tsx) (проп `storyUserId`), [`ChatSidebar.tsx`](src/components/Chat/Sidebar/ChatSidebar.tsx), [`ChatHeader.tsx`](src/components/Chat/Header/ChatHeader.tsx): кольца историй на аватарах личных чатов.
@@ -888,7 +936,7 @@ npm run storybook
     * [`src/components/Chat/Feed/ChatMessageFeed.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Feed/ChatMessageFeed.tsx) (228 строк) — лента сообщений, плашка закрепленного сообщения с прыжком, баннер оффлайн-статуса, разделители дат ("Сегодня", "Вчера"), дропзона Drag & Drop и плавающая кнопка скролла вниз со счетчиком непрочитанных.
     * [`src/components/Chat/Input/ChatInputBar.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Input/ChatInputBar.tsx) (491 строк) — поле ввода, предпросмотр медиа и документов, плашки ответов и редактирования, автокомплит @упоминаний, подсказки стикеров, попап эмодзи, диктофон `<VoiceRecorderHUD />`, превью голоса `<VoicePreviewPlayer />` и тулбар форматирования `<FormattingToolbar />`.
     * [`src/components/Chat/UserInfo/ChatUserInfoPanel.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/UserInfo/ChatUserInfoPanel.tsx) (190 строк) — правая панель деталей пользователя и группы, переключатель уведомлений, био и галерея общих медиафайлов.
-    * [`src/components/Chat/Modals/ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx) (834 строк) — централизованный хост модалок (`ProfileEditModal`, `PollCreateModal`, `SearchPage`, `AdvancedSearchModal`, `ThemeSettingsModal`, `StoryViewer`, `StoryCreateModal`, `MediaGalleryModal`, `CommandPaletteModal`, `TelegramContextMenuModal`, оверлей WebRTC-звонков, модалка видео-кружка, QR-код, нижняя панель выбора и тосты).
+    * [`src/components/Chat/Modals/ChatModalsHost.tsx`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/Modals/ChatModalsHost.tsx) (834 строк) — централизованный хост модалок (`ProfileEditModal`, `PollCreateModal`, `ThemeSettingsModal`, `StoryViewer`, `StoryCreateModal`, `MediaGalleryModal`, `CommandPaletteModal`, `TelegramContextMenuModal`, оверлей WebRTC-звонков, модалка видео-кружка, QR-код, нижняя панель выбора и тосты).
     * [`src/components/Chat/index.ts`](file:///c:/Users/Drilla/Desktop/Comms/src/components/Chat/index.ts) — единая точка экспорта компонентов подсистемы чата.
   * **Рефакторинг `ChatScreen.tsx`**: размер файла сокращен с 4 478 строк (192 КБ) до 2 609 строк (~50% сокращение объема!). Компонент очищен от громоздкой вложенной верстки и преобразован в чистый координатор состояний, контекстов и эффектов.
 * **Подключение неиспользуемых страниц и очистка Git-репозитория**:

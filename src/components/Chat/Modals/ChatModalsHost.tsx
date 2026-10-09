@@ -1,11 +1,8 @@
 import React from 'react';
-import type { Message, UserId, Room, UserProfile, Poll, StoryReplyRef } from '../../../types';
+import type { Message, UserId, Room, Poll, StoryReplyRef } from '../../../types';
 import type { ChatThemeConfig } from '../../../types/theme.types';
-import type { FilterOptions } from '../../../lib/filter-utils';
 import { ProfileEditModal } from '../../ProfileEditModal';
 import { PollCreateModal } from '../../Poll/PollCreateModal';
-import { SearchPage } from '../../../pages/SearchPage';
-import { AdvancedSearchModal } from '../../Search/AdvancedSearchModal';
 import { ThemeSettingsModal } from '../../Theme/ThemeSettingsModal';
 import { StoryViewer } from '../../Stories/StoryViewer';
 import { StoryCreateModal } from '../../Stories/StoryCreateModal';
@@ -31,7 +28,6 @@ export interface ChatModalsHostProps {
   rooms: Room[];
   activeRoomId: string;
   activeRoom: Room | null;
-  userProfiles: Record<UserId, UserProfile>;
   getUserDisplayName: (userId: UserId) => string;
   getUserAvatar: (userId: UserId) => string | undefined;
   getRoomDisplayName: (room: Room) => string;
@@ -55,18 +51,8 @@ export interface ChatModalsHostProps {
   showPollModal: boolean;
   setShowPollModal: (show: boolean) => void;
   handleCreatePoll: (pollData: Omit<Poll, 'id' | 'authorId' | 'totalVotes' | 'isClosed' | 'createdAt'>) => void;
-  // Global Search
-  showGlobalSearchModal: boolean;
-  setShowGlobalSearchModal: (show: boolean) => void;
-  globalSearchSeed?: string;
-  setGlobalSearchSeed: (seed?: string) => void;
-  onNavigateFromGlobalSearch: (item: any) => void;
-  allMessages: Message[];
-  // Advanced Filter
-  showAdvancedSearchModal: boolean;
-  setShowAdvancedSearchModal: (show: boolean) => void;
-  chatFilters: FilterOptions;
-  setChatFilters: React.Dispatch<React.SetStateAction<FilterOptions>>;
+  /** Search across all chats — focuses the sidebar search (`SidebarSearch`). */
+  onOpenGlobalSearch: () => void;
   // Theme
   showThemeModal: boolean;
   setShowThemeModal: (show: boolean) => void;
@@ -127,7 +113,6 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
   rooms,
   activeRoomId,
   activeRoom,
-  userProfiles,
   getUserDisplayName,
   getUserAvatar,
   getRoomDisplayName,
@@ -148,16 +133,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
   showPollModal,
   setShowPollModal,
   handleCreatePoll,
-  showGlobalSearchModal,
-  setShowGlobalSearchModal,
-  globalSearchSeed,
-  setGlobalSearchSeed,
-  onNavigateFromGlobalSearch,
-  allMessages,
-  showAdvancedSearchModal,
-  setShowAdvancedSearchModal,
-  chatFilters,
-  setChatFilters,
+  onOpenGlobalSearch,
   showThemeModal,
   setShowThemeModal,
   themeConfig,
@@ -228,51 +204,6 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
         onCreate={handleCreatePoll}
       />
 
-      {/* 3. Global Message Search Suite Modal */}
-      {showGlobalSearchModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="w-full h-full md:h-[80vh] md:max-w-xl bg-white dark:bg-surface md:rounded-3xl md:border md:border-zinc-200 dark:md:border-white/10 md:shadow-2xl flex flex-col overflow-hidden">
-            <SearchPage
-              roomId={activeRoomId || undefined}
-              userId={currentUser || 'vlad'}
-              allMessages={allMessages}
-              rooms={rooms}
-              userProfiles={userProfiles}
-              initialQuery={globalSearchSeed}
-              onNavigateToMessage={onNavigateFromGlobalSearch}
-              onClose={() => {
-                setShowGlobalSearchModal(false);
-                setGlobalSearchSeed(undefined);
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* 4. Advanced Filter Modal */}
-      {showAdvancedSearchModal && (
-        <AdvancedSearchModal
-          isOpen={showAdvancedSearchModal}
-          filters={{
-            startDate: chatFilters.dateRange?.startDate || undefined,
-            endDate: chatFilters.dateRange?.endDate || undefined,
-            senderId: chatFilters.senders?.[0] || undefined,
-            contentType: chatFilters.attachmentTypes?.[0] || undefined,
-            hasAttachments: chatFilters.hasAttachments || false,
-          }}
-          onClose={() => setShowAdvancedSearchModal(false)}
-          onApplyFilters={(applied) => {
-            setChatFilters((prev) => ({
-              ...prev,
-              dateRange: applied.startDate || applied.endDate ? { startDate: applied.startDate, endDate: applied.endDate } : undefined,
-              senders: applied.senderId ? [applied.senderId] : undefined,
-              attachmentTypes: applied.contentType ? [applied.contentType as any] : undefined,
-              hasAttachments: applied.hasAttachments || undefined,
-            }));
-          }}
-        />
-      )}
-
       {/* 5. Theme Settings Modal */}
       {showThemeModal && (
         <ThemeSettingsModal
@@ -336,7 +267,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
         onOpenQrModal={() => setShowQrModal(true)}
         onOpenPollCreate={() => setShowPollModal(true)}
         onOpenStoryCreate={() => setIsStoryCreateOpen(true)}
-        onOpenGlobalSearch={() => setShowGlobalSearchModal(true)}
+        onOpenGlobalSearch={onOpenGlobalSearch}
         onOpenAdminArchive={() => setShowArchiveModal(true)}
         onToggleMuteActiveRoom={onToggleMuteActiveRoom}
         isRoomMuted={isRoomMuted}
