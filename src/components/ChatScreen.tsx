@@ -22,7 +22,6 @@ import type { Room, UserId, Message } from '../types';
 import { DEFAULT_THEME_CONFIG, getWallpaperById } from '../constants/wallpapers';
 import { applyAppearance } from '../lib/appearance';
 import type { ChatThemeConfig } from '../types/theme.types';
-import { applyFilters, type FilterOptions } from '../lib/filter-utils';
 import {
   getActiveToken,
   buildMentionCandidates,
@@ -43,6 +42,8 @@ import type { MobileTab } from './Mobile/MobileBottomNav';
 import type { NewChatMode } from './Chat/NewChatModal';
 import type { ChatFolderId, FolderCountInfo } from './Navigation/ChatFolderTabs';
 import type { ChatPreview } from './Chat/Sidebar/ChatListItem';
+import { InChatSearch } from './Chat/Search/InChatSearch';
+import { IN_CHAT_SEARCH_INPUT_ID, SIDEBAR_SEARCH_INPUT_ID } from '../lib/chat-search';
 import { Squares, Aurora, Particles, LetterGlitch, Hyperspeed, Waves, Dither } from './Backgrounds';
 import {
   ChatSidebar,
@@ -447,12 +448,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [chatFilters, setChatFilters] = useState<FilterOptions>({});
-  const [showGlobalSearchModal, setShowGlobalSearchModal] = useState(false);
-  const [globalSearchSeed, setGlobalSearchSeed] = useState<string | undefined>(undefined);
   const [showPollModal, setShowPollModal] = useState(false);
-  const [showAdvancedSearchModal, setShowAdvancedSearchModal] = useState(false);
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(40);
   const [contextMenuTarget, setContextMenuTarget] = useState<{
     message: Message;
@@ -525,7 +521,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     // Hierarchical Escape: innermost layer closes first; unhandled → default behaviour
     escape: () => {
       if (showCommandPalette) setShowCommandPalette(false);
-      else if (showGlobalSearchModal) setShowGlobalSearchModal(false);
       else if (showEmojiPicker) setShowEmojiPicker(false);
       else if (editingMessage) {
         setEditingMessage(null);
@@ -972,17 +967,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     );
   }, [pendingDelete, activeMessages, currentUser, hideMessagesForMe, deleteMessage, showToast, clearSelection]);
 
-  // Filter messages using our rich applyFilters system
-  const filteredMessages = React.useMemo(() => {
-    if (!isSearching && Object.keys(chatFilters).length === 0) {
-      return activeMessages;
-    }
-    return applyFilters(activeMessages, {
-      ...chatFilters,
-      searchQuery: searchQuery.trim() || undefined,
-    });
-  }, [activeMessages, isSearching, chatFilters, searchQuery]);
-
   // Media gallery collection for active room
   const roomMediaMessages = React.useMemo(() => {
     return activeMessages.filter(
@@ -995,35 +979,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov)$/i.test(m.file.name || ''))
     );
   }, [activeMessages]);
-
-  const handleDatePreset = (preset: 'today' | 'week' | 'month') => {
-    const now = new Date();
-    if (preset === 'today') {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
-      const isAlready = chatFilters.dateRange?.startDate === start;
-      setChatFilters((prev) => ({
-        ...prev,
-        dateRange: isAlready ? undefined : { startDate: start, endDate: end },
-      }));
-    } else if (preset === 'week') {
-      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
-      const isAlready = chatFilters.dateRange?.startDate === start;
-      setChatFilters((prev) => ({
-        ...prev,
-        dateRange: isAlready ? undefined : { startDate: start, endDate: end },
-      }));
-    } else if (preset === 'month') {
-      const start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString();
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
-      const isAlready = chatFilters.dateRange?.startDate === start;
-      setChatFilters((prev) => ({
-        ...prev,
-        dateRange: isAlready ? undefined : { startDate: start, endDate: end },
-      }));
-    }
-  };
 
   const pendingNavigateMessageIdRef = useRef<string | null>(null);
 
@@ -1111,37 +1066,33 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     }
   }, [activeMessages, activeRoomId, mobileView, jumpToMessage]);
 
-  const scrollToMatch = (index: number) => {
-    if (filteredMessages.length === 0) return;
-    const bounded = (index + filteredMessages.length) % filteredMessages.length;
-    setCurrentMatchIndex(bounded);
-    const targetMsg = filteredMessages[bounded];
-    if (targetMsg) {
-      jumpToMessage(targetMsg.id);
-    }
-  };
+  const closeSearch = useCallback(() => {
+    setIsSearching(false);
+    setSearchQuery('');
+  }, []);
 
-  const handleNextMatch = () => scrollToMatch(currentMatchIndex + 1);
-  const handlePrevMatch = () => scrollToMatch(currentMatchIndex - 1);
-
-  // Ctrl+F / Cmd+F shortcut listener
+  // Ctrl+F / Cmd+F opens the in-chat search (or refocuses it); Esc is handled by the search field itself.
   useEffect(() => {
     const handleSearchKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f' && activeRoomId) {
         e.preventDefault();
         setIsSearching(true);
-      }
-      if (e.key === 'Escape' && isSearching) {
-        setIsSearching(false);
-        setSearchQuery('');
-        setChatFilters({});
+        const input = document.getElementById(IN_CHAT_SEARCH_INPUT_ID) as HTMLInputElement | null;
+        input?.focus();
+        input?.select();
       }
     };
     window.addEventListener('keydown', handleSearchKeyDown);
     return () => window.removeEventListener('keydown', handleSearchKeyDown);
-  }, [isSearching]);
+  }, [activeRoomId]);
 
-  const slicedMessages = filteredMessages.slice(-visibleCount);
+  // A different chat starts without the previous chat's search.
+  useEffect(() => {
+    closeSearch();
+  }, [activeRoomId, closeSearch]);
+
+  // The feed is never filtered by the search — matches are highlighted and navigated in place.
+  const slicedMessages = activeMessages.slice(-visibleCount);
 
   // Get peer online status for direct chat
   const activePeerId = activeRoom?.type === 'direct' 
@@ -1629,9 +1580,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     });
   };
 
+  // #тег in a message searches this chat (Telegram); from the media viewer — all chats.
   const handleHashtagClick = useCallback((tag: string) => {
-    setGlobalSearchSeed(tag);
-    setShowGlobalSearchModal(true);
+    setSearchQuery(tag);
+    setIsSearching(true);
+  }, []);
+
+  const openGlobalSearch = useCallback((seed?: string) => {
+    setMobileTab('chats');
+    setMobileView('list');
+    setRoomFilterQuery(seed ?? '');
+    // The field may only mount after the tab / view switch.
+    requestAnimationFrame(() => {
+      const input = document.getElementById(SIDEBAR_SEARCH_INPUT_ID) as HTMLInputElement | null;
+      input?.focus();
+      if (!seed) input?.select();
+    });
   }, []);
 
   // Group permissions / channel posting rights for the composer.
@@ -2177,11 +2141,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     requestDelete(activeMessages.map((m) => m.id), { clearHistory: true });
   }, [activeRoomId, activeMessages, requestDelete]);
 
-  const handleSearchQueryChange = useCallback((q: string) => {
-    setSearchQuery(q);
-    setCurrentMatchIndex(0);
-  }, []);
-
   const handleContextMenu = useCallback((e: React.MouseEvent | { clientX: number; clientY: number; preventDefault?: () => void }, msg: Message) => {
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
@@ -2201,7 +2160,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
   const handleNavigateFromGlobalSearch = useCallback((targetRoomId: string, targetMessageId?: string) => {
     setActiveRoomId(targetRoomId);
     setMobileView('chat');
-    setShowGlobalSearchModal(false);
     if (targetMessageId) {
       setTimeout(() => jumpToMessage(targetMessageId), 150);
     }
@@ -2337,12 +2295,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           roomFilterQuery={roomFilterQuery}
           setRoomFilterQuery={setRoomFilterQuery}
           onOpenMessage={handleNavigateFromGlobalSearch}
-          onOpenAdvancedSearch={(query) => {
-            setGlobalSearchSeed(query || undefined);
-            setShowGlobalSearchModal(true);
-          }}
           onOpenProfileModal={() => setShowProfileModal(true)}
-          onOpenGlobalSearch={() => setShowGlobalSearchModal(true)}
+          onOpenGlobalSearch={() => openGlobalSearch()}
           onOpenThemeModal={() => setShowThemeModal(true)}
           onOpenQrModal={() => setShowQrModal(true)}
           onOpenInstallModal={() => setShowInstallModal(true)}
@@ -2439,22 +2393,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
               }
             }}
             onDeleteSelected={handleDeleteSelectedAnimated}
-            isSearching={isSearching}
-            searchQuery={searchQuery}
-            onSearchQueryChange={handleSearchQueryChange}
-            totalSearchMatches={filteredMessages.length}
-            currentMatchIndex={currentMatchIndex}
-            onPrevMatch={handlePrevMatch}
-            onNextMatch={handleNextMatch}
-            onCloseSearch={() => {
-              setIsSearching(false);
-              setSearchQuery('');
-              setChatFilters({});
-            }}
-            onOpenGlobalSearch={() => setShowGlobalSearchModal(true)}
-            chatFilters={chatFilters}
-            setChatFilters={setChatFilters}
-            handleDatePreset={handleDatePreset}
+            searchBar={
+              isSearching && activeRoom ? (
+                <InChatSearch
+                  room={activeRoom}
+                  messages={activeMessages}
+                  query={searchQuery}
+                  onQueryChange={setSearchQuery}
+                  onJump={jumpToMessage}
+                  onClose={closeSearch}
+                />
+              ) : undefined
+            }
             onStartAudioCall={() => startCall('audio')}
             onStartVideoCall={() => startCall('video')}
             onStartSearching={() => setIsSearching(true)}
@@ -2501,6 +2451,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
             onClosePoll={(msgId, roomId) => closePoll(msgId, roomId)}
             onOpenGalleryMedia={(msgId) => setActiveGalleryMediaId(msgId)}
             onContextMenu={handleContextMenu}
+            searchQuery={isSearching ? searchQuery : undefined}
+            onHashtagClick={handleHashtagClick}
           />
 
           {/* Bottom Input Bar */}
@@ -2605,7 +2557,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         rooms={rooms}
         activeRoomId={activeRoomId}
         activeRoom={activeRoom}
-        userProfiles={userProfiles}
         getUserDisplayName={getUserDisplayName}
         getUserAvatar={getUserAvatar}
         getRoomDisplayName={getRoomDisplayName}
@@ -2626,16 +2577,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         showPollModal={showPollModal}
         setShowPollModal={setShowPollModal}
         handleCreatePoll={handleCreatePoll}
-        showGlobalSearchModal={showGlobalSearchModal}
-        setShowGlobalSearchModal={setShowGlobalSearchModal}
-        globalSearchSeed={globalSearchSeed}
-        setGlobalSearchSeed={setGlobalSearchSeed}
-        onNavigateFromGlobalSearch={handleNavigateFromGlobalSearch}
-        allMessages={messages}
-        showAdvancedSearchModal={showAdvancedSearchModal}
-        setShowAdvancedSearchModal={setShowAdvancedSearchModal}
-        chatFilters={chatFilters}
-        setChatFilters={setChatFilters}
+        onOpenGlobalSearch={() => openGlobalSearch()}
         showThemeModal={showThemeModal}
         setShowThemeModal={setShowThemeModal}
         themeConfig={themeConfig}
@@ -2655,7 +2597,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
         activeGalleryMediaId={activeGalleryMediaId}
         setActiveGalleryMediaId={setActiveGalleryMediaId}
         roomMediaMessages={roomMediaMessages}
-        onHashtagClick={handleHashtagClick}
+        onHashtagClick={(tag) => {
+          setActiveGalleryMediaId(null);
+          openGlobalSearch(tag);
+        }}
         showCommandPalette={showCommandPalette}
         setShowCommandPalette={setShowCommandPalette}
         onSelectRoomFromPalette={(roomId) => {

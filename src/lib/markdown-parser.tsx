@@ -1,5 +1,6 @@
 import React from 'react';
 import { CodeBlock, TelegramSpoiler } from './markdown-components';
+import { highlightRanges, splitHighlight } from './chat-search';
 
 // ==========================================
 // 1. Types & Interfaces
@@ -226,19 +227,24 @@ export function tokenizeMarkdown(text: string): MarkdownToken[] {
 // 5. Render Pipeline with Search Highlighting
 // ==========================================
 
+/**
+ * In-chat search matches inside a bubble. Uses the same matching as the search
+ * itself (`highlightRanges`: other keyboard layout, ё = е, short queries only at
+ * word starts), so every highlighted word is one the search actually found.
+ */
 export function renderHighlightedText(text: string, query?: string): React.ReactNode {
   if (!query || !query.trim()) {
     return text;
   }
-  const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-  return parts.map((part, i) =>
-    part.toLowerCase() === query.trim().toLowerCase() ? (
-      <mark key={i} className="bg-amber-400/40 text-inherit rounded px-0.5 font-bold">
-        {part}
+  const ranges = highlightRanges(text, query);
+  if (ranges.length === 0) return text;
+  return splitHighlight(text, ranges).map((part, i) =>
+    part.hit ? (
+      <mark key={i} className="rounded-[3px] bg-amber-300/70 text-inherit dark:bg-amber-400/35">
+        {part.text}
       </mark>
     ) : (
-      part
+      part.text
     )
   );
 }

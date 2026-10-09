@@ -6,6 +6,11 @@ import type { Message } from '../types';
  * Media / Links / Files / Voice categories.
  */
 
+/** DOM id of the sidebar search field, so other screens can focus it («Поиск по сообщениям»). */
+export const SIDEBAR_SEARCH_INPUT_ID = 'sidebar-search-input';
+/** DOM id of the in-chat search field (Ctrl+F refocuses it). */
+export const IN_CHAT_SEARCH_INPUT_ID = 'in-chat-search-input';
+
 /** Half-open `[start, end)` character range inside the displayed text. */
 export type MatchRange = readonly [number, number];
 
@@ -239,6 +244,8 @@ export interface MessageSearchOptions {
   /** In category tabs a message also matches by its chat or sender name. */
   roomName?: (roomId: string) => string;
   senderName?: (userId: string) => string;
+  /** Only this user's messages; with an empty query lists all of them. */
+  sender?: string;
   limit?: number;
 }
 
@@ -267,9 +274,9 @@ function fallbackLabel(m: Message): string {
  */
 export function searchMessages(messages: readonly Message[], query: string, opts: MessageSearchOptions = {}): MessageHit[] {
   const variants = searchVariants(query);
-  if (variants.length === 0) return [];
-  const { category = 'messages', roomName, senderName, limit = 300 } = opts;
-  const minScore = variants[0].length < 4 ? 500 : 0;
+  const { category = 'messages', roomName, senderName, sender, limit = 300 } = opts;
+  if (variants.length === 0 && !sender) return [];
+  const minScore = variants.length > 0 && variants[0].length < 4 ? 500 : 0;
   const content = (s: string | undefined) => {
     const hit = matchText(s, variants);
     return hit && hit.score >= minScore ? hit : null;
@@ -280,9 +287,16 @@ export function searchMessages(messages: readonly Message[], query: string, opts
   for (const m of sorted) {
     if (m.service || m.scheduledAt || (m.encrypted && !m.text)) continue;
     if (category !== 'messages' && messageCategory(m) !== category) continue;
+    if (sender && m.sender !== sender) continue;
 
     const text = messageSearchText(m);
     const shown = text || fallbackLabel(m);
+    if (variants.length === 0) {
+      // «Сообщения от …» without a query: every message of that sender.
+      if (shown) hits.push({ message: m, snippet: makeSnippet(shown, []).text, ranges: [] });
+      if (hits.length >= limit) break;
+      continue;
+    }
     const textHit = content(text);
     // A hit in the line the row shows (text, file name, poll question) gets highlighted.
     // («Фотография» and other type labels are not content.)
@@ -304,6 +318,37 @@ export function searchMessages(messages: readonly Message[], query: string, opts
     if (hits.length >= limit) break;
   }
   return hits;
+}
+
+/**
+ * Every occurrence of the query words in `text`, for highlighting inside a
+ * message bubble. Follows the same rules as `searchMessages`: either keyboard
+ * layout, and short queries only at word starts.
+ */
+export function highlightRanges(text: string, query: string): MatchRange[] {
+  const variants = searchVariants(query);
+  if (!text || variants.length === 0) return [];
+  const norm = normalizeSearch(text);
+  if (norm.length !== text.length) return [];
+  const wordStartsOnly = variants[0].length < 4;
+  const found: [number, number][] = [];
+  for (const v of variants) {
+    for (const t of v.split(' ')) {
+      if (!t) continue;
+      for (let i = norm.indexOf(t); i !== -1; i = norm.indexOf(t, i + t.length)) {
+        if ((wordStartsOnly || t.length < 3) && i > 0 && isWordChar(norm[i - 1])) continue;
+        found.push([i, i + t.length]);
+      }
+    }
+  }
+  found.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const r of found) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([r[0], r[1]]);
+  }
+  return merged;
 }
 
 // ── Presentation helpers ─────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import { SidebarAccountMenu } from './SidebarAccountMenu';
 import { ChatListItem, type ChatPreview } from './ChatListItem';
 import { ChatContextMenu, type ChatContextMenuItem } from './ChatContextMenu';
 import { SidebarSearch, type SidebarSearchHandle } from './SidebarSearch';
+import { SIDEBAR_SEARCH_INPUT_ID } from '../../../lib/chat-search';
 import { usePlatform } from '../../../context/platform-context';
 import { useAuth, useRooms } from '../../../context/contexts';
 import {
@@ -74,8 +75,6 @@ export interface ChatSidebarProps {
   setRoomFilterQuery: (q: string) => void;
   /** Search result click: open the chat at that message. */
   onOpenMessage: (roomId: string, messageId: string) => void;
-  /** Server-side search modal, seeded with the current query. */
-  onOpenAdvancedSearch: (query: string) => void;
   onOpenProfileModal: () => void;
   onOpenGlobalSearch: () => void;
   onOpenThemeModal: () => void;
@@ -130,7 +129,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   roomFilterQuery,
   setRoomFilterQuery,
   onOpenMessage,
-  onOpenAdvancedSearch,
   onOpenProfileModal,
   onOpenGlobalSearch,
   onOpenThemeModal,
@@ -320,6 +318,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 <span className="sr-only">Поиск по чатам и сообщениям</span>
                 <input
                   ref={searchRef}
+                  id={SIDEBAR_SEARCH_INPUT_ID}
                   type="search"
                   value={roomFilterQuery}
                   onChange={(e) => setRoomFilterQuery(e.target.value)}
@@ -379,7 +378,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 onSelectRoom(roomId);
               }}
               onOpenMessage={onOpenMessage}
-              onOpenAdvanced={onOpenAdvancedSearch}
             />
           ) : (
             <>

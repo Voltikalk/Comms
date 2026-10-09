@@ -3,6 +3,7 @@ import type { Message } from '../types';
 import {
   extractLinks,
   formatSearchDate,
+  highlightRanges,
   linkHost,
   makeSnippet,
   matchText,
@@ -183,6 +184,35 @@ describe('searchMessages', () => {
   it('respects the limit and empty queries', () => {
     expect(searchMessages(messages, 'молоко', { limit: 1 })).toHaveLength(1);
     expect(searchMessages(messages, ' ')).toEqual([]);
+  });
+
+  it('filters by sender and lists all their messages without a query', () => {
+    expect(searchMessages(messages, 'молоко', { sender: 'anya' }).map((h) => h.message.id)).toEqual(['m6', 'm2', 'm1']);
+    expect(searchMessages(messages, 'молоко', { sender: 'mom' })).toEqual([]);
+    const all = searchMessages(messages, '', { sender: 'mom' });
+    expect(all.map((h) => h.message.id)).toEqual(['m4']);
+    expect(all[0].snippet).toBe('Договор.pdf');
+    expect(all[0].ranges).toEqual([]);
+  });
+});
+
+describe('highlightRanges', () => {
+  it('marks every occurrence of every word', () => {
+    expect(highlightRanges('Молоко и ещё молоко', 'молоко')).toEqual([
+      [0, 6],
+      [13, 19],
+    ]);
+    expect(highlightRanges('Влад Петров', 'петров влад')).toEqual([
+      [0, 4],
+      [5, 11],
+    ]);
+  });
+
+  it('understands the other layout and keeps short queries at word starts', () => {
+    expect(highlightRanges('Привет всем', 'ghbdtn')).toEqual([[0, 6]]);
+    expect(highlightRanges('Аня и занятия', 'аня')).toEqual([[0, 3]]);
+    expect(highlightRanges('Настроить', 'стро')).toEqual([[2, 6]]);
+    expect(highlightRanges('текст', ' ')).toEqual([]);
   });
 });
 

@@ -31,7 +31,6 @@ import {
   pushRecent,
   searchMessages,
   searchVariants,
-  splitHighlight,
   topRooms,
   type MatchRange,
   type MessageHit,
@@ -39,6 +38,7 @@ import {
 } from '../../../lib/chat-search';
 import type { Message, Room, UserSearchResult } from '../../../types';
 import { PublicRoomResults } from './PublicRoomResults';
+import { SearchHighlight as Hl } from '../Search/SearchHighlight';
 
 const RECENT_KEY = 'tg_search_recent_rooms';
 const isSavedRoom = (id: string) => id === 'saved-messages' || id === 'saved';
@@ -73,24 +73,7 @@ export interface SidebarSearchProps {
   onOpenRoom: (roomId: string) => void;
   /** Jump to a message; the results stay so the next hit is one click away. */
   onOpenMessage: (roomId: string, messageId: string) => void;
-  /** Server-side search over the full history. */
-  onOpenAdvanced: (query: string) => void;
 }
-
-/** Query matches inside a string, as accent-coloured text. */
-const Hl: React.FC<{ text: string; ranges: readonly MatchRange[] }> = ({ text, ranges }) => (
-  <>
-    {splitHighlight(text, ranges).map((p, i) =>
-      p.hit ? (
-        <mark key={i} className="rounded-[3px] bg-accent/15 px-px text-accent">
-          {p.text}
-        </mark>
-      ) : (
-        <React.Fragment key={i}>{p.text}</React.Fragment>
-      )
-    )}
-  </>
-);
 
 const SectionTitle: React.FC<{ children: React.ReactNode; action?: React.ReactNode }> = ({ children, action }) => (
   <div className="flex items-center justify-between px-3 pb-1 pt-3 text-[13px] font-semibold text-muted">
@@ -99,12 +82,11 @@ const SectionTitle: React.FC<{ children: React.ReactNode; action?: React.ReactNo
   </div>
 );
 
-const Empty: React.FC<{ icon: React.ReactNode; title: string; hint: string; action?: React.ReactNode }> = ({ icon, title, hint, action }) => (
+const Empty: React.FC<{ icon: React.ReactNode; title: string; hint: string }> = ({ icon, title, hint }) => (
   <div className="flex flex-col items-center px-8 py-12 text-center">
     <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-accent-muted text-accent">{icon}</div>
     <p className="m-0 text-[15px] font-semibold text-ink">{title}</p>
     <p className="m-0 mt-1 text-[13.5px] leading-snug text-muted">{hint}</p>
-    {action}
   </div>
 );
 
@@ -145,7 +127,6 @@ export const SidebarSearch: React.FC<SidebarSearchProps> = ({
   isRoomMuted,
   onOpenRoom,
   onOpenMessage,
-  onOpenAdvanced,
 }) => {
   const { currentUser } = useAuth();
   const { userProfiles, getUserDisplayName, createDirectChat } = useRooms();
@@ -569,17 +550,6 @@ export const SidebarSearch: React.FC<SidebarSearchProps> = ({
     );
   };
 
-  const advancedButton = (label = 'Искать во всей истории') => (
-    <button
-      type="button"
-      onClick={() => onOpenAdvanced(q)}
-      className="mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-medium text-accent transition-colors hover:bg-accent-muted cursor-pointer"
-    >
-      <IconSearch size={16} />
-      {label}
-    </button>
-  );
-
   // ── Body ───────────────────────────────────────────────────────────────────
   let body: React.ReactNode;
 
@@ -681,7 +651,7 @@ export const SidebarSearch: React.FC<SidebarSearchProps> = ({
               <IconLoader2 size={24} className="animate-spin" />
             </div>
           ) : (
-            <Empty icon={<IconSearch size={28} />} title="Ничего не найдено" hint={`По запросу «${q}» нет чатов, людей и сообщений.`} action={advancedButton()} />
+            <Empty icon={<IconSearch size={28} />} title="Ничего не найдено" hint={`По запросу «${q}» нет чатов, людей и сообщений.`} />
           ))}
       </>
     );
@@ -694,7 +664,6 @@ export const SidebarSearch: React.FC<SidebarSearchProps> = ({
         }
         title="Ничего не найдено"
         hint={category === 'messages' ? `Среди загруженных сообщений нет «${q}».` : `Нет ${label}, подходящих под «${q}» — ни по тексту, ни по имени чата.`}
-        action={advancedButton()}
       />
     );
   } else if (category === 'media') {
@@ -707,7 +676,6 @@ export const SidebarSearch: React.FC<SidebarSearchProps> = ({
           {messageHits.length >= 300 ? 'Больше 300 результатов' : `${messageHits.length} ${pluralRu(messageHits.length, 'результат', 'результата', 'результатов')}`}
         </SectionTitle>
         {messageHits.map(render)}
-        {category === 'messages' && <div className="flex justify-center pb-2">{advancedButton('Искать на сервере')}</div>}
       </>
     );
   }

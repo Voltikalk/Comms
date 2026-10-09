@@ -42,6 +42,10 @@ export interface ChatMessageFeedProps {
   onClosePoll: (messageId: string, roomId: string) => void;
   onOpenGalleryMedia: (msgId: string) => void;
   onContextMenu: (e: React.MouseEvent | { clientX: number; clientY: number; preventDefault?: () => void }, msg: Message) => void;
+  /** Active in-chat search: its matches are highlighted in the bubbles. */
+  searchQuery?: string;
+  /** #тег click inside a bubble. */
+  onHashtagClick?: (tag: string) => void;
 }
 
 const formatPinTime = (ts: number) =>
@@ -75,6 +79,8 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
   onClosePoll,
   onOpenGalleryMedia,
   onContextMenu,
+  searchQuery,
+  onHashtagClick,
 }) => {
   const { getUserDisplayName } = useRooms();
   const isChannel = activeRoom?.type === 'channel';
@@ -183,6 +189,8 @@ export const ChatMessageFeed: React.FC<ChatMessageFeedProps> = ({
                       showSenderLabel={entry.showSenderLabel}
                       roomParticipantCount={activeRoom?.participants?.length || 0}
                       onOpenContextMenu={openContextMenu}
+                      searchQuery={searchQuery}
+                      onHashtagClick={onHashtagClick}
                     />
                   </div>
                 )}
