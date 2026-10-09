@@ -15,7 +15,7 @@ import { createUsersRouter } from './routes/users.js';
 import { pruneRevokedTokens } from './services/crypto.js';
 import { cloudPasswordAttempts } from './services/cloud-password.js';
 import { sessionStore } from './services/session-store.js';
-import { loadMessagesFromSupabase, loadRoomsFromSupabase, pruneExpiredStories } from './services/store.js';
+import { loadMessagesFromSupabase, loadStoriesFromSupabase, loadRoomsFromSupabase, pruneExpiredStories } from './services/store.js';
 import { initUsers } from './services/users.js';
 import { attachSockets } from './sockets/index.js';
 import { startChatSweeper } from './sockets/chat.js';
@@ -82,6 +82,7 @@ export function createServerApp({ rateLimit = true, background = true } = {}) {
   if (background) {
     void loadRoomsFromSupabase();
     void loadMessagesFromSupabase();
+    void loadStoriesFromSupabase();
     stops.push(startChatSweeper(io));
     const every = (fn, ms) => {
       const t = setInterval(fn, ms);

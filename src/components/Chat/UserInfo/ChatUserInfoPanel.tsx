@@ -35,6 +35,9 @@ import { ROOM_AVATAR_COLORS, profileGradient } from '../../../constants';
 import { formatBirthday, isBirthdayToday, parseBirthday } from '../../../lib/birthday';
 import { can, inviteUrl, isAdminLike, membersLabel, roleBadge } from '../../../lib/roles';
 import type { ManagePage } from '../Manage/RoomManageSheet';
+import { useStories } from '../../../context/stories-context';
+import { StoryThumb } from '../../Stories/StoryThumb';
+import { formatStoryAge } from '../../Stories/storyStyle';
 
 export interface ChatUserInfoPanelProps {
   onClose: () => void;
@@ -199,6 +202,11 @@ export const ChatUserInfoPanel: React.FC<ChatUserInfoPanelProps> = ({
   const canInvite = isGroup && can(activeRoom, currentUser, 'inviteUsers');
   const isSaved = !!activeRoom && SAVED_IDS.has(activeRoom.id);
   const isSelf = !isGroup && !isSaved && !!activePeerId && activePeerId === currentUser;
+  const { storiesOf, openStories } = useStories();
+  // Stories the peer pinned to their profile, newest first.
+  const pinnedStories = !isGroup && !isSaved && activePeerId
+    ? storiesOf(activePeerId).filter((s) => s.isPinned).sort((a, b) => b.timestamp - a.timestamp)
+    : [];
   const isSecret = !!activeRoom?.secret;
 
   // ===== Derived shared content =====
@@ -479,6 +487,30 @@ export const ChatUserInfoPanel: React.FC<ChatUserInfoPanelProps> = ({
                 </button>
               )}
             </div>
+          )}
+
+          {/* Pinned stories */}
+          {pinnedStories.length > 0 && activePeerId && (
+            <section className="border-b border-line py-3" aria-label="Истории в профиле">
+              <h3 className="px-4 pb-2 text-[13px] font-semibold text-accent">Истории · {pinnedStories.length}</h3>
+              <div className="flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]">
+                {pinnedStories.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => openStories(isSelf ? 'me' : activePeerId, s.id)}
+                    className="shrink-0 cursor-pointer overflow-hidden rounded-lg transition-transform hover:brightness-110 active:scale-[0.97]"
+                    title="Открыть историю"
+                  >
+                    <StoryThumb story={s} className="w-[86px]">
+                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-4 text-left text-[10.5px] font-medium text-white">
+                        {formatStoryAge(s.timestamp)}
+                      </span>
+                    </StoryThumb>
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
           {/* Shared content */}

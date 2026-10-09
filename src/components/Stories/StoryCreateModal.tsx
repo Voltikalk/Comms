@@ -22,6 +22,7 @@ import {
   IconRefresh,
   IconPin,
   IconLoader2,
+  IconChevronRight,
 } from '@tabler/icons-react';
 import { useStories } from '../../context/stories-context';
 import { useAuth, useRooms } from '../../context/contexts';
@@ -36,6 +37,7 @@ import {
   type StoryStickerOverlay,
 } from '../../types/story.types';
 import { StoryMedia } from './storyCanvas';
+import { CloseFriendsSheet } from './CloseFriendsSheet';
 import { FONT_LABELS, PRIVACY_META, STORY_CAPTION_MAX, STORY_TEXT_MAX, storyGradient, storyTextProps } from './storyStyle';
 
 interface StoryCreateModalProps {
@@ -95,7 +97,7 @@ export const StoryCreateModal: React.FC<StoryCreateModalProps> = ({ isOpen, onCl
 
 /** Full-screen story composer. Mounted fresh each time it opens, so no reset logic is needed. */
 const StoryEditor: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { sendStory } = useStories();
+  const { sendStory, closeFriends } = useStories();
   const me = useAuth().currentUser ?? '';
   const { currentUserName } = useRooms();
   const authorName = currentUserName || me.charAt(0).toUpperCase() + me.slice(1);
@@ -137,6 +139,7 @@ const StoryEditor: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [isPinned, setIsPinned] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [editFriends, setEditFriends] = useState(false);
 
   // Camera
   const [facing, setFacing] = useState<'user' | 'environment'>('user');
@@ -465,7 +468,8 @@ const StoryEditor: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      if (confirmDiscard) setConfirmDiscard(false);
+      if (editFriends) setEditFriends(false);
+      else if (confirmDiscard) setConfirmDiscard(false);
       else if (showSettings) setShowSettings(false);
       else if (panel) setPanel(null);
       else requestClose();
@@ -980,6 +984,16 @@ const StoryEditor: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         </button>
                       );
                     })}
+                    {privacy === 'close_friends' && (
+                      <button
+                        type="button"
+                        onClick={() => setEditFriends(true)}
+                        className="flex w-full items-center gap-2 rounded-xl py-1.5 pl-[52px] pr-2.5 text-left text-[13px] font-medium text-[#32d74b] cursor-pointer hover:bg-white/[0.05]"
+                      >
+                        <span className="flex-1">{closeFriends === null ? 'Выбрать близких друзей' : `Список: ${closeFriends.length}`}</span>
+                        <IconChevronRight size={15} />
+                      </button>
+                    )}
 
                     <div className="mx-2.5 my-1.5 h-px bg-white/10" />
 
@@ -1027,6 +1041,8 @@ const StoryEditor: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </div>
         </div>
       </motion.div>
+
+      <AnimatePresence>{editFriends && <CloseFriendsSheet onClose={() => setEditFriends(false)} />}</AnimatePresence>
 
       {/* Discard confirmation */}
       <AnimatePresence>

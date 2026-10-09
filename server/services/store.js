@@ -255,6 +255,7 @@ export async function loadMessagesFromSupabase() {
         text: messageText,
         timestamp: new Date(m.created_at).getTime(),
         replyToId: m.reply_to_id || undefined,
+        storyReply: m.story_reply && typeof m.story_reply === 'object' ? m.story_reply : undefined,
         file: att ? { name: att.file_name, type: detectFileType(att), data: att.file_url, size: att.file_size || 0 } : undefined,
         reactions: Object.keys(msgReactions).length > 0 ? msgReactions : undefined,
         isEdited: !!m.edited_at,
@@ -293,17 +294,109 @@ export function takeDueScheduled(now = Date.now()) {
 export const scheduledFor = (userId) => [...scheduledMessages.values()].filter((m) => m.sender === userId);
 
 // =============================================================================
-// Stories (24h lifetime)
+// Stories (24h lifetime, up to a year when pinned to the profile)
 // =============================================================================
 
 export const storiesStore = new Map(); // userId -> Story[]
+/** author (lower-case) -> Set of lower-case usernames; absent = fall back to contacts. */
+export const closeFriendsStore = new Map();
 
+const STORY_SAVE_DEBOUNCE_MS = 1500;
+const pendingStorySaves = new Map();
+let storiesTableWarned = false;
+
+/** Logs a missing/unreachable `stories` table once instead of on every write. */
+function warnStories(context, error) {
+  if (!error || storiesTableWarned) return;
+  if (error.message === 'Supabase is not configured') return;
+  storiesTableWarned = true;
+  console.warn(`[Supabase Stories] ${context}: ${error.message} (apply migration 008_stories.sql)`);
+}
+
+const runQuery = (context, query) =>
+  void Promise.resolve(query)
+    .then((res) => warnStories(context, res?.error))
+    .catch((err) => warnStories(context, err));
+
+/** Debounced upsert of a story (views and reactions arrive in bursts). */
+export function persistStory(story) {
+  if (!story?.id) return;
+  clearTimeout(pendingStorySaves.get(story.id));
+  const timer = setTimeout(() => {
+    pendingStorySaves.delete(story.id);
+    runQuery(
+      'save',
+      supabase.from('stories').upsert({
+        id: story.id,
+        author: story.userId,
+        payload: story,
+        expires_at: new Date(story.expiresAt).toISOString(),
+      })
+    );
+  }, STORY_SAVE_DEBOUNCE_MS);
+  timer.unref?.();
+  pendingStorySaves.set(story.id, timer);
+}
+
+export function unpersistStories(ids) {
+  if (!ids.length) return;
+  for (const id of ids) {
+    clearTimeout(pendingStorySaves.get(id));
+    pendingStorySaves.delete(id);
+  }
+  runQuery('delete', supabase.from('stories').delete().in('id', ids));
+}
+
+/** Saves the author's close-friends list; no list (reset to contacts) deletes the row. */
+export function persistCloseFriends(owner) {
+  const key = String(owner).toLowerCase();
+  const list = closeFriendsStore.get(key);
+  runQuery(
+    'close friends',
+    list
+      ? supabase.from('story_close_friends').upsert({ owner: key, friends: [...list], updated_at: new Date().toISOString() })
+      : supabase.from('story_close_friends').delete().eq('owner', key)
+  );
+}
+
+export async function loadStoriesFromSupabase() {
+  try {
+    const nowIso = new Date().toISOString();
+    const [{ data: rows, error }, { data: friends }] = await Promise.all([
+      supabase.from('stories').select('payload').gt('expires_at', nowIso),
+      supabase.from('story_close_friends').select('owner, friends'),
+    ]);
+    if (error) return warnStories('load', error);
+    for (const { payload: s } of rows || []) {
+      if (!s?.id || typeof s.userId !== 'string') continue;
+      const list = storiesStore.get(s.userId) || [];
+      if (list.some((x) => x.id === s.id)) continue;
+      list.push({ views: [], reactions: {}, viewTimes: {}, ...s });
+      storiesStore.set(s.userId, list);
+    }
+    for (const list of storiesStore.values()) list.sort((a, b) => a.timestamp - b.timestamp);
+    for (const { owner, friends: list } of friends || []) {
+      if (typeof owner === 'string' && Array.isArray(list)) closeFriendsStore.set(owner.toLowerCase(), new Set(list));
+    }
+    runQuery('cleanup', supabase.from('stories').delete().lte('expires_at', nowIso));
+    console.log(`[Supabase Stories] Loaded ${rows?.length || 0} active stories.`);
+  } catch (err) {
+    warnStories('load', err);
+  }
+}
+
+/** Drops expired stories from memory (and the database); returns the removed ids. */
 export function pruneExpiredStories(now = Date.now()) {
+  const removed = [];
   for (const [userId, list] of storiesStore.entries()) {
     const alive = list.filter((s) => s.expiresAt > now);
+    if (alive.length === list.length) continue;
+    for (const s of list) if (s.expiresAt <= now) removed.push(s.id);
     if (alive.length === 0) storiesStore.delete(userId);
-    else if (alive.length !== list.length) storiesStore.set(userId, alive);
+    else storiesStore.set(userId, alive);
   }
+  unpersistStories(removed);
+  return removed;
 }
 
 /**
@@ -321,9 +414,15 @@ export function contactsOf(userId) {
   return contacts;
 }
 
+/** The author's explicit close-friends list, or their contacts when none was set. */
+export function closeFriendsOf(userId) {
+  return closeFriendsStore.get(String(userId || '').toLowerCase()) ?? contactsOf(userId);
+}
+
 /**
  * Stories visible to `viewer`, filtered by each story's audience. Other
- * people's view lists and reactions are reduced to the viewer's own entries.
+ * people's view lists and reactions are reduced to the viewer's own entries,
+ * and view times are only shown to the author.
  */
 export function getStoriesState(viewer) {
   pruneExpiredStories();
@@ -335,16 +434,21 @@ export function getStoriesState(viewer) {
       continue;
     }
     let contacts;
+    let friends;
     const visible = list
       .filter((s) => {
         if (s.privacy === 'only_me') return false;
-        if (s.privacy === 'contacts' || s.privacy === 'close_friends') {
+        if (s.privacy === 'contacts') {
           contacts ??= contactsOf(userId);
           return contacts.has(me);
         }
+        if (s.privacy === 'close_friends') {
+          friends ??= closeFriendsOf(userId);
+          return friends.has(me);
+        }
         return true;
       })
-      .map((s) => ({
+      .map(({ viewTimes: _viewTimes, ...s }) => ({
         ...s,
         views: s.views.includes(viewer) ? [viewer] : [],
         reactions: Object.fromEntries(

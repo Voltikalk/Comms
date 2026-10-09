@@ -97,6 +97,7 @@ const CircularProgress: React.FC<{ progress: number }> = ({ progress }) => {
 import { HoverAnimatedEmoji } from './TelegramEmojiPickerModal';
 import { ReactionChips } from './Chat/Feed/ReactionChips';
 import { mergeReactions } from '../lib/reactions';
+import { StoryReplyCard } from './Stories/StoryReplyCard';
 
 interface MessageBubbleProps {
   message: Message;
@@ -396,8 +397,8 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
   const hasText = !!rawCleanText && !isAutoFileNameCaption && !isSticker;
   // Telegram: a message of 1–3 emoji and nothing else is drawn large, without a bubble.
   const jumbo = useMemo(
-    () => (hasText && !hasFile && !message.poll && !parentMessage && !forwardedSenderName ? jumboEmoji(rawCleanText) : null),
-    [hasText, hasFile, message.poll, parentMessage, forwardedSenderName, rawCleanText],
+    () => (hasText && !hasFile && !message.poll && !parentMessage && !forwardedSenderName && !message.storyReply ? jumboEmoji(rawCleanText) : null),
+    [hasText, hasFile, message.poll, parentMessage, forwardedSenderName, message.storyReply, rawCleanText],
   );
   // Messages typed in this tab fly in from the composer; everything else just fades in.
   // Captured once so the ack (pending → sent) doesn't swap the animation and replay it.
@@ -766,6 +767,16 @@ export const MessageBubble = React.memo<MessageBubbleProps>(({
                 </div>
               );
             })()}
+
+            {/* Reply to a story: mini preview, reopens the story while it is live */}
+            {message.storyReply && !isVideoNote && !isSticker && (
+              <StoryReplyCard
+                reply={message.storyReply}
+                isSelf={isSelf}
+                currentUser={currentUser ?? ''}
+                authorName={getUserDisplayName(message.storyReply.authorId)}
+              />
+            )}
 
             {/* POLL - Interactive Live Poll Card (replaces text & media) */}
             {message.poll && (

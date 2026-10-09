@@ -348,6 +348,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     unread={unreadCount(room.id)}
                     preview={getLastMessagePreview(room.id)}
                     typers={roomTypingUsers(room.id)}
+                    storyUserId={peerId}
                     onClick={() => onSelectRoom(room.id)}
                     onContextMenu={(x, y) => setMenu({ roomId: room.id, x, y })}
                   />

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Message, UserId, Room, UserProfile, Poll } from '../../../types';
+import type { Message, UserId, Room, UserProfile, Poll, StoryReplyRef } from '../../../types';
 import type { ChatThemeConfig } from '../../../types/theme.types';
 import type { FilterOptions } from '../../../lib/filter-utils';
 import { ProfileEditModal } from '../../ProfileEditModal';
@@ -9,6 +9,7 @@ import { AdvancedSearchModal } from '../../Search/AdvancedSearchModal';
 import { ThemeSettingsModal } from '../../Theme/ThemeSettingsModal';
 import { StoryViewer } from '../../Stories/StoryViewer';
 import { StoryCreateModal } from '../../Stories/StoryCreateModal';
+import { useStories } from '../../../context/stories-context';
 import { MediaGalleryModal } from '../../Media/MediaGalleryModal';
 import { CommandPaletteModal } from '../../Navigation/CommandPaletteModal';
 import { TelegramContextMenuModal } from '../../TelegramContextMenuModal';
@@ -74,11 +75,10 @@ export interface ChatModalsHostProps {
   /** Live preview of an unsaved appearance draft (`null` restores the saved one). */
   setThemePreview: (config: ChatThemeConfig | null) => void;
   // Stories
-  activeStoryViewerUser: UserId | null;
-  setActiveStoryViewerUser: (user: UserId | null) => void;
   isStoryCreateOpen: boolean;
   setIsStoryCreateOpen: (open: boolean) => void;
-  onSendStoryDirectMessage: (peerUserId: string, text: string) => void;
+  /** Reply to a story: a message to the author's DM with the story card. */
+  onSendStoryReply: (peerUserId: string, text: string, storyReply: StoryReplyRef) => void;
   // Gallery
   activeGalleryMediaId: string | null;
   setActiveGalleryMediaId: (id: string | null) => void;
@@ -163,11 +163,9 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
   themeConfig,
   setThemeConfig,
   setThemePreview,
-  activeStoryViewerUser,
-  setActiveStoryViewerUser,
   isStoryCreateOpen,
   setIsStoryCreateOpen,
-  onSendStoryDirectMessage,
+  onSendStoryReply,
   activeGalleryMediaId,
   setActiveGalleryMediaId,
   roomMediaMessages,
@@ -201,6 +199,7 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
   setShowNewChatModal,
 }) => {
   const [isUrlCopied, setIsUrlCopied] = React.useState(false);
+  const { viewer: storyViewer } = useStories();
 
   return (
     <>
@@ -293,15 +292,11 @@ export const ChatModalsHost: React.FC<ChatModalsHostProps> = ({
       )}
 
       {/* 6. Story Viewer Modal */}
-      {activeStoryViewerUser && (
+      {storyViewer && (
         <StoryViewer
-          targetUser={activeStoryViewerUser}
-          onClose={() => setActiveStoryViewerUser(null)}
-          onOpenCreate={() => {
-            setActiveStoryViewerUser(null);
-            setIsStoryCreateOpen(true);
-          }}
-          onSendDirectMessage={onSendStoryDirectMessage}
+          key={`${storyViewer.userId}:${storyViewer.storyId ?? ''}`}
+          onOpenCreate={() => setIsStoryCreateOpen(true)}
+          onSendReply={onSendStoryReply}
         />
       )}
 

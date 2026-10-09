@@ -23,7 +23,7 @@ export const FONT_LABELS: Record<StoryFontStyle, string> = {
 export const PRIVACY_META: Record<StoryPrivacy, { label: string; hint: string; icon: Icon }> = {
   everyone: { label: 'Все', hint: 'Любой пользователь мессенджера', icon: IconWorld },
   contacts: { label: 'Контакты', hint: 'Те, с кем у вас есть чат', icon: IconUsers },
-  close_friends: { label: 'Близкие друзья', hint: 'Контакты, зелёное кольцо', icon: IconStar },
+  close_friends: { label: 'Близкие друзья', hint: 'Только ваш список, зелёное кольцо', icon: IconStar },
   only_me: { label: 'Только я', hint: 'Черновик, никто больше не увидит', icon: IconLock },
 };
 

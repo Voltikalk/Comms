@@ -40,7 +40,7 @@ npm run dev
 
 ### 5. Тестирование, проверка качества и сборка
 ```bash
-# Запуск юнит-тестов Vitest (316/316 тестов)
+# Запуск юнит-тестов Vitest (327/327 тестов)
 npm test
 
 # Линтинг кодовой базы (Oxlint)
@@ -91,7 +91,13 @@ npm run migrate:status
 
 **Secure Comms** — высоконагруженный веб-мессенджер реального времени, воссоздающий интерфейс, UX и плавность официального клиента **Telegram Web K/A** с современным Glassmorphism оформлением, кинематографичными анимациями, стандартизированной дизайн-системой, аутентификацией на базе **Supabase Auth / JWT**, сервисом загрузки и компрессии файлов **Supabase Storage**, системой **Real-time сокетов (Socket.io)**, историями (Stories 2.0), опросами и викторинами (Polls & Quizzes), голосовыми сообщениями с живым спектром звука (Web Audio Waveforms), видео-кружками с 60 FPS GPU-плеером, анимированными .TGS стикерами, кастомным 4K видеоплеером, полнотекстовым поиском FTS, кроссплатформенным гибридным режимом, интерактивным форматированием текста со спойлерами, полноэкранной медиа-галереей Lightbox и палитрой команд Command Palette Spotlight.
 
-### 📌 Текущая стадия разработки (Status: Phase 62 — Telegram Groups & Channels, Composer Emoji/Sticker Panel & Multi-File Albums [v3.32.1]):
+### 📌 Текущая стадия разработки (Status: Phase 63 — Stories 4.0: Persistence, Close Friends & Story Rings [v3.33.0]):
+* ✅ **Истории переживают рестарт [v3.33.0]**: хранение в Supabase (миграция `008_stories.sql`: таблицы `stories` и `story_close_friends`), загрузка при старте сервера, время просмотров, одна реакция на человека с повторным нажатием для снятия.
+* ✅ **Управление после публикации [v3.33.0]**: меню «⋯» в просмотрщике — закрепить в профиле / убрать, сменить аудиторию, скрыть автора, скачать, удалить; настоящий список «Близкие друзья» (`CloseFriendsSheet`).
+* ✅ **Истории по всему интерфейсу [v3.33.0]**: кольца на аватарах в списке чатов и шапке чата (`StoryAvatarRing`), карточка «ответ на историю» в сообщении (`StoryReplyCard`), закреплённые истории в профиле, боковые превью соседних авторов на ПК, предзагрузка следующей истории, скрытые авторы в конце строки историй.
+* ✅ **Качество**: `npm test` — 327/327 (36 файлов), `npm run lint` — 0 предупреждений, `npm run build` — OK.
+
+### 📌 Предыдущая стадия разработки (Status: Phase 62 — Telegram Groups & Channels, Composer Emoji/Sticker Panel & Multi-File Albums [v3.32.1]):
 * ✅ **Группы и каналы [v3.32.0]**: роли и права (`server/services/roles.js`, `src/lib/roles.ts`), экраны управления (`Chat/Manage/RoomManageSheet.tsx`, `JoinRoomModal.tsx`), поиск публичных групп и каналов, сервисные сообщения, ограниченное поле ввода для участников без права писать; миграция `007_groups_and_channels.sql`.
 * ✅ **Поле ввода [v3.32.0]**: новая панель эмодзи (поиск RU/EN, категории, «Часто используемые», вставка в позицию курсора, удаление графемами) и стикеров (поиск, лента наборов, «Недавние» / «Избранные»); отправка нескольких файлов разом — фото и видео уходят альбомами до 10 штук.
 * ✅ **Реакции на альбомах [v3.32.1]**: общая строка плашек под коллажем, реакции со всех элементов альбома сводятся вместе (`ReactionChips`, `mergeReactions`).
@@ -385,9 +391,13 @@ Comms/
 │   │   ├── PollCard.tsx                   # Карточка интерактивного опроса / викторины с анимацией
 │   │   └── PollCreateModal.tsx            # Создание опросов и викторин с правильным ответом
 │   ├── Stories/
-│   │   ├── StoriesBar.tsx                 # Строка аватаров историй с градиентными кольцами
-│   │   ├── StoryViewer.tsx                # Полноэкранный плеер историй (реакции, ответы, просмотры)
-│   │   └── StoryCreateModal.tsx           # Создание текстовых/фото историй на градиентах
+│   │   ├── StoriesBar.tsx                 # Строка аватаров историй с градиентными кольцами и скрытыми авторами
+│   │   ├── StoryViewer.tsx                # Полноэкранный плеер историй (реакции, ответы, просмотры, меню ⋯, боковые превью)
+│   │   ├── StoryCreateModal.tsx           # Создание текстовых/фото историй на градиентах
+│   │   ├── StoryRing.tsx                  # Сегментное кольцо StoryRing и обёртка аватара StoryAvatarRing
+│   │   ├── StoryThumb.tsx                 # Статичное мини-превью истории 9:16
+│   │   ├── StoryReplyCard.tsx             # Карточка «ответ на историю» в пузыре сообщения
+│   │   └── CloseFriendsSheet.tsx          # Редактор списка «Близкие друзья»
 │   ├── Stickers/
 │   │   ├── StickerPicker.tsx              # Стикер-пикер с поиском, паками, избранным и недавними
 │   │   └── TgsStickerPlayer.tsx           # 60 FPS Lottie/Canvas плеер векторных .TGS анимаций
@@ -429,6 +439,7 @@ Comms/
 ## 🧩 Ключевые подсистемы и мастер-сьюты
 
 ### 4.1. Telegram Stories 3.0 Master Suite («Как в TG»)
+* **Stories 4.0 [v3.33.0]**: истории хранятся в Supabase (`supabase/migrations/008_stories.sql`) и переживают перезапуск сервера; новые сокет-события `update_story` (аудитория и закрепление после публикации), `get_close_friends` / `set_close_friends`. Состояние клиента — [`src/context/StoriesContext.tsx`](src/context/StoriesContext.tsx) (`openStories(userId, storyId?)`, `ringState`, скрытые авторы, близкие друзья); чистые функции — [`src/lib/story-utils.ts`](src/lib/story-utils.ts). Подробности — в журнале изменений v3.33.0.
 * **Хранилище и синхронизация**: бэкенд [`server.js`](https://github.com/Voltikalk/Comms/blob/main/server.js) поддерживает in-memory хранилище историй с автоочисткой по кастомному TTL (6, 12, 24, 48 часов или бессрочно при закреплении в профиле `isPinned`) и сокет-событиями `send_story`, `delete_story`, `view_story`, `react_story`.
 * **Строка историй ([`src/components/Stories/StoriesBar.tsx`](https://github.com/Voltikalk/Comms/blob/main/src/components/Stories/StoriesBar.tsx))**:
   * **Сегментированные SVG-кольца (`SegmentedStoryRing`)**: кольцо вокруг аватарки динамически разделяется на количество дуг, равное числу историй пользователя с разделителями.
@@ -575,7 +586,7 @@ npm run server
 # 2. Запуск Vite Dev сервера (порт 5173)
 npm run dev
 
-# 3. Запуск юнит-тестов Vitest (316/316 тестов)
+# 3. Запуск юнит-тестов Vitest (327/327 тестов)
 npm test
 
 # 4. Проверка линтером Oxlint
@@ -591,6 +602,36 @@ npm run storybook
 ---
 
 ## 📜 Журнал изменений (Changelog)
+
+### [v3.33.0] — 10 октября 2026 г.
+* **Phase 63 — Stories 4.0: Persistence, Close Friends & Story Rings** ([PR #6](https://github.com/Voltikalk/Comms/pull/6))
+
+#### Сервер
+* Миграция [`supabase/migrations/008_stories.sql`](supabase/migrations/008_stories.sql): таблица `stories` (вся очищенная история в JSONB, `expires_at` для очистки) и `story_close_friends` (явный список близких друзей автора). RLS включён, пишет только API-сервер.
+* [`server/services/store.js`](server/services/store.js): `persistStory` и удаление, `loadStoriesFromSupabase` при старте, `closeFriendsOf`; `viewTimes` (кто и когда смотрел) отдаются только автору.
+* [`server/sockets/stories.js`](server/sockets/stories.js): одна реакция на зрителя — повторная та же снимает её, другая заменяет; время просмотров; `update_story` (только автор: аудитория и «Оставить в профиле», срок пересчитывается — закреплённая живёт год); `get_close_friends` / `set_close_friends` (только существующие пользователи, `null` — сброс к «все контакты»).
+* [`server/sockets/chat.js`](server/sockets/chat.js): `storyReplyFor` — превью для ответа на историю строится на сервере из самой истории, данным клиента не доверяем.
+* Тесты [`server/sockets/stories.test.js`](server/sockets/stories.test.js): реакции-переключатели, время просмотров, `update_story`, близкие друзья, ответ на историю.
+
+#### Новые компоненты и модули
+* [`src/lib/story-utils.ts`](src/lib/story-utils.ts): `reactionOf`, `applyStoryReaction`, `storyViewerEntries`, `storyReactionCount`, `orderStoryAuthors` (непросмотренные вперёд, скрытые отдельно), `startStoryIndex` (первая непросмотренная), `plural`. Тесты — [`src/lib/story-utils.test.ts`](src/lib/story-utils.test.ts).
+* [`Stories/StoryRing.tsx`](src/components/Stories/StoryRing.tsx): `StoryRing` — сегментное SVG-кольцо (акцент — новые, зелёное — близкие друзья, серое — просмотренные); `StoryAvatarRing` — оборачивает любую круглую аватарку: при наличии историй рисует кольцо, а клик открывает истории (иначе `onClick`); `isolateClick` не даёт клику дойти до строки чата.
+* [`Stories/StoryThumb.tsx`](src/components/Stories/StoryThumb.tsx): статичное превью 9:16 (текст на градиенте, первый кадр видео, фото, наложения) для боковых превью, карточки ответа и профиля.
+* [`Stories/StoryReplyCard.tsx`](src/components/Stories/StoryReplyCard.tsx): карточка над текстом сообщения-ответа; клик открывает историю, пока она жива, иначе — «История больше недоступна».
+* [`Stories/CloseFriendsSheet.tsx`](src/components/Stories/CloseFriendsSheet.tsx): выбор близких друзей из контактов с поиском, «Выбрать всех», «Сбросить».
+
+#### Изменённые компоненты
+* [`StoriesContext.tsx`](src/context/StoriesContext.tsx) / [`stories-context.ts`](src/context/stories-context.ts): просмотренность = локально ∪ сервер; оптимистичные `updateStory` / `deleteStory` / `reactStory`; `hiddenStories`, `isAuthorHidden`, `toggleHiddenAuthor` (`tg_hidden_story_authors`); `closeFriends`, `saveCloseFriends` (с подтверждением сервера); `storiesOf`, `ringState`; просмотрщик открывается из любого места через `openStories` / `closeStories`.
+* [`StoryViewer.tsx`](src/components/Stories/StoryViewer.tsx) переписан: старт с первой непросмотренной, меню «⋯» (закрепить / убрать из профиля, «Кто может видеть», скрыть автора, скачать, удалить), боковые превью соседних авторов на ПК, предзагрузка следующей истории, список зрителей со временем и фильтром «с реакциями», ответ уходит в личный чат с карточкой истории.
+* [`StoriesBar.tsx`](src/components/Stories/StoriesBar.tsx): общее `StoryRing`; ПКМ / долгое нажатие — «Скрыть истории»; скрытые авторы свёрнуты в плитку «Скрытые» в конце.
+* [`StoryCreateModal.tsx`](src/components/Stories/StoryCreateModal.tsx): для «Близкие друзья» — строка «Выбрать близких друзей» / «Список: N».
+* [`ChatListItem.tsx`](src/components/Chat/Sidebar/ChatListItem.tsx) (проп `storyUserId`), [`ChatSidebar.tsx`](src/components/Chat/Sidebar/ChatSidebar.tsx), [`ChatHeader.tsx`](src/components/Chat/Header/ChatHeader.tsx): кольца историй на аватарах личных чатов.
+* [`ChatUserInfoPanel.tsx`](src/components/Chat/UserInfo/ChatUserInfoPanel.tsx): блок «Истории · N» с закреплёнными историями собеседника.
+* [`MessageBubble.tsx`](src/components/MessageBubble.tsx): `StoryReplyCard` для `message.storyReply`; такой ответ из одних эмодзи не превращается в «большие эмодзи без пузыря».
+* [`ChatModalsHost.tsx`](src/components/Chat/Modals/ChatModalsHost.tsx), [`ChatScreen.tsx`](src/components/ChatScreen.tsx): просмотрщик управляется контекстом; `onSendStoryReply` находит или создаёт личный чат и отправляет сообщение с `storyReply`.
+* Типы: `StoryReplyRef` и `Message.storyReply` (`src/types.ts`), `SendOptions.storyReply` (`contexts.ts`), `Story.viewTimes` (`story.types.ts`).
+* Итог: `npm test` — **327/327** (36 файлов), `npm run lint` — 0 предупреждений, `npm run build` — OK.
+* ⚠️ Перед деплоем примените миграцию `008_stories.sql` (`npm run migrate:up`), иначе истории, как и раньше, будут жить только в памяти сервера.
 
 ### [v3.32.1] — 9 октября 2026 г.
 * **Phase 62.1 — Реакции на альбомах** ([PR #4](https://github.com/Voltikalk/Comms/pull/4))
