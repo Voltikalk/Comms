@@ -268,7 +268,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
     });
   }, []);
 
-  // Filtered rooms list by folder tab AND search in sidebar; pinned chats first.
+  // Chat list for the selected folder tab; pinned chats first.
   const filteredRooms = useMemo(() => {
     const pinRank = (id: string) => {
       const i = pinnedRooms.indexOf(id);
@@ -287,15 +287,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
       } else if (activeFolder === 'saved') {
         if (!isSavedMessagesRoom(r)) return false;
       }
-
-      // 2. Query search filter
-      if (!roomFilterQuery.trim()) return true;
-      const name = getRoomDisplayName(r);
-      return name.toLowerCase().includes(roomFilterQuery.toLowerCase());
+      // The sidebar search (SidebarSearch) has its own result list over every chat.
+      return true;
     }).map((r, i) => ({ r, i }))
       .sort((a, b) => pinRank(a.r.id) - pinRank(b.r.id) || a.i - b.i)
       .map(({ r }) => r);
-  }, [rooms, activeFolder, roomFilterQuery, unreadCount, getRoomDisplayName, pinnedRooms]);
+  }, [rooms, activeFolder, unreadCount, pinnedRooms]);
 
   // Phone tab bar: each tab is its own screen inside the sidebar (Telegram iOS).
   const handleMobileTabSelect = (tab: MobileTab) => {
@@ -2314,6 +2311,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           currentUserName={currentUserName}
           currentUserProfile={currentUserProfile}
           rooms={filteredRooms}
+          allRooms={rooms}
+          messages={messages}
           activeRoomId={activeRoomId}
           onSelectRoom={(roomId) => {
             setActiveRoomId(roomId);
@@ -2337,6 +2336,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ darkMode, toggleDarkMode
           roomTypingUsers={getRoomTypingUsers}
           roomFilterQuery={roomFilterQuery}
           setRoomFilterQuery={setRoomFilterQuery}
+          onOpenMessage={handleNavigateFromGlobalSearch}
+          onOpenAdvancedSearch={(query) => {
+            setGlobalSearchSeed(query || undefined);
+            setShowGlobalSearchModal(true);
+          }}
           onOpenProfileModal={() => setShowProfileModal(true)}
           onOpenGlobalSearch={() => setShowGlobalSearchModal(true)}
           onOpenThemeModal={() => setShowThemeModal(true)}

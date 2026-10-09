@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Room, UserProfile } from '../../../types';
+import type { Message, Room, UserProfile } from '../../../types';
 import type { ChatFolderId, FolderCountInfo } from '../../Navigation/ChatFolderTabs';
 import type { MobileTab } from '../../Mobile/MobileBottomNav';
 import { StoriesBar } from '../../Stories/StoriesBar';
@@ -12,10 +12,11 @@ import { SecuritySettingsModal } from '../../Settings/SecuritySettingsModal';
 import { SidebarAccountMenu } from './SidebarAccountMenu';
 import { ChatListItem, type ChatPreview } from './ChatListItem';
 import { ChatContextMenu, type ChatContextMenuItem } from './ChatContextMenu';
-import { PublicRoomResults } from './PublicRoomResults';
+import { SidebarSearch, type SidebarSearchHandle } from './SidebarSearch';
 import { usePlatform } from '../../../context/platform-context';
 import { useAuth, useRooms } from '../../../context/contexts';
 import {
+  IconArrowLeft,
   IconBell,
   IconBellOff,
   IconLogout,
@@ -47,7 +48,12 @@ export interface ChatSidebarProps {
   setShowMenuDropdown: (show: boolean) => void;
   currentUserName: string | null;
   currentUserProfile: UserProfile | null;
+  /** Chats of the selected folder, as shown in the list. */
   rooms: Room[];
+  /** Every chat — the search looks through all of them. */
+  allRooms: Room[];
+  /** Loaded messages of all chats, for message / media / link / file search. */
+  messages: Message[];
   activeRoomId: string;
   onSelectRoom: (roomId: string) => void;
   getRoomDisplayName: (room: Room) => string;
@@ -66,6 +72,10 @@ export interface ChatSidebarProps {
   roomTypingUsers: (roomId: string) => string[];
   roomFilterQuery: string;
   setRoomFilterQuery: (q: string) => void;
+  /** Search result click: open the chat at that message. */
+  onOpenMessage: (roomId: string, messageId: string) => void;
+  /** Server-side search modal, seeded with the current query. */
+  onOpenAdvancedSearch: (query: string) => void;
   onOpenProfileModal: () => void;
   onOpenGlobalSearch: () => void;
   onOpenThemeModal: () => void;
@@ -100,6 +110,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   currentUserName,
   currentUserProfile,
   rooms,
+  allRooms,
+  messages,
   activeRoomId,
   onSelectRoom,
   getRoomDisplayName,
@@ -117,6 +129,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   roomTypingUsers,
   roomFilterQuery,
   setRoomFilterQuery,
+  onOpenMessage,
+  onOpenAdvancedSearch,
   onOpenProfileModal,
   onOpenGlobalSearch,
   onOpenThemeModal,
@@ -155,9 +169,30 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const { currentUser } = useAuth();
   const { userProfiles } = useRooms();
   const savedRoom = React.useMemo(
-    () => rooms.find((r) => isSavedRoom(r.id)),
-    [rooms]
+    () => allRooms.find((r) => isSavedRoom(r.id)),
+    [allRooms]
   );
+
+  // Search mode (Telegram): focusing the field swaps the chat list for the search panel
+  // until the user goes back (arrow / Esc / opening a chat / clicking away with an empty query).
+  const asideRef = React.useRef<HTMLElement>(null);
+  const searchPanelRef = React.useRef<SidebarSearchHandle>(null);
+  const [searchFocused, setSearchFocused] = React.useState(false);
+  const searching = !isCompactSidebar && showChatList && (searchFocused || roomFilterQuery !== '');
+  const exitSearch = React.useCallback(() => {
+    setRoomFilterQuery('');
+    setSearchFocused(false);
+    searchRef.current?.blur();
+  }, [setRoomFilterQuery]);
+
+  React.useEffect(() => {
+    if (!searching || roomFilterQuery) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!asideRef.current?.contains(e.target as Node)) setSearchFocused(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [searching, roomFilterQuery]);
 
   const contextItems = (roomId: string): ChatContextMenuItem[] => {
     const pinned = isRoomPinned(roomId);
@@ -195,9 +230,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     return items;
   };
 
-  const emptyText = roomFilterQuery.trim()
-    ? 'Ничего не найдено'
-    : activeFolder === 'unread'
+  const emptyText =
+    activeFolder === 'unread'
       ? 'Все сообщения прочитаны'
       : activeFolder === 'groups'
         ? 'Здесь появятся ваши группы'
@@ -212,6 +246,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       {showSecurityModal && <SecuritySettingsModal onClose={() => setShowSecurityModal(false)} />}
       {menu && <ChatContextMenu x={menu.x} y={menu.y} items={contextItems(menu.roomId)} onClose={closeContextMenu} />}
       <aside
+        ref={asideRef}
         style={{
           '--sidebar-width': `${sidebarWidth}px`,
         } as React.CSSProperties}
@@ -229,20 +264,32 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <>
           {/* Top bar: menu + search */}
           <div className={`relative flex items-center gap-2 px-2.5 pb-2 pt-2 ${isCompactSidebar ? 'justify-center' : ''}`}>
-            <button
-              ref={menuButtonRef}
-              type="button"
-              onClick={() => setShowMenuDropdown(!showMenuDropdown)}
-              aria-haspopup="menu"
-              aria-expanded={showMenuDropdown}
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer ${
-                showMenuDropdown ? 'bg-elevated text-ink' : 'text-muted hover:bg-elevated hover:text-ink'
-              }`}
-              title="Меню"
-              aria-label="Меню"
-            >
-              <IconMenu2 size={22} />
-            </button>
+            {searching ? (
+              <button
+                type="button"
+                onClick={exitSearch}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-elevated hover:text-ink cursor-pointer"
+                title="Закрыть поиск"
+                aria-label="Закрыть поиск"
+              >
+                <IconArrowLeft size={22} />
+              </button>
+            ) : (
+              <button
+                ref={menuButtonRef}
+                type="button"
+                onClick={() => setShowMenuDropdown(!showMenuDropdown)}
+                aria-haspopup="menu"
+                aria-expanded={showMenuDropdown}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer ${
+                  showMenuDropdown ? 'bg-elevated text-ink' : 'text-muted hover:bg-elevated hover:text-ink'
+                }`}
+                title="Меню"
+                aria-label="Меню"
+              >
+                <IconMenu2 size={22} />
+              </button>
+            )}
 
             <SidebarAccountMenu
               open={showMenuDropdown}
@@ -270,20 +317,31 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             {!isCompactSidebar && (
               <label className="group relative flex h-10 min-w-0 flex-1 items-center rounded-full bg-elevated ring-1 ring-transparent transition-[box-shadow,background-color] focus-within:bg-surface">
                 <IconSearch size={18} className="pointer-events-none absolute left-3.5 text-muted transition-colors group-focus-within:text-accent" />
-                <span className="sr-only">Поиск чатов</span>
+                <span className="sr-only">Поиск по чатам и сообщениям</span>
                 <input
                   ref={searchRef}
                   type="search"
                   value={roomFilterQuery}
                   onChange={(e) => setRoomFilterQuery(e.target.value)}
+                  onFocus={() => {
+                    setSearchFocused(true);
+                    closeMenu();
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape' && roomFilterQuery) {
+                    if (e.key === 'Escape') {
                       e.stopPropagation();
-                      setRoomFilterQuery('');
-                    } else if (e.key === 'Enter' && rooms[0]) {
-                      onSelectRoom(rooms[0].id);
+                      if (roomFilterQuery) setRoomFilterQuery('');
+                      else exitSearch();
+                    } else if (!e.nativeEvent.isComposing && searchPanelRef.current?.handleKey(e)) {
+                      e.preventDefault();
                     }
                   }}
+                  role="combobox"
+                  aria-expanded={searching}
+                  aria-autocomplete="list"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  spellCheck={false}
                   placeholder="Поиск"
                   className="h-full w-full min-w-0 rounded-full bg-transparent pl-10 pr-10 text-[15px] text-ink outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
                 />
@@ -304,8 +362,29 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             )}
           </div>
 
-          {/* Stories (hidden while searching and in compact mode) */}
-          {!isCompactSidebar && !roomFilterQuery && (
+          {searching ? (
+            <SidebarSearch
+              ref={searchPanelRef}
+              query={roomFilterQuery}
+              rooms={allRooms}
+              messages={messages}
+              getRoomDisplayName={getRoomDisplayName}
+              getRoomAvatar={getRoomAvatar}
+              getRoomColor={getRoomColor}
+              isRoomOnline={isRoomOnline}
+              unreadCount={unreadCount}
+              isRoomMuted={isRoomMuted}
+              onOpenRoom={(roomId) => {
+                exitSearch();
+                onSelectRoom(roomId);
+              }}
+              onOpenMessage={onOpenMessage}
+              onOpenAdvanced={onOpenAdvancedSearch}
+            />
+          ) : (
+            <>
+          {/* Stories (hidden in compact mode) */}
+          {!isCompactSidebar && (
             <StoriesBar
               onOpenCreate={onOpenStoryCreate}
               onOpenViewer={onOpenStoryViewer}
@@ -356,32 +435,20 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               );
             })}
 
-            {roomFilterQuery.trim() && <PublicRoomResults query={roomFilterQuery} compact={isCompactSidebar} />}
-
             {!isCompactSidebar && rooms.every((r) => isSavedRoom(r.id)) && (
               <div className="flex flex-col items-center px-6 py-10 text-center">
                 <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-accent-muted text-accent">
-                  {roomFilterQuery.trim() ? <IconSearch size={28} /> : <IconPencil size={28} />}
+                  <IconPencil size={28} />
                 </div>
                 <p className="m-0 text-[15px] font-semibold text-ink">{emptyText}</p>
-                {roomFilterQuery.trim() ? (
+                {onOpenNewChatModal && activeFolder !== 'unread' && (
                   <button
                     type="button"
-                    onClick={onOpenGlobalSearch}
-                    className="mt-3 rounded-full px-4 py-2 text-[14px] font-medium text-accent transition-colors hover:bg-accent-muted cursor-pointer"
+                    onClick={() => onOpenNewChatModal()}
+                    className="mt-3 rounded-full bg-accent px-4 py-2 text-[14px] font-semibold text-white transition-colors hover:bg-accent-strong cursor-pointer"
                   >
-                    Искать везде
+                    Начать общение
                   </button>
-                ) : (
-                  onOpenNewChatModal && activeFolder !== 'unread' && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenNewChatModal()}
-                      className="mt-3 rounded-full bg-accent px-4 py-2 text-[14px] font-semibold text-white transition-colors hover:bg-accent-strong cursor-pointer"
-                    >
-                      Начать общение
-                    </button>
-                  )
                 )}
               </div>
             )}
@@ -405,6 +472,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 <IconPencil size={24} stroke={2} />
               </button>
             </div>
+          )}
+            </>
           )}
           </>
         ) : mobileTab === 'contacts' ? (
